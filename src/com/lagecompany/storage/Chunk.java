@@ -870,4 +870,8 @@ public class Chunk {
 	buffer = null;
 	voxels = null;
     }
+
+    public Vec3 getPosition() {
+	return this.position;
+    }
 }

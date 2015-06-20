@@ -92,7 +92,16 @@ public class Vec3 {
 	this.x += v.x;
 	this.y += v.y;
 	this.z += v.z;
-	
+
+	updateHashCode();
+	return this;
+    }
+
+    public Vec3 subtract(Vec3 v) {
+	this.x -= v.x;
+	this.y -= v.y;
+	this.z -= v.z;
+
 	updateHashCode();
 	return this;
     }
@@ -100,7 +109,7 @@ public class Vec3 {
     public Vec3 copy() {
 	return new Vec3(this);
     }
-    
+
     public static Vec3 RIGHT() {
 	return new Vec3(1, 0, 0);
     }
@@ -133,7 +142,7 @@ public class Vec3 {
 	this.x += x;
 	this.y += y;
 	this.z += z;
-	
+
 	updateHashCode();
 	return this;
     }

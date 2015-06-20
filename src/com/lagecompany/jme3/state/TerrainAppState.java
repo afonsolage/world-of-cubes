@@ -8,30 +8,41 @@ import com.jme3.asset.AssetManager;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
+import com.lagecompany.jme3.control.PlayerTranslateControl;
+import com.lagecompany.jme3.listener.PlayerTranslateListener;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  *
  * @author afonsolage
  */
-public class TerrainAppState extends AbstractAppState {
+public class TerrainAppState extends AbstractAppState implements PlayerTranslateListener {
 
-    private static final float FPS_FRACTION = 1f / 60f;
     private Are are;
     private Node node;
     private AssetManager assetManager;
     private Node rootNode;
+    private Node playerNode;
     private SimpleApplication app;
+    private final ConcurrentLinkedQueue<Chunk> attachQueue;
+    private final ConcurrentLinkedQueue<Chunk> detachQueue;
+
+    public TerrainAppState() {
+	attachQueue = new ConcurrentLinkedQueue<>();
+	detachQueue = new ConcurrentLinkedQueue<>();
+    }
 
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -39,12 +50,15 @@ public class TerrainAppState extends AbstractAppState {
 	this.assetManager = app.getAssetManager();
 	this.rootNode = app.getRootNode();
 
-	are = new Are();
+	are = new Are(attachQueue, detachQueue);
 	node = new Node("Chunks Node");
 
+	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
+	playerNode.addControl(new PlayerTranslateControl(this));
+
 	rootNode.attachChild(node);
-	are.start();
 	are.init();
+	are.start();
     }
 
     @Override
@@ -60,22 +74,17 @@ public class TerrainAppState extends AbstractAppState {
     }
 
     public void detachChunks() {
-	if (are.getQueueSize(Are.IT_DETACH) == 0) {
-	    return;
-	}
-
-	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.iterator(Are.IT_DETACH); it.hasNext();) {
-	    Map.Entry<Vec3, Chunk> entry = it.next();
-	    Vec3 v = entry.getKey();
-	    Chunk chunk = entry.getValue();
-	    String name = String.format("Chunk %s", v);
-	    Spatial spatial = node.getChild(name);
+	while (!detachQueue.isEmpty()) {
+	    Chunk chunk = detachQueue.poll();
 
 	    // If chunk is null or there is no mesh data, skip it
 	    if (chunk == null || chunk.getFlag() != Chunk.FLAG_DETACH) {
-		it.remove();
 		continue;
 	    }
+
+	    Vec3 v = chunk.getPosition();
+	    String name = String.format("Chunk %s", v);
+	    Spatial spatial = node.getChild(name);
 
 	    if (spatial == null) {
 		System.err.println(String.format("Invalid detach flag on Chunk (%s): Spatial is null.", v));
@@ -84,27 +93,21 @@ public class TerrainAppState extends AbstractAppState {
 		are.unload(v, chunk);
 		System.out.println(String.format("Removed (%s) child at: %d", v, node.detachChild(spatial)));
 	    }
-	    it.remove();
 	}
     }
 
     public void attachChunks() {
-	if (are.getQueueSize(Are.IT_ATTACH) == 0) {
-	    return;
-	}
-
-	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.iterator(Are.IT_ATTACH); it.hasNext();) {
-	    Map.Entry<Vec3, Chunk> entry = it.next();
-	    Vec3 v = entry.getKey();
-	    Chunk chunk = entry.getValue();
-	    String name = String.format("Chunk %s", v);
-	    Spatial spatial = node.getChild(name);
+	while (!attachQueue.isEmpty()) {
+	    Chunk chunk = attachQueue.poll();
 
 	    // If chunk is null or there is no mesh data, skip it
-	    if (chunk == null || chunk.getFlag() != Chunk.FLAG_ATTACH) {
-		it.remove();
+	    if (chunk == null || chunk.getFlag() != Chunk.FLAG_DETACH) {
 		continue;
 	    }
+
+	    Vec3 v = chunk.getPosition();
+	    String name = String.format("Chunk %s", v);
+	    Spatial spatial = node.getChild(name);
 
 	    Geometry geometry;
 
@@ -145,13 +148,29 @@ public class TerrainAppState extends AbstractAppState {
 	    }
 
 	    chunk.setFlag(Chunk.FLAG_NONE);
-	    it.remove();
 	}
     }
 
     public void move() {
+	//playerNode.move(1, 0, 0);
 	AreMessage message = AreMessage.MOVE;
 	message.setData(new Vec3(1, 0, 0));
+	are.postMessage(message);
+    }
+
+    @Override
+    public void doAction(Vector3f currentLocation) {
+	Vec3 moved = new Vec3((int) (currentLocation.getX() / Chunk.WIDTH),
+		(int) (currentLocation.getY() / Chunk.HEIGHT),
+		(int) (currentLocation.getZ() / Chunk.LENGTH));
+
+	moved.subtract(are.getPosition());
+	if (moved.equals(Vec3.ZERO())) {
+	    return;
+	}
+
+	AreMessage message = AreMessage.MOVE;
+	message.setData(moved);
 	are.postMessage(message);
     }
 }

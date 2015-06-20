@@ -25,6 +25,7 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.debug.Arrow;
 import com.jme3.scene.debug.Grid;
+import com.jme3.scene.shape.Box;
 import com.lagecompany.jme3.input.CameraController;
 import com.lagecompany.nifty.gui.DebugWindow;
 
@@ -32,8 +33,9 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
     private SimpleApplication app;
     private Node rootNode;
-    private InputManager inputManager;
+    private Node playerNode;
     private AssetManager assetManager;
+    private InputManager inputManager;
     private AudioRenderer audioRenderer;
     private ViewPort guiViewPort;
     private FlyByCamera flyCam;
@@ -55,9 +57,13 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	this.audioRenderer = app.getAudioRenderer();
 	this.flyCam = app.getFlyByCamera();
 
+	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
+
 	wireframe = false;
 	backfaceCulled = false;
 	axisArrowsEnabled = false;
+
+	showPlayerNode();
 
 	this.bindKeys();
 	//this.initGUI();
@@ -103,7 +109,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	}
 
 	if ("UPDATE_GUI".equals(name) && !isPressed) {
-	   // updateGUI();
+	    // updateGUI();
 	}
 
 	if ("CUSTOM_FUNCTION".equals(name) && !isPressed) {
@@ -234,7 +240,16 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
     private void customFunction() {
 	TerrainAppState terrainState = stateManager.getState(TerrainAppState.class);
-	
+
 	terrainState.move();
+    }
+
+    private void showPlayerNode() {
+	Box b = new Box(1, 1, 1);
+	Geometry geom = new Geometry("PlayerNode Box", b);
+	Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	mat.setColor("Color", ColorRGBA.DarkGray);
+	geom.setMaterial(mat);
+	playerNode.attachChild(geom);
     }
 }

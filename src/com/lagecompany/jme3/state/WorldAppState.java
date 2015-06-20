@@ -24,6 +24,7 @@ public class WorldAppState extends AbstractAppState {
     private AssetManager assetManager;
     private FlyByCamera flyCam;
     private Camera cam;
+    private Node playerNode;
 
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -50,10 +51,17 @@ public class WorldAppState extends AbstractAppState {
 
 	sun.setColor(ColorRGBA.White);
 	rootNode.addLight(sun);
+
+	playerNode = new Node("Player Node");
+	rootNode.attachChild(playerNode);
     }
 
     @Override
     public void update(float tpf) {
 	super.update(tpf); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    public Node getPlayerNode() {
+	return playerNode;
     }
 }
