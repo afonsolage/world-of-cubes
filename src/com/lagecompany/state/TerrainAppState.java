@@ -49,9 +49,8 @@ public class TerrainAppState extends AbstractAppState {
 
     @Override
     public void update(float tpf) {
-	if (are.isChanged()) {
-	    updateChunkObjects();
-	}
+	detachChunks();
+	attachChunks();
     }
 
     @Override
@@ -60,7 +59,11 @@ public class TerrainAppState extends AbstractAppState {
 	are.interrupt();
     }
 
-    public void updateChunkObjects() {
+    public void detachChunks() {
+	if (are.getQueueSize(Are.IT_DETACH) == 0) {
+	    return;
+	}
+
 	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.iterator(Are.IT_DETACH); it.hasNext();) {
 	    Map.Entry<Vec3, Chunk> entry = it.next();
 	    Vec3 v = entry.getKey();
@@ -82,6 +85,12 @@ public class TerrainAppState extends AbstractAppState {
 		System.out.println(String.format("Removed (%s) child at: %d", v, node.detachChild(spatial)));
 	    }
 	    it.remove();
+	}
+    }
+
+    public void attachChunks() {
+	if (are.getQueueSize(Are.IT_ATTACH) == 0) {
+	    return;
 	}
 
 	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.iterator(Are.IT_ATTACH); it.hasNext();) {

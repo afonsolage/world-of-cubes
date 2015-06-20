@@ -379,4 +379,26 @@ public class Are extends Thread {
 	}
 	changeNotify();
     }
+
+    public int getQueueSize(int it) {
+	switch (it) {
+	    case IT_LOAD: {
+		return loadQueue.size();
+	    }
+	    case IT_UPDATE: {
+		return updateQueue.size();
+	    }
+	    case IT_ATTACH: {
+		return attachQueue.size();
+	    }
+	    case IT_DETACH: {
+		return detachQueue.size();
+	    }
+	    case IT_UNLOAD: {
+		return unloadQueue.size();
+	    }
+	    default:
+		return 0;
+	}
+    }
 }
