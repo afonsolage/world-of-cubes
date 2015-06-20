@@ -1,4 +1,4 @@
-package com.lagecompany.state;
+package com.lagecompany.jme3.state;
 
 import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
@@ -14,7 +14,7 @@ import com.jme3.math.Vector3f;
 import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.lagecompany.input.CameraController;
+import com.lagecompany.jme3.input.CameraController;
 
 public class WorldAppState extends AbstractAppState {
 

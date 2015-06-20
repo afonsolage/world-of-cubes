@@ -1,4 +1,4 @@
-package com.lagecompany.state;
+package com.lagecompany.jme3.state;
 
 import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
@@ -25,7 +25,7 @@ import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.debug.Arrow;
 import com.jme3.scene.debug.Grid;
-import com.lagecompany.input.CameraController;
+import com.lagecompany.jme3.input.CameraController;
 import com.lagecompany.nifty.gui.DebugWindow;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {

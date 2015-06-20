@@ -1,4 +1,4 @@
-package com.lagecompany.state;
+package com.lagecompany.jme3.state;
 
 import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;

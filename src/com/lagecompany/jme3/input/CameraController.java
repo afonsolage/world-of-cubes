@@ -1,4 +1,4 @@
-package com.lagecompany.input;
+package com.lagecompany.jme3.input;
 
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;

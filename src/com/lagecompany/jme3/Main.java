@@ -1,12 +1,12 @@
-package com.lagecompany;
+package com.lagecompany.jme3;
 
 import com.jme3.app.SimpleApplication;
 import com.jme3.renderer.RenderManager;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
-import com.lagecompany.state.DebugAppState;
-import com.lagecompany.state.TerrainAppState;
-import com.lagecompany.state.WorldAppState;
+import com.lagecompany.jme3.state.DebugAppState;
+import com.lagecompany.jme3.state.TerrainAppState;
+import com.lagecompany.jme3.state.WorldAppState;
 
 /**
  * test
