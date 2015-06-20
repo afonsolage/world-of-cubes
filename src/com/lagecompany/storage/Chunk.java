@@ -234,6 +234,9 @@ public class Chunk {
     }
 
     private void checkVisibleFaces() {
+	Voxel nv; //Neighbor Voxel.
+	byte faces;
+
 	for (int x = 0; x < WIDTH; x++) {
 	    for (int y = 0; y < HEIGHT; y++) {
 		for (int z = 0; z < LENGTH; z++) {
@@ -243,8 +246,7 @@ public class Chunk {
 			continue;
 		    }
 
-		    Voxel nv; //Neighbor Voxel.
-		    byte faces = VS_NONE;
+		    faces = VS_NONE;
 
 		    if ((nv = getAreVoxel(x, y, z, VS_LEFT)) == null || nv.getType() == VT_NONE) {
 			faces |= VS_LEFT;
@@ -848,7 +850,7 @@ public class Chunk {
 
     public boolean load(int x, int y, int z) {
 	int loadCount = 0;
-	
+
 	for (int vX = 0; vX < WIDTH; vX++) {
 	    for (int vZ = 0; vZ < LENGTH; vZ++) {
 		double noiseHeight = TerrainNoise.getHeight(vX + x * WIDTH, vZ + z * HEIGHT);
@@ -860,7 +862,7 @@ public class Chunk {
 		}
 	    }
 	}
-	
+
 	return loadCount > 0;
     }
 
@@ -868,6 +870,4 @@ public class Chunk {
 	buffer = null;
 	voxels = null;
     }
-    
-    
 }

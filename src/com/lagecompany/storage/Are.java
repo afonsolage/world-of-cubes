@@ -21,14 +21,18 @@ public class Are extends Thread {
     public static final int DATA_HEIGHT = HEIGHT * Chunk.HEIGHT;
     public static final int DATA_LEGTH = LENGTH * Chunk.LENGTH;
     public static final int DATA_SIZE = WIDTH * HEIGHT * LENGTH;
-    private static final int BATCH_SIZE = 1;
+    public static final int BATCH_SIZE = 1;
+    public static final int IT_LOAD = 0;
+    public static final int IT_UPDATE = 1;
+    public static final int IT_ATTACH = 2;
+    public static final int IT_DETACH = 3;
+    public static final int IT_UNLOAD = 4;
     private final HashMap<Vec3, Chunk> chunkMap;
     private final HashMap<Vec3, Chunk> loadQueue;
     private final HashMap<Vec3, Chunk> updateQueue;
     private final HashMap<Vec3, Chunk> attachQueue;
     private final HashMap<Vec3, Chunk> detachQueue;
     private final HashMap<Vec3, Chunk> unloadQueue;
-    private float delta;
     private final LinkedList<AreMessage> messages;
     private boolean changed;
     private Vec3 position;
@@ -48,6 +52,7 @@ public class Are extends Thread {
 	position = new Vec3();
 	lock = new Object();
 	messages = new LinkedList<>();
+	this.setName("Are Thread");
     }
 
     @Override
@@ -70,13 +75,27 @@ public class Are extends Thread {
 	}
     }
 
+    public void init() {
+	for (int x = 0; x < WIDTH; x++) {
+	    for (int y = 0; y < HEIGHT; y++) {
+		for (int z = 0; z < LENGTH; z++) {
+		    Vec3 v = new Vec3(x, y, z);
+		    Chunk c = new Chunk(this, v, Chunk.FLAG_LOAD);
+		    set(v, c);
+		    put(v, c, loadQueue);
+		}
+	    }
+	}
+	changeNotify();
+    }
+
     public boolean isChanged() {
 	return changed;
     }
 
     private boolean processMessages() {
 	boolean result = false;
-	synchronized (lock) {
+	synchronized (messages) {
 	    while (!messages.isEmpty()) {
 		AreMessage message = messages.poll();
 
@@ -95,115 +114,104 @@ public class Are extends Thread {
     private boolean unloadChunks() {
 	int worked = 0;
 	boolean result = false;
-	synchronized (lock) {
-	    for (Iterator<Entry<Vec3, Chunk>> it = unloadQueue.entrySet().iterator(); it.hasNext();) {
-		Entry<Vec3, Chunk> entry = it.next();
-		Vec3 v = entry.getKey();
-		Chunk c = entry.getValue();
+	for (Iterator<Entry<Vec3, Chunk>> it = iterator(IT_UNLOAD); it.hasNext();) {
+	    Entry<Vec3, Chunk> entry = it.next();
+	    Vec3 v = entry.getKey();
+	    Chunk c = entry.getValue();
 
-		if (c == null || c.getFlag() != Chunk.FLAG_UNLOAD) {
-		    it.remove();
-		    continue;
-		}
-
-		//Relevante change detected. Set changed to true.
-		result = true;
-
-		set(v, null);
-		c.unload();
-		c.setFlag(Chunk.FLAG_NONE);
+	    if (c == null || c.getFlag() != Chunk.FLAG_UNLOAD) {
 		it.remove();
-		if (++worked == BATCH_SIZE) {
-		    return true;
-		}
+		continue;
 	    }
+
+	    //Relevante change detected. Set changed to true.
+	    result = true;
+
+	    set(v, null);
+	    c.unload();
+	    c.setFlag(Chunk.FLAG_NONE);
+	    it.remove();
+//	    if (++worked == BATCH_SIZE) {
+//		return true;
+//	    }
 	}
 	return result;
     }
 
     private boolean loadChunks() {
 	boolean result = false;
-	synchronized (lock) {
-	    for (Iterator<Entry<Vec3, Chunk>> it = loadQueue.entrySet().iterator(); it.hasNext();) {
-		Entry<Vec3, Chunk> entry = it.next();
-		Vec3 v = entry.getKey();
-		Chunk c = entry.getValue();
+	for (Iterator<Entry<Vec3, Chunk>> it = iterator(IT_LOAD); it.hasNext();) {
+	    Entry<Vec3, Chunk> entry = it.next();
+	    Vec3 v = entry.getKey();
+	    Chunk c = entry.getValue();
 
-		if (c == null || c.getFlag() != Chunk.FLAG_LOAD) {
-		    it.remove();
-		    continue;
-		}
-
-		//Relevante change detected. Set changed to true.
-		result = true;
-
-		if (c.load(v.getX(), v.getY(), v.getZ())) {
-		    c.setFlag(Chunk.FLAG_UPDATE);
-		    updateQueue.put(v, c);
-		} else {
-		    c.setFlag(Chunk.FLAG_UNLOAD);
-		    unloadQueue.put(v, c);
-		}
+	    if (c == null || c.getFlag() != Chunk.FLAG_LOAD) {
 		it.remove();
+		continue;
 	    }
+
+	    //Relevante change detected. Set changed to true.
+	    result = true;
+
+	    if (c.load(v.getX(), v.getY(), v.getZ())) {
+		c.setFlag(Chunk.FLAG_UPDATE);
+		put(v, c, updateQueue);
+	    } else {
+		c.setFlag(Chunk.FLAG_UNLOAD);
+		put(v, c, unloadQueue);
+	    }
+	    it.remove();
 	}
 	return result;
+    }
+
+    private void put(Vec3 v, Chunk c, HashMap<Vec3, Chunk> m) {
+	synchronized (m) {
+	    m.put(v, c);
+	}
+    }
+
+    private void changeNotify() {
+	synchronized (lock) {
+	    lock.notify();
+	}
     }
 
     private boolean updateChunks() {
 	int worked = 0;
 	boolean result = false;
-	synchronized (lock) {
-	    for (Iterator<Entry<Vec3, Chunk>> it = updateQueue.entrySet().iterator(); it.hasNext();) {
-		Entry<Vec3, Chunk> entry = it.next();
-		Vec3 v = entry.getKey();
-		Chunk c = entry.getValue();
+	for (Iterator<Entry<Vec3, Chunk>> it = iterator(IT_UPDATE); it.hasNext();) {
+	    Entry<Vec3, Chunk> entry = it.next();
+	    Vec3 v = entry.getKey();
+	    Chunk c = entry.getValue();
 
-		if (c == null || c.getFlag() != Chunk.FLAG_UPDATE) {
-		    it.remove();
-		    continue;
-		}
-
-		//Relevante change detected. Set changed to true.
-		result = true;
-		c.update();
-
-		//If chunk has no vertex, we dont need to attach it.
-		if (c.getVertexCount() == 0) {
-		    c.setFlag(Chunk.FLAG_NONE);
-		} else {
-		    c.setFlag(Chunk.FLAG_ATTACH);
-		    attachQueue.put(v, c);
-		}
+	    if (c == null || c.getFlag() != Chunk.FLAG_UPDATE) {
 		it.remove();
-
-		if (++worked == BATCH_SIZE) {
-		    return true;
-		}
+		continue;
 	    }
+
+	    //Relevante change detected. Set changed to true.
+	    result = true;
+	    c.update();
+
+	    //If chunk has no vertex, we dont need to attach it.
+	    if (c.getVertexCount() == 0) {
+		c.setFlag(Chunk.FLAG_NONE);
+	    } else {
+		c.setFlag(Chunk.FLAG_ATTACH);
+		put(v, c, attachQueue);
+	    }
+	    it.remove();
+
+//	    if (++worked == BATCH_SIZE) {
+//		return true;
+//	    }
 	}
 	return result;
     }
 
-    public void init() {
-	synchronized (lock) {
-	    for (int x = 0; x < WIDTH; x++) {
-		for (int y = 0; y < HEIGHT; y++) {
-		    for (int z = 0; z < LENGTH; z++) {
-			Vec3 v = new Vec3(x, y, z);
-			Chunk c = new Chunk(this, v, Chunk.FLAG_LOAD);
-			set(v, c);
-
-			loadQueue.put(v, c);
-		    }
-		}
-	    }
-	    lock.notify();
-	}
-    }
-
     protected Voxel getVoxel(Vec3 chunkPos, Vec3 voxelPos) {
-	Chunk c = chunkMap.get(chunkPos);
+	Chunk c = get(chunkPos);
 
 	if (c == null) {
 	    return null;
@@ -213,7 +221,14 @@ public class Are extends Thread {
     }
 
     public Chunk get(int x, int y, int z) {
-	return chunkMap.get(new Vec3(x, y, z));
+	Vec3 v = new Vec3(x, y, z);
+	return get(v);
+    }
+
+    public Chunk get(Vec3 v) {
+	synchronized (chunkMap) {
+	    return chunkMap.get(v);
+	}
     }
 
     public void set(int x, int y, int z, Chunk c) {
@@ -222,7 +237,7 @@ public class Are extends Thread {
     }
 
     public void set(Vec3 v, Chunk c) {
-	chunkMap.put(v, c);
+	put(v, c, chunkMap);
     }
 
     public boolean move(Vec3 direction) {
@@ -275,10 +290,10 @@ public class Are extends Thread {
 			Vec3 chunkPos = new Vec3(v);
 			if (c.getVertexCount() == 0) {
 			    c.setFlag(Chunk.FLAG_UNLOAD);
-			    unloadQueue.put(chunkPos, c);
+			    put(chunkPos, c, unloadQueue);
 			} else {
 			    c.setFlag(Chunk.FLAG_DETACH);
-			    detachQueue.put(chunkPos, c);
+			    put(chunkPos, c, detachQueue);
 			}
 		    }
 		}
@@ -289,7 +304,7 @@ public class Are extends Thread {
 		    Vec3 chunkPos = new Vec3(v);
 		    Chunk c = new Chunk(this, chunkPos, Chunk.FLAG_LOAD);
 		    set(chunkPos, c);
-		    loadQueue.put(chunkPos, c);
+		    put(chunkPos, c, loadQueue);
 		}
 	    }
 	}
@@ -316,20 +331,35 @@ public class Are extends Thread {
     private void moveDown() {
     }
 
-    public Iterator<Entry<Vec3, Chunk>> attachQueueIterator() {
+    private Iterator<Entry<Vec3, Chunk>> getIterator(HashMap<Vec3, Chunk> map) {
 	HashMap<Vec3, Chunk> clone;
-	synchronized (lock) {
-	    clone = (HashMap<Vec3, Chunk>) attachQueue.clone();
+	synchronized (map) {
+	    clone = (HashMap<Vec3, Chunk>) map.clone();
+	    map.clear();
 	}
 	return clone.entrySet().iterator();
     }
 
-    public Iterator<Entry<Vec3, Chunk>> detachQueueIterator() {
-	HashMap<Vec3, Chunk> clone;
-	synchronized (lock) {
-	    clone = (HashMap<Vec3, Chunk>) detachQueue.clone();
+    public Iterator<Entry<Vec3, Chunk>> iterator(int it) {
+	switch (it) {
+	    case IT_LOAD: {
+		return getIterator(loadQueue);
+	    }
+	    case IT_UPDATE: {
+		return getIterator(updateQueue);
+	    }
+	    case IT_ATTACH: {
+		return getIterator(attachQueue);
+	    }
+	    case IT_DETACH: {
+		return getIterator(detachQueue);
+	    }
+	    case IT_UNLOAD: {
+		return getIterator(unloadQueue);
+	    }
+	    default:
+		return null;
 	}
-	return clone.entrySet().iterator();
     }
 
     public Vec3 getAbsoluteChunkPosition(Vec3 chunkPosition) {
@@ -339,16 +369,14 @@ public class Are extends Thread {
     }
 
     public void unload(Vec3 v, Chunk c) {
-	synchronized (lock) {
-	    unloadQueue.put(v, c);
-	    lock.notify();
-	}
+	put(v, c, unloadQueue);
+	changeNotify();
     }
 
     public void postMessage(AreMessage message) {
-	synchronized (lock) {
+	synchronized (messages) {
 	    messages.push(message);
-	    lock.notify();
 	}
+	changeNotify();
     }
 }

@@ -61,7 +61,7 @@ public class TerrainAppState extends AbstractAppState {
     }
 
     public void updateChunkObjects() {
-	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.detachQueueIterator(); it.hasNext();) {
+	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.iterator(Are.IT_DETACH); it.hasNext();) {
 	    Map.Entry<Vec3, Chunk> entry = it.next();
 	    Vec3 v = entry.getKey();
 	    Chunk chunk = entry.getValue();
@@ -84,7 +84,7 @@ public class TerrainAppState extends AbstractAppState {
 	    it.remove();
 	}
 
-	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.attachQueueIterator(); it.hasNext();) {
+	for (Iterator<Map.Entry<Vec3, Chunk>> it = are.iterator(Are.IT_ATTACH); it.hasNext();) {
 	    Map.Entry<Vec3, Chunk> entry = it.next();
 	    Vec3 v = entry.getKey();
 	    Chunk chunk = entry.getValue();
