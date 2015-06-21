@@ -1,8 +1,9 @@
 package com.lagecompany.storage;
 
 import static com.lagecompany.storage.Chunk.DATA_LENGTH;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * An Are is made of 10 chunks². It is an analogy to the real Are which is 10 m². It doesnt store any voxels, just
@@ -25,18 +26,14 @@ public class Are extends Thread {
     public static final int IT_ATTACH = 2;
     public static final int IT_DETACH = 3;
     public static final int IT_UNLOAD = 4;
-    private final ConcurrentHashMap<Vec3, Chunk> chunkMap;
-    private final ConcurrentLinkedQueue<Chunk> loadQueue;
-    private final ConcurrentLinkedQueue<Chunk> updateQueue;
-    private final ConcurrentLinkedQueue<Chunk> attachQueue;
-    private final ConcurrentLinkedQueue<Chunk> detachQueue;
-    private final ConcurrentLinkedQueue<Chunk> unloadQueue;
-    private final ConcurrentLinkedQueue<AreMessage> messages;
+    private final HashMap<Vec3, Chunk> chunkMap;
+    private final HashMap<Vec3, Chunk> updatePending;
+    private final LinkedBlockingQueue<AreMessage> mesherQueue;
+    private final ConcurrentLinkedQueue<Chunk> rendererQueue;
     private boolean changed;
     private Vec3 position;
-    private final Object lock;
 
-    public Are(ConcurrentLinkedQueue<Chunk> attachQueue, ConcurrentLinkedQueue<Chunk> detachQueue) {
+    public Are(ConcurrentLinkedQueue<Chunk> rendererQueue) {
 	/*
 	 * The memory needed by this class will be (WIDTH * HEIGHT * LENGTH * (Chunk memory usage)) + 12;
 	 * The memory usage will range from 64k ~ 448k ~ 640k, but this may be compressed later.
@@ -44,34 +41,64 @@ public class Are extends Thread {
 	this.setName("Are Thread");
 
 	position = new Vec3();
-	lock = new Object();
 
-	chunkMap = new ConcurrentHashMap<>(256, 0.90f, 1);
-	loadQueue = new ConcurrentLinkedQueue<>();
-	updateQueue = new ConcurrentLinkedQueue<>();
-	unloadQueue = new ConcurrentLinkedQueue<>();
-	messages = new ConcurrentLinkedQueue<>();
-
-	this.attachQueue = attachQueue;
-	this.detachQueue = detachQueue;
+	chunkMap = new HashMap<>();
+	updatePending = new HashMap<>();
+	mesherQueue = new LinkedBlockingQueue<>();
+	this.rendererQueue = rendererQueue;
     }
 
     @Override
     public void run() {
 	while (!Thread.currentThread().isInterrupted()) {
-	    boolean c;
-
-	    c = processMessages() || unloadChunks() || loadChunks() || updateChunks();
-
-	    synchronized (lock) {
-		changed = c;
-		if (!changed) {
-		    try {
-			lock.wait();
-		    } catch (InterruptedException ex) {
-			return;
+	    try {
+		AreMessage message = mesherQueue.take();
+		switch (message.getType()) {
+		    case MOVE: {
+			move(message);
+			break;
+		    }
+		    case PROCESS_CHUNK: {
+			processChunk(message);
+			break;
 		    }
 		}
+	    } catch (InterruptedException ex) {
+		return;
+	    }
+	}
+    }
+
+    private void processChunk(AreMessage message) {
+	Chunk c = (Chunk) message.getData();
+
+	if (c == null) {
+	    return;
+	}
+	Vec3 v = c.getPosition();
+
+	switch (c.getFlag()) {
+	    case Chunk.FLAG_LOAD: {
+		if (c.load(v.getX(), v.getY(), v.getZ())) {
+		    c.setFlag(Chunk.FLAG_UPDATE);
+		    offerChunk(c);
+		} else {
+		    unload(c.getPosition());
+		}
+		break;
+	    }
+	    case Chunk.FLAG_UPDATE: {
+		c.update();
+		updateNeigbor(c);
+
+		//If chunk has no vertex, we dont need to attach it.
+		if (c.getVertexCount() == 0) {
+		    c.setFlag(Chunk.FLAG_NONE);
+		} else {
+		    c.setFlag(Chunk.FLAG_ATTACH);
+		    rendererQueue.offer(c);
+		}
+		break;
 	    }
 	}
     }
@@ -80,10 +107,10 @@ public class Are extends Thread {
 	for (int x = 0; x < WIDTH; x++) {
 	    for (int y = 0; y < HEIGHT; y++) {
 		for (int z = 0; z < LENGTH; z++) {
-		    Vec3 v = new Vec3(x, y, z);
+		    Vec3 v = new Vec3(true, x, y, z);
 		    Chunk c = new Chunk(this, v, Chunk.FLAG_LOAD);
 		    set(v, c);
-		    loadQueue.add(c);
+		    offerChunk(c);
 		}
 	    }
 	}
@@ -93,111 +120,10 @@ public class Are extends Thread {
 	return changed;
     }
 
-    private boolean processMessages() {
-	boolean result = false;
-	while (!messages.isEmpty()) {
-	    AreMessage message = messages.poll();
-
-	    switch (message) {
-		case MOVE: {
-		    result = result || move((Vec3) message.getData());
-		    break;
-		}
-	    }
-
-	}
-	return result;
-    }
-
-    private boolean unloadChunks() {
-	int worked = 0;
-	boolean result = false;
-	while (!unloadQueue.isEmpty()) {
-	    Chunk c = unloadQueue.poll();
-
-	    if (c == null || c.getFlag() != Chunk.FLAG_UNLOAD) {
-		continue;
-	    }
-
-	    Vec3 v = c.getPosition();
-	    //Relevante change detected. Set changed to true.
-	    result = true;
-
-	    set(v, null);
-	    c.unload();
-	    c.setFlag(Chunk.FLAG_NONE);
-//	    if (++worked == BATCH_SIZE) {
-//		return true;
-//	    }
-	}
-	return result;
-    }
-
-    private boolean loadChunks() {
-	boolean result = false;
-	while (!loadQueue.isEmpty()) {
-	    Chunk c = loadQueue.poll();
-
-	    if (c == null || c.getFlag() != Chunk.FLAG_LOAD) {
-		continue;
-	    }
-
-	    Vec3 v = c.getPosition();
-	    //Relevante change detected. Set changed to true.
-	    result = true;
-
-	    if (c.load(v.getX(), v.getY(), v.getZ())) {
-		c.setFlag(Chunk.FLAG_UPDATE);
-		updateQueue.add(c);
-	    } else {
-		c.setFlag(Chunk.FLAG_UNLOAD);
-		unloadQueue.add(c);
-	    }
-	}
-	return result;
-    }
-
-    private boolean updateChunks() {
-	int worked = 0;
-	boolean result = false;
-	while (!loadQueue.isEmpty()) {
-	    Chunk c = loadQueue.poll();
-
-	    if (c == null || c.getFlag() != Chunk.FLAG_UPDATE) {
-		continue;
-	    }
-
-	    Vec3 v = c.getPosition();
-
-	    //Relevante change detected. Set changed to true.
-	    result = true;
-	    c.update();
-
-	    //If chunk has no vertex, we dont need to attach it.
-	    if (c.getVertexCount() == 0) {
-		c.setFlag(Chunk.FLAG_NONE);
-	    } else {
-		c.setFlag(Chunk.FLAG_ATTACH);
-		attachQueue.add(c);
-	    }
-
-//	    if (++worked == BATCH_SIZE) {
-//		return true;
-//	    }
-	}
-	return result;
-    }
-
-    private void changeNotify() {
-	synchronized (lock) {
-	    lock.notify();
-	}
-    }
-
     protected Voxel getVoxel(Vec3 chunkPos, Vec3 voxelPos) {
 	Chunk c = get(chunkPos);
 
-	if (c == null) {
+	if (c == null || c.getFlag() == Chunk.FLAG_DETACH) {
 	    return null;
 	}
 
@@ -226,8 +152,10 @@ public class Are extends Thread {
 	}
     }
 
-    public boolean move(Vec3 direction) {
-	if (direction == Vec3.ZERO()) {
+    public boolean move(AreMessage message) {
+	Vec3 direction = (Vec3) message.getData();
+
+	if (direction == null || direction.equals(Vec3.ZERO())) {
 	    return false;
 	}
 
@@ -260,60 +188,39 @@ public class Are extends Thread {
      * DATA_WIDTH + 1 X axis.
      */
     private void moveRight() {
-	int rightMost = position.getX() + (WIDTH - 1);
-	Vec3 v = new Vec3();
 	for (int y = 0; y < HEIGHT; y++) {
-	    v.setY(y + position.getY());
 	    for (int z = 0; z < LENGTH; z++) {
-		v.setZ(z + position.getZ());
-
 		//Remove the left most.
-		v.setX(position.getX() - 1);
-		{
-		    Chunk c = get(v);
 
-		    if (c != null) {
-			Vec3 chunkPos = new Vec3(v);
-			if (c.getVertexCount() == 0) {
-			    c.setFlag(Chunk.FLAG_UNLOAD);
-			    unloadQueue.add(c);
-			} else {
-			    c.setFlag(Chunk.FLAG_DETACH);
-			    detachQueue.add(c);
-			}
+		//Get the first Chunk on X axis and tell him to update again.
+		Chunk c = get(position.copy().add(0, y, z));
+		if (c != null) {
+		    updatePending.put(c.getPosition(), c);
+		}
+
+		//Get the first Chunk on X axis and tell him to update again.
+		c = get(position.copy().add(WIDTH - 2, y, z));
+		if (c != null) {
+		    updatePending.put(c.getPosition(), c);
+		}
+
+		c = get(position.copy().add(-1, y, z));
+		if (c != null) {
+		    if (c.getVertexCount() == 0) {
+			unload(c.getPosition());
+		    } else {
+			c.unload();
+			c.setFlag(Chunk.FLAG_DETACH);
+			rendererQueue.offer(c);
 		    }
 		}
 
-		//Update visible faces.
-		v.setX(position.getX());
-		{
-		    Chunk c = chunkMap.get(v);
+		//Add new chunks at right most of Are.
+		Vec3 chunkPos = new Vec3(true, position.copy().add(WIDTH - 1, y, z));
+		c = new Chunk(this, chunkPos, Chunk.FLAG_LOAD);
+		set(chunkPos, c);
+		offerChunk(c);
 
-		    if (c != null && c.getVertexCount() > 0) {
-			c.setFlag(Chunk.FLAG_UPDATE);
-			updateQueue.add(c);
-		    }
-		}
-
-		//Add on right most.
-		v.setX(rightMost);
-		{
-		    Vec3 chunkPos = new Vec3(v);
-		    Chunk c = new Chunk(this, chunkPos, Chunk.FLAG_LOAD);
-		    set(chunkPos, c);
-		    loadQueue.add(c);
-		}
-
-		//Update visible faces.
-		v.setX(rightMost - 1);
-		{
-		    Chunk c = chunkMap.get(v);
-
-		    if (c != null && c.getVertexCount() > 0) {
-			c.setFlag(Chunk.FLAG_UPDATE);
-			updateQueue.add(c);
-		    }
-		}
 	    }
 	}
     }
@@ -345,17 +252,63 @@ public class Are extends Thread {
 		chunkPosition.getZ() * Chunk.LENGTH);
     }
 
-    public void unload(Vec3 v, Chunk c) {
-	unloadQueue.add(c);
-	changeNotify();
+    public void unload(Vec3 v) {
+	//System.out.println(String.format("Unloading chunk at %s", v));
+	Chunk c = chunkMap.remove(v);
+	c.setFlag(Chunk.FLAG_NONE);
+	c.unload();
+	updateNeigbor(c);
     }
 
     public void postMessage(AreMessage message) {
-	messages.add(message);
-	changeNotify();
+	if (!mesherQueue.offer(message)) {
+	    System.out.println(String.format("Failed to add message: %s", message));
+	}
     }
 
     public Vec3 getPosition() {
 	return position;
+    }
+
+    private void offerChunk(Chunk c) {
+	AreMessage message = new AreMessage(AreMessage.AreMessageType.PROCESS_CHUNK, c);
+	postMessage(message);
+    }
+
+    private void updateNeigbor(Chunk c) {
+	Vec3 v = c.getPosition();
+
+	Chunk nc;
+	if ((nc = updatePending.get(v.copy().add(-1, 0, 0))) != null) {
+	    nc.setFlag(Chunk.FLAG_UPDATE);
+	    offerChunk(nc);
+	    updatePending.remove(nc.getPosition());
+	}
+	if ((nc = updatePending.get(v.copy().add(1, 0, 0))) != null) {
+	    nc.setFlag(Chunk.FLAG_UPDATE);
+	    offerChunk(nc);
+	    updatePending.remove(nc.getPosition());
+	}
+	if ((nc = updatePending.get(v.copy().add(0, -1, 0))) != null) {
+	    nc.setFlag(Chunk.FLAG_UPDATE);
+	    offerChunk(nc);
+	    updatePending.remove(nc.getPosition());
+	}
+	if ((nc = updatePending.get(v.copy().add(0, 1, 0))) != null) {
+	    nc.setFlag(Chunk.FLAG_UPDATE);
+	    offerChunk(nc);
+	    updatePending.remove(nc.getPosition());
+	}
+	if ((nc = updatePending.get(v.copy().add(0, 0, -1))) != null) {
+	    nc.setFlag(Chunk.FLAG_UPDATE);
+	    offerChunk(nc);
+	    updatePending.remove(nc.getPosition());
+	}
+	if ((nc = updatePending.get(v.copy().add(0, 0, 1))) != null) {
+	    nc.setFlag(Chunk.FLAG_UPDATE);
+	    offerChunk(nc);
+	    updatePending.remove(nc.getPosition());
+	}
+
     }
 }

@@ -25,12 +25,11 @@ public class Chunk {
     public static final byte FLAG_UPDATE = 2;
     public static final byte FLAG_ATTACH = 3;
     public static final byte FLAG_DETACH = 4;
-    public static final byte FLAG_UNLOAD = 5;
     private Voxel[] voxels;
     private float[] buffer;
     private int[] bufferFacesOffset;
     private byte flag;
-    private boolean visibleSidesChecked;
+    private boolean updated;
     private final Are are;
     private final Vec3 position;
 
@@ -54,12 +53,12 @@ public class Chunk {
 	this.flag = flag;
     }
 
-    public boolean isVisibleSidesChecked() {
-	return visibleSidesChecked;
+    public boolean isUpdated() {
+	return updated;
     }
 
-    public void setVisibleSidesChecked(boolean checked) {
-	this.visibleSidesChecked = checked;
+    public void setUpdated(boolean checked) {
+	this.updated = checked;
     }
 
     public Voxel get(int x, int y, int z) {
@@ -67,7 +66,7 @@ public class Chunk {
     }
 
     public Voxel get(int i) {
-	return (i < voxels.length && i >= 0) ? voxels[i] : null;
+	return (voxels != null && i < voxels.length && i >= 0) ? voxels[i] : null;
     }
 
     public void set(int x, int y, int z, Voxel v) {
@@ -132,8 +131,20 @@ public class Chunk {
     }
 
     public void update() {
+	if (isUpdated() && voxels != null) {
+	    for (Voxel v : voxels) {
+		if (v == null || v.getType() == VT_NONE) {
+		    continue;
+		}
+		v.setVisibleSides(VS_NONE);
+		v.setMergedSides(VS_NONE);
+	    }
+	    setUpdated(false);
+	}
+
 	checkVisibleFaces();
 	mergeVisibleFaces();
+	setUpdated(true);
     }
 
     public float[] getNormalList() {
