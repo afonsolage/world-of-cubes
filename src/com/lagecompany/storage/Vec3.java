@@ -6,10 +6,8 @@ public class Vec3 {
     private int y;
     private int z;
     private int hashCode;
-    private final boolean readOnly;
 
     public Vec3() {
-	readOnly = false;
 	updateHashCode();
     }
 
@@ -21,25 +19,6 @@ public class Vec3 {
 	this.x = x;
 	this.y = y;
 	this.z = z;
-	readOnly = false;
-
-	updateHashCode();
-    }
-
-    public Vec3(boolean readOnly) {
-	this.readOnly = true;
-	updateHashCode();
-    }
-
-    public Vec3(boolean readOnly, Vec3 v) {
-	this(readOnly, v.getX(), v.getY(), v.getZ());
-    }
-
-    public Vec3(boolean readOnly, int x, int y, int z) {
-	this.x = x;
-	this.y = y;
-	this.z = z;
-	this.readOnly = readOnly;
 
 	updateHashCode();
     }
@@ -49,10 +28,6 @@ public class Vec3 {
     }
 
     public void setX(int x) {
-	if (readOnly) {
-	    throw new RuntimeException("Can't edit a read-only Vec3.");
-	}
-
 	this.x = x;
 	updateHashCode();
     }
@@ -62,10 +37,6 @@ public class Vec3 {
     }
 
     public void setY(int y) {
-	if (readOnly) {
-	    throw new RuntimeException("Can't edit a read-only Vec3.");
-	}
-
 	this.y = y;
 	updateHashCode();
     }
@@ -75,10 +46,6 @@ public class Vec3 {
     }
 
     public void setZ(int z) {
-	if (readOnly) {
-	    throw new RuntimeException("Can't edit a read-only Vec3.");
-	}
-
 	this.z = z;
 	updateHashCode();
     }
@@ -118,14 +85,10 @@ public class Vec3 {
 
     @Override
     public String toString() {
-	return String.format("%d, %d, %d", x, y, z);
+	return x + ", " + y + ", " + z;
     }
 
     public Vec3 add(Vec3 v) {
-	if (readOnly) {
-	    throw new RuntimeException("Can't edit a read-only Vec3.");
-	}
-
 	this.x += v.x;
 	this.y += v.y;
 	this.z += v.z;
@@ -134,11 +97,16 @@ public class Vec3 {
 	return this;
     }
 
-    public Vec3 subtract(Vec3 v) {
-	if (readOnly) {
-	    throw new RuntimeException("Can't edit a read-only Vec3.");
-	}
+    public Vec3 add(int x, int y, int z) {
+	this.x += x;
+	this.y += y;
+	this.z += z;
 
+	updateHashCode();
+	return this;
+    }
+
+    public Vec3 subtract(Vec3 v) {
 	this.x -= v.x;
 	this.y -= v.y;
 	this.z -= v.z;
@@ -179,16 +147,7 @@ public class Vec3 {
 	return new Vec3(0, 0, 0);
     }
 
-    public Vec3 add(int x, int y, int z) {
-	if (readOnly) {
-	    throw new RuntimeException("Can't edit a read-only Vec3.");
-	}
-
-	this.x += x;
-	this.y += y;
-	this.z += z;
-
-	updateHashCode();
-	return this;
+    public static Vec3 copyAdd(Vec3 position, int x, int y, int z) {
+	return new Vec3(position.getX() + x, position.getY() + y, position.getZ() + z);
     }
 }

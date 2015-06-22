@@ -20,20 +20,15 @@ public class Chunk {
     public static final int FS_TOP = 4;
     public static final int FS_DOWN = 5;
     public static final int FS_COUNT = 6;
-    public static final byte FLAG_NONE = 0;
-    public static final byte FLAG_LOAD = 1;
-    public static final byte FLAG_UPDATE = 2;
-    public static final byte FLAG_ATTACH = 3;
-    public static final byte FLAG_DETACH = 4;
     private Voxel[] voxels;
     private float[] buffer;
     private int[] bufferFacesOffset;
-    private byte flag;
-    private boolean updated;
+    private boolean loaded;
     private final Are are;
     private final Vec3 position;
+    private String name;
 
-    public Chunk(Are are, Vec3 position, byte flag) {
+    public Chunk(Are are, Vec3 position) {
 	/*
 	 * The memory needed by this class will be (WIDTH * HEIGHT * LENGTH * 16) + 12.
 	 * The memory usage for each chunk will range from 16k to 40k of memory.
@@ -42,23 +37,19 @@ public class Chunk {
 	this.position = position;
 	voxels = new Voxel[DATA_LENGTH];
 	bufferFacesOffset = new int[6];
-	this.flag = flag;
+	this.name = "Chunk " + position.toString();
     }
 
-    public byte getFlag() {
-	return flag;
+    public boolean isLoaded() {
+	return loaded;
     }
 
-    public void setFlag(byte flag) {
-	this.flag = flag;
+    public void setLoaded(boolean loaded) {
+	this.loaded = loaded;
     }
 
-    public boolean isUpdated() {
-	return updated;
-    }
-
-    public void setUpdated(boolean checked) {
-	this.updated = checked;
+    public String getName() {
+	return name;
     }
 
     public Voxel get(int x, int y, int z) {
@@ -79,7 +70,7 @@ public class Chunk {
 	switch (direction) {
 	    case VS_LEFT: {
 		if (x == 0) {
-		    result = are.getVoxel(position.copy().add(-1, 0, 0), new Vec3(WIDTH - 1, y, z));
+		    result = are.getVoxel(Vec3.copyAdd(position, -1, 0, 0), WIDTH - 1, y, z);
 		} else {
 		    result = get(x - 1, y, z);
 		}
@@ -87,7 +78,7 @@ public class Chunk {
 	    }
 	    case VS_RIGHT: {
 		if (x == WIDTH - 1) {
-		    result = are.getVoxel(position.copy().add(1, 0, 0), new Vec3(0, y, z));
+		    result = are.getVoxel(Vec3.copyAdd(position, 1, 0, 0), 0, y, z);
 		} else {
 		    result = get(x + 1, y, z);
 		}
@@ -95,7 +86,7 @@ public class Chunk {
 	    }
 	    case VS_DOWN: {
 		if (y == 0) {
-		    result = are.getVoxel(position.copy().add(0, -1, 0), new Vec3(x, HEIGHT - 1, z));
+		    result = are.getVoxel(Vec3.copyAdd(position, 0, -1, 0), x, HEIGHT - 1, z);
 		} else {
 		    result = get(x, y - 1, z);
 		}
@@ -103,7 +94,7 @@ public class Chunk {
 	    }
 	    case VS_TOP: {
 		if (y == HEIGHT - 1) {
-		    result = are.getVoxel(position.copy().add(0, 1, 0), new Vec3(x, 0, z));
+		    result = are.getVoxel(Vec3.copyAdd(position, 0, 1, 0), x, 0, z);
 		} else {
 		    result = get(x, y + 1, z);
 		}
@@ -111,7 +102,7 @@ public class Chunk {
 	    }
 	    case VS_BACK: {
 		if (z == 0) {
-		    result = are.getVoxel(position.copy().add(0, 0, -1), new Vec3(x, y, LENGTH - 1));
+		    result = are.getVoxel(Vec3.copyAdd(position, 0, 0, -1), x, y, LENGTH - 1);
 		} else {
 		    result = get(x, y, z - 1);
 		}
@@ -119,7 +110,7 @@ public class Chunk {
 	    }
 	    case VS_FRONT: {
 		if (z == LENGTH - 1) {
-		    result = are.getVoxel(position.copy().add(0, 0, 1), new Vec3(x, y, 0));
+		    result = are.getVoxel(Vec3.copyAdd(position, 0, 0, 1), x, y, 0);
 		} else {
 		    result = get(x, y, z + 1);
 		}
@@ -130,24 +121,58 @@ public class Chunk {
 	return result;
     }
 
-    public void update() {
-	if (isUpdated() && voxels != null) {
+    public boolean load() {
+	if (isLoaded() && voxels != null) {
 	    for (Voxel v : voxels) {
-		if (v == null || v.getType() == VT_NONE) {
+		if (v == null) {
 		    continue;
 		}
 		v.setVisibleSides(VS_NONE);
 		v.setMergedSides(VS_NONE);
 	    }
-	    setUpdated(false);
+	    loaded = false;
 	}
 
 	checkVisibleFaces();
 	mergeVisibleFaces();
-	setUpdated(true);
+	loaded = true;
+
+	return (getVertexCount() > 0);
+    }
+
+    public boolean setup() {
+	int setupCount = 0;
+
+	int x = position.getX();
+	int y = position.getY();
+	int z = position.getZ();
+
+	for (int vX = 0; vX < WIDTH; vX++) {
+	    for (int vZ = 0; vZ < LENGTH; vZ++) {
+		double noiseHeight = TerrainNoise.getHeight(vX + x * WIDTH, vZ + z * HEIGHT);
+		for (int vY = 0; vY < HEIGHT; vY++) {
+		    if (vY + y * HEIGHT < noiseHeight) {
+			setupCount++;
+			set(vX, vY, vZ, new Voxel(VT_ROCK));
+		    }
+		}
+	    }
+	}
+
+	return setupCount > 0;
+    }
+
+    void unload() {
+	buffer = null;
+	voxels = null;
+
     }
 
     public float[] getNormalList() {
+	if (buffer == null) {
+	    return new float[]{};
+	}
+
 	float[] r = new float[buffer.length]; //Each vertex needs a normal;
 	int n = 0;
 
@@ -210,6 +235,10 @@ public class Chunk {
     }
 
     public int[] getIndexList() {
+	if (buffer == null) {
+	    return new int[]{};
+	}
+
 	//Each four vertex make up a plane with six indexes for each plane.
 	int vertexCount = buffer.length / 3; //Get the vertex count (each vertex has 3 floats)
 	int[] result = new int[(int) (vertexCount * 1.5)]; //4 vertex needs 6 index (4 * 1.5 = 6)
@@ -241,7 +270,7 @@ public class Chunk {
     }
 
     public float[] getVertexList() {
-	return buffer;
+	return (buffer == null) ? new float[]{} : buffer;
     }
 
     private void checkVisibleFaces() {
@@ -857,29 +886,6 @@ public class Chunk {
 	    }
 	}
 	return result;
-    }
-
-    public boolean load(int x, int y, int z) {
-	int loadCount = 0;
-
-	for (int vX = 0; vX < WIDTH; vX++) {
-	    for (int vZ = 0; vZ < LENGTH; vZ++) {
-		double noiseHeight = TerrainNoise.getHeight(vX + x * WIDTH, vZ + z * HEIGHT);
-		for (int vY = 0; vY < HEIGHT; vY++) {
-		    if (vY + y * HEIGHT < noiseHeight) {
-			loadCount++;
-			set(vX, vY, vZ, new Voxel(VT_ROCK));
-		    }
-		}
-	    }
-	}
-
-	return loadCount > 0;
-    }
-
-    void unload() {
-	buffer = null;
-	voxels = null;
     }
 
     public Vec3 getPosition() {

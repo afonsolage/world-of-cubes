@@ -18,6 +18,7 @@ import com.lagecompany.jme3.control.PlayerTranslateControl;
 import com.lagecompany.jme3.listener.PlayerTranslateListener;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
+import com.lagecompany.storage.AreMessage.AreMessageType;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -28,13 +29,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class TerrainAppState extends AbstractAppState implements PlayerTranslateListener {
 
+    private static final int MAX_LOAD_PER_SECOND = 5;
     private Are are;
     private Node node;
     private AssetManager assetManager;
     private Node rootNode;
     private Node playerNode;
     private SimpleApplication app;
-    private final ConcurrentLinkedQueue<Chunk> rendererQueue;
+    private final ConcurrentLinkedQueue<AreMessage> rendererQueue;
+    private Material defaultMat;
+    private float elapsedTime;
+    private int chunkLoaded;
 
     public TerrainAppState() {
 	rendererQueue = new ConcurrentLinkedQueue<>();
@@ -46,20 +51,26 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	this.assetManager = app.getAssetManager();
 	this.rootNode = app.getRootNode();
 
+	initMaterials();
+
 	are = new Are(rendererQueue);
 	node = new Node("Chunks Node");
+	rootNode.attachChild(node);
 
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
 	playerNode.addControl(new PlayerTranslateControl(this));
 
-	rootNode.attachChild(node);
+	Vector3f playerPosition = playerNode.getLocalTranslation().clone();
+	node.setLocalTranslation(playerPosition);
+	are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
+
 	are.init();
 	are.start();
     }
 
     @Override
     public void update(float tpf) {
-	processChunks();
+	processChunks(tpf);
     }
 
     @Override
@@ -68,75 +79,72 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	are.interrupt();
     }
 
-    public void processChunks() {
-	for (Chunk chunk = rendererQueue.poll(); chunk != null; chunk = rendererQueue.poll()) {
-	    // If chunk is null or there is no mesh data, skip it
+    private void initMaterials() {
+	defaultMat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+	//mat.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/rock.jpg"));
+	defaultMat.setColor("Ambient", ColorRGBA.White);
+	defaultMat.setColor("Diffuse", ColorRGBA.Gray);
+	defaultMat.setColor("Specular", ColorRGBA.White);
+	defaultMat.setFloat("Shininess", 0f);
+	defaultMat.setBoolean("UseMaterialColors", true);
+    }
 
-	    Vec3 v = chunk.getPosition();
-	    String name = String.format("Chunk %s", v);
+    public void processChunks(float tpf) {
+	elapsedTime += tpf;
+
+	if (elapsedTime > 0.1) {
+	    elapsedTime = 0;
+	    chunkLoaded = 0;
+	}
+
+	for (AreMessage message = rendererQueue.poll(); message != null; message = rendererQueue.poll()) {
+	    Chunk c = (Chunk) message.getData();
+
+	    Vec3 v = c.getPosition();
+	    String name = c.getName();
 	    Spatial spatial = node.getChild(name);
 
-	    switch (chunk.getFlag()) {
-		case Chunk.FLAG_ATTACH: {
-		    Geometry geometry;
+	    if (message.getType() == AreMessageType.CHUNK_ATTACH) {
+		Geometry geometry;
 
-		    if (spatial == null) {
-			geometry = new Geometry(name);
-			node.attachChild(geometry);
-		    } else {
-			geometry = (Geometry) spatial;
-		    }
-
-		    Mesh mesh = new Mesh();
-		    mesh.setBuffer(VertexBuffer.Type.Position, 3, chunk.getVertexList());
-		    mesh.setBuffer(VertexBuffer.Type.Index, 1, chunk.getIndexList());
-		    mesh.setBuffer(VertexBuffer.Type.Normal, 3, chunk.getNormalList());
-
-		    Material material = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
-		    //mat.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/rock.jpg"));
-		    material.setColor("Ambient", ColorRGBA.White);
-		    material.setColor("Diffuse", ColorRGBA.Gray);
-		    material.setColor("Specular", ColorRGBA.White);
-		    material.setFloat("Shininess", 0f);
-		    material.setBoolean("UseMaterialColors", true);
-
-		    geometry.setMesh(mesh);
-		    geometry.setMaterial(material);
-
-		    Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
-		    geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
-
-		    if (DebugAppState.backfaceCulled) {
-			geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
-		    } else {
-			geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
-		    }
-
-		    if (DebugAppState.wireframe) {
-			geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
-		    }
-
-		    chunk.setFlag(Chunk.FLAG_NONE);
-		    break;
+		if (spatial == null) {
+		    geometry = new Geometry(name);
+		    node.attachChild(geometry);
+		} else {
+		    geometry = (Geometry) spatial;
 		}
-		case Chunk.FLAG_DETACH: {
-		    if (spatial == null) {
-			System.err.println(String.format("Invalid detach flag on Chunk (%s): Spatial is null.", v));
-		    } else {
-			are.unload(chunk.getPosition());
-			node.detachChild(spatial);
-			//System.out.println(String.format("Removed (%s) child at: %d", v, node.detachChild(spatial)));
-		    }
-		    break;
+
+		Mesh mesh = new Mesh();
+		mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
+		mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
+		mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
+
+		geometry.setMesh(mesh);
+		geometry.setMaterial(defaultMat);
+
+		Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
+		geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
+
+		if (DebugAppState.backfaceCulled) {
+		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
+		} else {
+		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
+		}
+
+		if (DebugAppState.wireframe) {
+		    geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
+		}
+		chunkLoaded++;
+		if (chunkLoaded > MAX_LOAD_PER_SECOND) {
+		    return;
+		}
+	    }
+	    if (message.getType() == AreMessageType.CHUNK_DETACH) {
+		if (spatial != null) {
+		    node.detachChild(spatial);
 		}
 	    }
 	}
-    }
-
-    public void move() {
-	//playerNode.move(1, 0, 0);
-	AreMessage message = new AreMessage(AreMessage.AreMessageType.MOVE, new Vec3(1, 0, 0));
-	are.postMessage(message);
     }
 
     @Override
@@ -150,7 +158,8 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	    return;
 	}
 
-	AreMessage message = new AreMessage(AreMessage.AreMessageType.MOVE, moved);
+	System.out.println("Moved: " + moved.toString() + " (Are position: " + are.getPosition() + ")");
+	AreMessage message = new AreMessage(AreMessage.AreMessageType.ARE_MOVE, moved);
 	are.postMessage(message);
     }
 }

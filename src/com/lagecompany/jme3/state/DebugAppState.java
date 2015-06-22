@@ -80,12 +80,17 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	inputManager.addMapping("TOGGLE_AXISARROWS", new KeyTrigger(KeyInput.KEY_F4));
 	inputManager.addMapping("UPDATE_GUI", new KeyTrigger(KeyInput.KEY_F6));
 	inputManager.addMapping("CUSTOM_FUNCTION", new KeyTrigger(KeyInput.KEY_F7));
+	inputManager.addMapping("MOVE_FORWARD", new KeyTrigger(KeyInput.KEY_UP));
+	inputManager.addMapping("MOVE_BACKWARD", new KeyTrigger(KeyInput.KEY_DOWN));
+	inputManager.addMapping("TURN_LEFT", new KeyTrigger(KeyInput.KEY_LEFT));
+	inputManager.addMapping("TURN_RIGHT", new KeyTrigger(KeyInput.KEY_RIGHT));
 
 	inputManager.addMapping("MOVESPEED_UP", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
 	inputManager.addMapping("MOVESPEED_DOWN", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
 
 	inputManager.addListener(this, "TOGGLE_WIREFRAME", "TOGGLE_CURSOR", "TOGGLE_CULLING", "TOGGLE_AXISARROWS",
-		"MOVESPEED_UP", "MOVESPEED_DOWN", "UPDATE_GUI", "CUSTOM_FUNCTION");
+		"MOVESPEED_UP", "MOVESPEED_DOWN", "UPDATE_GUI", "CUSTOM_FUNCTION", "MOVE_FORWARD", "MOVE_BACKWARD",
+		"TURN_LEFT", "TURN_RIGHT");
     }
 
     @Override
@@ -119,13 +124,33 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
     @Override
     public void onAnalog(String name, float value, float tpf) {
-	if ("MOVESPEED_UP".equals(name)) {
-	    speedUpMove(value);
+	switch (name) {
+	    case "MOVESPEED_UP": {
+		speedUpMove(value);
+		break;
+	    }
+	    case "MOVESPEED_DOWN": {
+		speedDownMove(value);
+		break;
+	    }
+	    case "MOVE_FORWARD": {
+		moveForward(value);
+		break;
+	    }
+	    case "MOVE_BACKWARD": {
+		moveBackward(value);
+		break;
+	    }
+	    case "TURN_LEFT": {
+		turnLeft(value);
+		break;
+	    }
+	    case "TURN_RIGHT": {
+		turnRight(value);
+		break;
+	    }
 	}
 
-	if ("MOVESPEED_DOWN".equals(name)) {
-	    speedDownMove(value);
-	}
     }
 
     private void toggleWireframe(Node node, boolean enabled) {
@@ -220,7 +245,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
     private void speedDownMove(float value) {
 	float speed = flyCam.getMoveSpeed() - value;
-	flyCam.setMoveSpeed((speed < 0.1f) ? 0.1f : speed);
+	flyCam.setMoveSpeed((speed < 2f) ? 2f : speed); //Minimum walk speed.
     }
 
     private void initGUI() {
@@ -239,9 +264,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void customFunction() {
-	TerrainAppState terrainState = stateManager.getState(TerrainAppState.class);
-
-	terrainState.move();
+	//
     }
 
     private void showPlayerNode() {
@@ -251,5 +274,23 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	mat.setColor("Color", ColorRGBA.DarkGray);
 	geom.setMaterial(mat);
 	playerNode.attachChild(geom);
+    }
+
+    private void moveForward(float value) {
+	Vector3f forward = playerNode.getLocalRotation().mult(new Vector3f(0, 0, value * 2));
+	playerNode.move(forward);
+    }
+
+    private void moveBackward(float value) {
+	Vector3f forward = playerNode.getLocalRotation().mult(new Vector3f(0, 0, value * 2).negateLocal());
+	playerNode.move(forward);
+    }
+
+    private void turnLeft(float value) {
+	playerNode.rotate(0, value, 0);
+    }
+
+    private void turnRight(float value) {
+	playerNode.rotate(0, -value, 0);
     }
 }

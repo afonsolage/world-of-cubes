@@ -3,20 +3,15 @@ package com.lagecompany.storage;
 public class AreMessage {
 
     public enum AreMessageType {
-
-	MOVE(0),
-	PROCESS_CHUNK(1);
-
-	private AreMessageType(int priority) {
-	    this.priority = priority;
-	}
-	private int priority;
-
-	public int getPriority() {
-	    return priority;
-	}
+	ARE_MOVE,
+	CHUNK_SETUP,
+	CHUNK_LOAD,
+	CHUNK_RELOAD,
+	CHUNK_UNLOAD,
+	CHUNK_ATTACH,
+	CHUNK_DETACH;
     }
-
+    
     private AreMessageType type;
     private Object data;
 
