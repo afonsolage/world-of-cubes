@@ -6,6 +6,8 @@ import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
 import com.jme3.audio.AudioRenderer;
+import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
@@ -26,6 +28,7 @@ import com.jme3.scene.Spatial;
 import com.jme3.scene.debug.Arrow;
 import com.jme3.scene.debug.Grid;
 import com.jme3.scene.shape.Box;
+import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.input.CameraController;
 import com.lagecompany.nifty.gui.DebugWindow;
 
@@ -41,9 +44,13 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private FlyByCamera flyCam;
     private DebugWindow debugWindow;
     private AppStateManager stateManager;
+    private BulletAppState bulletState;
+    private BetterCharacterControl characterController;
+    private CameraFollowControl followControl;
     public static boolean wireframe;
     public static boolean backfaceCulled;
     public static boolean axisArrowsEnabled;
+    public static boolean playerFollow;
 
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -56,12 +63,17 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	this.guiViewPort = app.getGuiViewPort();
 	this.audioRenderer = app.getAudioRenderer();
 	this.flyCam = app.getFlyByCamera();
+	this.stateManager = stateManager;
+	this.bulletState = stateManager.getState(BulletAppState.class);
 
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
+	characterController = playerNode.getControl(BetterCharacterControl.class);
+	followControl = playerNode.getControl(CameraFollowControl.class);
 
 	wireframe = false;
 	backfaceCulled = false;
 	axisArrowsEnabled = false;
+	playerFollow = false;
 
 	showPlayerNode();
 
@@ -84,13 +96,17 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	inputManager.addMapping("MOVE_BACKWARD", new KeyTrigger(KeyInput.KEY_DOWN));
 	inputManager.addMapping("TURN_LEFT", new KeyTrigger(KeyInput.KEY_LEFT));
 	inputManager.addMapping("TURN_RIGHT", new KeyTrigger(KeyInput.KEY_RIGHT));
+	inputManager.addMapping("TOGGLE_CAM_VIEW", new KeyTrigger(KeyInput.KEY_TAB));
 
 	inputManager.addMapping("MOVESPEED_UP", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
 	inputManager.addMapping("MOVESPEED_DOWN", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
 
 	inputManager.addListener(this, "TOGGLE_WIREFRAME", "TOGGLE_CURSOR", "TOGGLE_CULLING", "TOGGLE_AXISARROWS",
 		"MOVESPEED_UP", "MOVESPEED_DOWN", "UPDATE_GUI", "CUSTOM_FUNCTION", "MOVE_FORWARD", "MOVE_BACKWARD",
-		"TURN_LEFT", "TURN_RIGHT");
+		"TURN_LEFT", "TURN_RIGHT", "TOGGLE_CAM_VIEW");
+
+	inputManager.addListener(this, "PLAYER_MOVE_FORWARD", "PLAYER_MOVE_BACKWARD", "PLAYER_STRAFE_LEFT",
+		"PLAYER_STRAFE_RIGHT", "PLAYER_JUMP");
     }
 
     @Override
@@ -98,27 +114,20 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	if ("TOGGLE_WIREFRAME".equals(name) && !isPressed) {
 	    wireframe = !wireframe;
 	    toggleWireframe(rootNode, wireframe);
-	}
-
-	if ("TOGGLE_CURSOR".equals(name) && !isPressed) {
+	} else if ("TOGGLE_CURSOR".equals(name) && !isPressed) {
 	    toggleCursor();
-	}
-
-	if ("TOGGLE_CULLING".equals(name) && !isPressed) {
+	} else if ("TOGGLE_CULLING".equals(name) && !isPressed) {
 	    backfaceCulled = !backfaceCulled;
 	    toggleBackfaceCulling(rootNode);
-	}
-
-	if ("TOGGLE_AXISARROWS".equals(name) && !isPressed) {
+	} else if ("TOGGLE_AXISARROWS".equals(name) && !isPressed) {
 	    toggleAxisArrows();
-	}
-
-	if ("UPDATE_GUI".equals(name) && !isPressed) {
+	} else if ("UPDATE_GUI".equals(name) && !isPressed) {
 	    // updateGUI();
-	}
-
-	if ("CUSTOM_FUNCTION".equals(name) && !isPressed) {
-	    customFunction();
+	} else if ("TOGGLE_CAM_VIEW".equals(name) && !isPressed) {
+	    toggleCamView();
+	} else if ("CUSTOM_FUNCTION".equals(name) && !isPressed) {
+	    //customFunction();
+	    movePlayerForward();
 	}
     }
 
@@ -148,6 +157,17 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	    case "TURN_RIGHT": {
 		turnRight(value);
 		break;
+	    }
+	    case "PLAYER_MOVE_FORWARD": {
+		followControl.moveForward();
+		break;
+	    }
+	    case "PLAYER_MOVE_BACKWARD": {
+		followControl.moveBackward();
+		break;
+	    }
+	    case "PLAYER_JUMP": {
+		followControl.jump();
 	    }
 	}
 
@@ -248,6 +268,14 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	flyCam.setMoveSpeed((speed < 2f) ? 2f : speed); //Minimum walk speed.
     }
 
+    private void toggleCamView() {
+	playerFollow = !playerFollow;
+
+	characterController.setEnabled(playerFollow);
+	followControl.setEnabled(playerFollow);
+	toggleControls(playerFollow);
+    }
+
     private void initGUI() {
 	NiftyJmeDisplay niftyDisplay = new NiftyJmeDisplay(assetManager, inputManager, audioRenderer, guiViewPort);
 	guiViewPort.addProcessor(niftyDisplay);
@@ -274,6 +302,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	mat.setColor("Color", ColorRGBA.DarkGray);
 	geom.setMaterial(mat);
 	playerNode.attachChild(geom);
+	geom.move(0, 1f, 0);
     }
 
     private void moveForward(float value) {
@@ -292,5 +321,24 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
     private void turnRight(float value) {
 	playerNode.rotate(0, -value, 0);
+    }
+
+    private void toggleControls(boolean playerFollow) {
+	if (playerFollow) {
+	    inputManager.addMapping("PLAYER_MOVE_FORWARD", new KeyTrigger(KeyInput.KEY_W));
+	    inputManager.addMapping("PLAYER_MOVE_BACKWARD", new KeyTrigger(KeyInput.KEY_S));
+	    inputManager.addMapping("PLAYER_STRAFE_LEFT", new KeyTrigger(KeyInput.KEY_A));
+	    inputManager.addMapping("PLAYER_STRAFE_RIGHT", new KeyTrigger(KeyInput.KEY_D));
+	    inputManager.addMapping("PLAYER_JUMP", new KeyTrigger(KeyInput.KEY_SPACE));
+	} else {
+	    inputManager.deleteTrigger("PLAYER_MOVE_FORWARD", new KeyTrigger(KeyInput.KEY_W));
+	    inputManager.deleteTrigger("PLAYER_MOVE_BACKWARD", new KeyTrigger(KeyInput.KEY_S));
+	    inputManager.deleteTrigger("PLAYER_STRAFE_LEFT", new KeyTrigger(KeyInput.KEY_A));
+	    inputManager.deleteTrigger("PLAYER_STRAFE_RIGHT", new KeyTrigger(KeyInput.KEY_D));
+	    inputManager.deleteTrigger("PLAYER_JUMP", new KeyTrigger(KeyInput.KEY_SPACE));
+	}
+    }
+
+    private void movePlayerForward() {
     }
 }

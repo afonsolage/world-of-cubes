@@ -5,6 +5,11 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
+import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.collision.shapes.CollisionShape;
+import com.jme3.bullet.control.RigidBodyControl;
+import com.jme3.bullet.util.CollisionShapeFactory;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.ColorRGBA;
@@ -29,17 +34,20 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 public class TerrainAppState extends AbstractAppState implements PlayerTranslateListener {
 
-    private static final int MAX_LOAD_PER_SECOND = 5;
     private Are are;
     private Node node;
     private AssetManager assetManager;
     private Node rootNode;
     private Node playerNode;
     private SimpleApplication app;
+    private BulletAppState bulletState;
+    private PhysicsSpace physicsSpace;
     private final ConcurrentLinkedQueue<AreMessage> rendererQueue;
     private Material defaultMat;
     private float elapsedTime;
     private int chunkLoaded;
+    private boolean shouldRender;
+    public int maxChunkLoad = -1;
 
     public TerrainAppState() {
 	rendererQueue = new ConcurrentLinkedQueue<>();
@@ -50,10 +58,12 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	this.app = (SimpleApplication) application;
 	this.assetManager = app.getAssetManager();
 	this.rootNode = app.getRootNode();
-
+	this.bulletState = stateManager.getState(BulletAppState.class);
+	this.physicsSpace = bulletState.getPhysicsSpace();
 	initMaterials();
 
-	are = new Are(rendererQueue);
+	Are.instanciate(rendererQueue);
+	are = Are.getInstance();
 	node = new Node("Chunks Node");
 	rootNode.attachChild(node);
 
@@ -70,7 +80,9 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 
     @Override
     public void update(float tpf) {
-	processChunks(tpf);
+	if (shouldRender) {
+	    processChunks(tpf);
+	}
     }
 
     @Override
@@ -89,6 +101,18 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	defaultMat.setBoolean("UseMaterialColors", true);
     }
 
+    public boolean shouldRender() {
+	return shouldRender;
+    }
+    
+    public void setShouldRender(boolean should) {
+	this.shouldRender = should;
+    }
+    
+    public int getRendererQueueSize() {
+	return rendererQueue.size();
+    }
+    
     public void processChunks(float tpf) {
 	elapsedTime += tpf;
 
@@ -104,8 +128,10 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	    String name = c.getName();
 	    Spatial spatial = node.getChild(name);
 
-	    if (message.getType() == AreMessageType.CHUNK_ATTACH) {
-		Geometry geometry;
+	    Geometry geometry;
+	    RigidBodyControl rigidBodyControl;
+
+	    if (message.getType() == AreMessageType.CHUNK_ATTACH && c.getVertexCount() > 0) {
 
 		if (spatial == null) {
 		    geometry = new Geometry(name);
@@ -125,6 +151,24 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 		Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
 		geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
 
+		rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+
+		CollisionShape collisionShape = null;
+
+		try {
+		    collisionShape = CollisionShapeFactory.createMeshShape(geometry);
+		} catch (Exception ex) {
+		    continue;
+		}
+
+		if (rigidBodyControl == null) {
+		    rigidBodyControl = new RigidBodyControl(collisionShape, 0);
+		    geometry.addControl(rigidBodyControl);
+		    physicsSpace.add(rigidBodyControl);
+		} else {
+		    rigidBodyControl.setCollisionShape(collisionShape);
+		}
+
 		if (DebugAppState.backfaceCulled) {
 		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
 		} else {
@@ -135,31 +179,32 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 		    geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
 		}
 		chunkLoaded++;
-		if (chunkLoaded > MAX_LOAD_PER_SECOND) {
+		if (chunkLoaded > maxChunkLoad) {
 		    return;
 		}
 	    }
 	    if (message.getType() == AreMessageType.CHUNK_DETACH) {
 		if (spatial != null) {
-		    node.detachChild(spatial);
+		    geometry = (Geometry) spatial;
+		    rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+		    physicsSpace.remove(rigidBodyControl);
+		    geometry.removeFromParent();
 		}
 	    }
 	}
     }
 
     @Override
-    public void doAction(Vector3f currentLocation) {
-	Vec3 moved = new Vec3((int) (currentLocation.getX() / Chunk.WIDTH),
-		(int) (currentLocation.getY() / Chunk.HEIGHT),
-		(int) (currentLocation.getZ() / Chunk.LENGTH));
+    public void doAction(Vec3 currentLocation) {
+	currentLocation.subtract(are.getPosition());
 
-	moved.subtract(are.getPosition());
-	if (moved.equals(Vec3.ZERO())) {
+	if (currentLocation.equals(Vec3.ZERO()) || are.isMoving()) {
 	    return;
 	}
 
-	System.out.println("Moved: " + moved.toString() + " (Are position: " + are.getPosition() + ")");
-	AreMessage message = new AreMessage(AreMessage.AreMessageType.ARE_MOVE, moved);
+	System.out.println("Moved: " + currentLocation.toString() + " (Are position: " + are.getPosition() + ")");
+	AreMessage message = new AreMessage(AreMessage.AreMessageType.ARE_MOVE, currentLocation);
 	are.postMessage(message);
+	are.setMoving(true);
     }
 }

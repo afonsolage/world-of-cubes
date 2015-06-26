@@ -5,6 +5,8 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
+import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.light.AmbientLight;
@@ -14,6 +16,7 @@ import com.jme3.math.Vector3f;
 import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
+import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.input.CameraController;
 
 public class WorldAppState extends AbstractAppState {
@@ -25,6 +28,7 @@ public class WorldAppState extends AbstractAppState {
     private FlyByCamera flyCam;
     private Camera cam;
     private Node playerNode;
+    private BulletAppState bulletState;
 
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -35,11 +39,10 @@ public class WorldAppState extends AbstractAppState {
 	this.assetManager = app.getAssetManager();
 	this.flyCam = app.getFlyByCamera();
 	this.cam = app.getCamera();
+	this.bulletState = stateManager.getState(BulletAppState.class);
 
 	CameraController.setup(flyCam, inputManager);
 	inputManager.setCursorVisible(true);
-	cam.setLocation(new Vector3f(180f, 100f, -50f));
-	cam.lookAtDirection(new Vector3f(-1f, -1f, 1f), Vector3f.UNIT_Y);
 
 	rootNode.setCullHint(Spatial.CullHint.Never);
 	AmbientLight ambient = new AmbientLight();
@@ -53,6 +56,16 @@ public class WorldAppState extends AbstractAppState {
 	rootNode.addLight(sun);
 
 	playerNode = new Node("Player Node");
+	BetterCharacterControl characterControl = new BetterCharacterControl(0.5f, 1.8f, 60f);
+	bulletState.getPhysicsSpace().add(characterControl);
+	CameraFollowControl followControl = new CameraFollowControl(cam);
+	playerNode.addControl(characterControl);
+	playerNode.addControl(followControl);
+
+	characterControl.setEnabled(false); //For debug reasons.
+	followControl.setEnabled(false); //For debug reasons.
+
+
 	rootNode.attachChild(playerNode);
     }
 

@@ -1,27 +1,26 @@
 package com.lagecompany.jme3;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.bullet.BulletAppState;
 import com.jme3.renderer.RenderManager;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
 import com.lagecompany.jme3.state.DebugAppState;
+import com.lagecompany.jme3.state.LoadingStage;
 import com.lagecompany.jme3.state.TerrainAppState;
 import com.lagecompany.jme3.state.WorldAppState;
 
 /**
  * test
+ *
  * @author normenhansen
  */
 public class Main extends SimpleApplication {
 
-    private WorldAppState worldState;
-    private DebugAppState debugState;
-    private TerrainAppState terrainState;
-    
     public static void main(String[] args) {
-        Main app = new Main();
+	Main app = new Main();
 	app.setShowSettings(false);
-        app.start();
+	app.start();
     }
 
     @Override
@@ -32,26 +31,9 @@ public class Main extends SimpleApplication {
 	setSettings(sett);
 	super.start(contextType);
     }
-    
+
     @Override
     public void simpleInitApp() {
-	worldState = new WorldAppState();
-	stateManager.attach(worldState);
-	
-	terrainState = new TerrainAppState();
-	stateManager.attach(terrainState);
-	
-	debugState = new DebugAppState();
-	stateManager.attach(debugState);
-    }
-
-    @Override
-    public void simpleUpdate(float tpf) {
-        //TODO: add update code
-    }
-
-    @Override
-    public void simpleRender(RenderManager rm) {
-        //TODO: add render code
+	stateManager.attach(new LoadingStage());
     }
 }

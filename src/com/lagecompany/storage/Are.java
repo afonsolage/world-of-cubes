@@ -19,13 +19,31 @@ public class Are extends Thread {
     public static final int DATA_WIDTH = WIDTH * Chunk.WIDTH;
     public static final int DATA_HEIGHT = HEIGHT * Chunk.HEIGHT;
     public static final int DATA_LENGHT = LENGTH * Chunk.LENGTH;
+    private static Are instance;
     private final HashMap<Vec3, Chunk> chunkMap;
     private final LinkedBlockingQueue<AreMessage> mesherQueue;
     private final ConcurrentLinkedQueue<AreMessage> rendererQueue;
     private boolean changed;
     private Vec3 position;
+    private boolean moving;
 
-    public Are(ConcurrentLinkedQueue<AreMessage> rendererQueue) {
+    public static void instanciate(ConcurrentLinkedQueue<AreMessage> rendererQueue) {
+	Are.instance = new Are(rendererQueue);
+    }
+
+    public static Are getInstance() {
+	if (instance == null || instance.rendererQueue == null) {
+	    throw new RuntimeException("Are is not initialized");
+	} else {
+	    return instance;
+	}
+    }
+
+    public static boolean isInstanciated() {
+	return Are.instance != null;
+    }
+    
+    private Are(ConcurrentLinkedQueue<AreMessage> rendererQueue) {
 	/*
 	 * The memory needed by this class will be (WIDTH * HEIGHT * LENGTH * (Chunk memory usage)) + 12;
 	 * The memory usage will range from 64k ~ 448k ~ 640k, but this may be compressed later.
@@ -75,6 +93,10 @@ public class Are extends Thread {
 	}
     }
 
+    public int getQueueSize() {
+	return mesherQueue.size();
+    }
+    
     private void unloadChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 
@@ -128,6 +150,14 @@ public class Are extends Thread {
 
     public boolean isChanged() {
 	return changed;
+    }
+
+    public boolean isMoving() {
+	return moving;
+    }
+
+    public void setMoving(boolean moving) {
+	this.moving = moving;
     }
 
     protected Voxel getVoxel(Vec3 chunkPos, int x, int y, int z) {
@@ -189,6 +219,7 @@ public class Are extends Thread {
 	    moveBack();
 	}
 
+	moving = false;
 	return true;
     }
 
@@ -297,17 +328,107 @@ public class Are extends Thread {
     }
 
     private void moveBack() {
+	int boundBegin = LENGTH - 1;
+	int boundEnd = 0;
+	for (int y = 0; y < HEIGHT; y++) {
+	    for (int x = 0; x < WIDTH; x++) {
+		//Remove the back most and detach it from scene.
+		Chunk c = get(position.copy().add(x, y, boundBegin + 1));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
+		    rendererQueue.offer(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		}
+
+		//Reload chunk at new back border.
+		c = get(position.copy().add(x, y, boundBegin));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_RELOAD, c));
+		}
+
+		//Add new chunks at front most of Are.
+		Vec3 v = position.copy().add(x, y, boundEnd);
+		c = new Chunk(this, v);
+		set(v, c);
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+
+		//Reload the previous front border.
+		c = get(position.copy().add(x, y, boundEnd + 1));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_RELOAD, c));
+		}
+	    }
+	}
     }
 
     private void moveUp() {
+	int boundBegin = 0;
+	int boundEnd = HEIGHT - 1;
+	for (int x = 0; x < WIDTH; x++) {
+	    for (int z = 0; z < LENGTH; z++) {
+		//Remove the back most and detach it from scene.
+		Chunk c = get(position.copy().add(x, boundBegin - 1, z));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
+		    rendererQueue.offer(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		}
+
+		//Reload chunk at new back border.
+		c = get(position.copy().add(x, boundBegin, z));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_RELOAD, c));
+		}
+
+		//Add new chunks at front most of Are.
+		Vec3 v = position.copy().add(x, boundEnd, z);
+		c = new Chunk(this, v);
+		set(v, c);
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+
+		//Reload the previous front border.
+		c = get(position.copy().add(x, boundEnd - 1, z));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_RELOAD, c));
+		}
+	    }
+	}
     }
 
     private void moveDown() {
+	int boundBegin = HEIGHT - 1;
+	int boundEnd = 0;
+	for (int x = 0; x < WIDTH; x++) {
+	    for (int z = 0; z < LENGTH; z++) {
+		//Remove the back most and detach it from scene.
+		Chunk c = get(position.copy().add(x, boundBegin + 1, z));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
+		    rendererQueue.offer(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		}
+
+		//Reload chunk at new back border.
+		c = get(position.copy().add(x, boundBegin, z));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_RELOAD, c));
+		}
+
+		//Add new chunks at front most of Are.
+		Vec3 v = position.copy().add(x, boundEnd, z);
+		c = new Chunk(this, v);
+		set(v, c);
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+
+		//Reload the previous front border.
+		c = get(position.copy().add(x, boundEnd + 1, z));
+		if (c != null) {
+		    postMessage(new AreMessage(AreMessageType.CHUNK_RELOAD, c));
+		}
+	    }
+	}
     }
 
     public Vec3 getAbsoluteChunkPosition(Vec3 chunkPosition) {
 	return new Vec3((chunkPosition.getX() * Chunk.WIDTH) - (DATA_WIDTH / 2),
-		chunkPosition.getY() * Chunk.HEIGHT, //TODO: Add "- (DATA_HEIGHT / 2)"
+		(chunkPosition.getY() - 8) * Chunk.HEIGHT, //TODO: Add "- (DATA_HEIGHT / 2)"
 		chunkPosition.getZ() * Chunk.LENGTH - (DATA_LENGHT / 2));
     }
 
