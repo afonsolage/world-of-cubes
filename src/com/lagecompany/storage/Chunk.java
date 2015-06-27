@@ -3,6 +3,8 @@ package com.lagecompany.storage;
 import static com.lagecompany.storage.Voxel.*;
 import com.lagecompany.util.ArrayUtils;
 import com.lagecompany.util.TerrainNoise;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Chunk {
 
@@ -27,6 +29,7 @@ public class Chunk {
     private final Are are;
     private final Vec3 position;
     private String name;
+    private Lock lock;
 
     public Chunk(Are are, Vec3 position) {
 	/*
@@ -38,6 +41,7 @@ public class Chunk {
 	voxels = new Voxel[DATA_LENGTH];
 	bufferFacesOffset = new int[6];
 	this.name = "Chunk " + position.toString();
+	this.lock = new ReentrantLock(true);
     }
 
     public boolean isLoaded() {
@@ -886,6 +890,14 @@ public class Chunk {
 	    }
 	}
 	return result;
+    }
+
+    public void lock() {
+	lock.lock();
+    }
+
+    public void unlock() {
+	lock.unlock();
     }
 
     public Vec3 getPosition() {

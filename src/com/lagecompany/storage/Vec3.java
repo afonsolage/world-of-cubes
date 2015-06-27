@@ -2,6 +2,13 @@ package com.lagecompany.storage;
 
 public class Vec3 {
 
+    public static final Vec3 RIGHT = new Vec3(1, 0, 0);
+    public static final Vec3 LEFT = new Vec3(-1, 0, 0);
+    public static final Vec3 UP = new Vec3(0, 1, 0);
+    public static final Vec3 DOWN = new Vec3(0, -1, 0);
+    public static final Vec3 FRONT = new Vec3(0, 0, 1);
+    public static final Vec3 BACK = new Vec3(0, 0, 1);
+    public static final Vec3 ZERO = new Vec3(0, 0, 0);
     private int x;
     private int y;
     private int z;
@@ -119,35 +126,15 @@ public class Vec3 {
 	return new Vec3(this);
     }
 
-    public static Vec3 RIGHT() {
-	return new Vec3(1, 0, 0);
-    }
-
-    public static Vec3 LEFT() {
-	return new Vec3(-1, 0, 0);
-    }
-
-    public static Vec3 UP() {
-	return new Vec3(0, 1, 0);
-    }
-
-    public static Vec3 DOWN() {
-	return new Vec3(0, -1, 0);
-    }
-
-    public static Vec3 FRONT() {
-	return new Vec3(0, 0, 1);
-    }
-
-    public static Vec3 BACK() {
-	return new Vec3(0, 0, 1);
-    }
-
-    public static Vec3 ZERO() {
-	return new Vec3(0, 0, 0);
-    }
-
     public static Vec3 copyAdd(Vec3 position, int x, int y, int z) {
 	return new Vec3(position.getX() + x, position.getY() + y, position.getZ() + z);
+    }
+
+    public Vec3 addNew(Vec3 v) {
+	return new Vec3(this.x + v.x, this.y + v.y, this.z + v.z);
+    }
+
+    public Vec3 subtractNew(Vec3 v) {
+	return new Vec3(this.x - v.x, this.y - v.y, this.z - v.z);
     }
 }

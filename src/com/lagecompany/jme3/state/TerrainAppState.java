@@ -19,11 +19,9 @@ import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
-import com.lagecompany.jme3.control.PlayerTranslateControl;
-import com.lagecompany.jme3.listener.PlayerTranslateListener;
+import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
-import com.lagecompany.storage.AreMessage.AreMessageType;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -32,7 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  *
  * @author afonsolage
  */
-public class TerrainAppState extends AbstractAppState implements PlayerTranslateListener {
+public class TerrainAppState extends AbstractAppState {
 
     private Are are;
     private Node node;
@@ -42,7 +40,8 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
     private SimpleApplication app;
     private BulletAppState bulletState;
     private PhysicsSpace physicsSpace;
-    private final ConcurrentLinkedQueue<AreMessage> rendererQueue;
+    private final ConcurrentLinkedQueue<AreMessage> attachQueue;
+    private final ConcurrentLinkedQueue<AreMessage> detachQueue;
     private Material defaultMat;
     private float elapsedTime;
     private int chunkLoaded;
@@ -50,7 +49,9 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
     public int maxChunkLoad = -1;
 
     public TerrainAppState() {
-	rendererQueue = new ConcurrentLinkedQueue<>();
+	are = Are.getInstance();
+	attachQueue = are.getAttachQueue();
+	detachQueue = are.getDetachQueue();
     }
 
     @Override
@@ -62,13 +63,11 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	this.physicsSpace = bulletState.getPhysicsSpace();
 	initMaterials();
 
-	Are.instanciate(rendererQueue);
-	are = Are.getInstance();
 	node = new Node("Chunks Node");
 	rootNode.attachChild(node);
 
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
-	playerNode.addControl(new PlayerTranslateControl(this));
+	playerNode.addControl(new AreFollowControl());
 
 	Vector3f playerPosition = playerNode.getLocalTranslation().clone();
 	node.setLocalTranslation(playerPosition);
@@ -104,15 +103,11 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
     public boolean shouldRender() {
 	return shouldRender;
     }
-    
+
     public void setShouldRender(boolean should) {
 	this.shouldRender = should;
     }
-    
-    public int getRendererQueueSize() {
-	return rendererQueue.size();
-    }
-    
+
     public void processChunks(float tpf) {
 	elapsedTime += tpf;
 
@@ -121,8 +116,12 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	    chunkLoaded = 0;
 	}
 
-	for (AreMessage message = rendererQueue.poll(); message != null; message = rendererQueue.poll()) {
+	for (AreMessage message = attachQueue.poll(); message != null; message = attachQueue.poll()) {
 	    Chunk c = (Chunk) message.getData();
+
+	    if (c.getVertexCount() == 0) {
+		continue;
+	    }
 
 	    Vec3 v = c.getPosition();
 	    String name = c.getName();
@@ -131,80 +130,81 @@ public class TerrainAppState extends AbstractAppState implements PlayerTranslate
 	    Geometry geometry;
 	    RigidBodyControl rigidBodyControl;
 
-	    if (message.getType() == AreMessageType.CHUNK_ATTACH && c.getVertexCount() > 0) {
+	    if (spatial == null) {
+		geometry = new Geometry(name);
+		node.attachChild(geometry);
+	    } else {
+		geometry = (Geometry) spatial;
+	    }
 
-		if (spatial == null) {
-		    geometry = new Geometry(name);
-		    node.attachChild(geometry);
-		} else {
-		    geometry = (Geometry) spatial;
-		}
-
-		Mesh mesh = new Mesh();
+	    Mesh mesh = new Mesh();
+	    
+	    try {
+		c.lock();
 		mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
 		mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
 		mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
-
-		geometry.setMesh(mesh);
-		geometry.setMaterial(defaultMat);
-
-		Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
-		geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
-
-		rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-
-		CollisionShape collisionShape = null;
-
-		try {
-		    collisionShape = CollisionShapeFactory.createMeshShape(geometry);
-		} catch (Exception ex) {
-		    continue;
-		}
-
-		if (rigidBodyControl == null) {
-		    rigidBodyControl = new RigidBodyControl(collisionShape, 0);
-		    geometry.addControl(rigidBodyControl);
-		    physicsSpace.add(rigidBodyControl);
-		} else {
-		    rigidBodyControl.setCollisionShape(collisionShape);
-		}
-
-		if (DebugAppState.backfaceCulled) {
-		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
-		} else {
-		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
-		}
-
-		if (DebugAppState.wireframe) {
-		    geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
-		}
-		chunkLoaded++;
-		if (chunkLoaded > maxChunkLoad) {
-		    return;
-		}
+	    } finally {
+		c.unlock();
 	    }
-	    if (message.getType() == AreMessageType.CHUNK_DETACH) {
-		if (spatial != null) {
-		    geometry = (Geometry) spatial;
+	    geometry.setMesh(mesh);
+	    geometry.setMaterial(defaultMat);
+
+	    Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
+	    geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
+
+	    rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+
+	    CollisionShape collisionShape;
+
+	    collisionShape = CollisionShapeFactory.createMeshShape(geometry);
+
+	    if (rigidBodyControl == null) {
+		rigidBodyControl = new RigidBodyControl(collisionShape, 0);
+		geometry.addControl(rigidBodyControl);
+		physicsSpace.add(rigidBodyControl);
+	    } else {
+		rigidBodyControl.setCollisionShape(collisionShape);
+	    }
+
+	    if (DebugAppState.backfaceCulled) {
+		geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
+	    } else {
+		geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
+	    }
+
+	    if (DebugAppState.wireframe) {
+		geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
+	    }
+	    chunkLoaded++;
+	    if (chunkLoaded > maxChunkLoad) {
+		return;
+	    }
+	}
+	for (AreMessage message = detachQueue.poll(); message != null; message = detachQueue.poll()) {
+	    Chunk c = (Chunk) message.getData();
+	    String name;
+
+	    try {
+		c.lock();
+		name = c.getName();
+	    } finally {
+		c.unlock();
+	    }
+
+	    Spatial spatial = node.getChild(name);
+
+	    if (spatial != null) {
+		Geometry geometry = (Geometry) spatial;
+		RigidBodyControl rigidBodyControl;
+		try {
 		    rigidBodyControl = geometry.getControl(RigidBodyControl.class);
 		    physicsSpace.remove(rigidBodyControl);
-		    geometry.removeFromParent();
+		} catch (Exception ex) {
+		    System.out.println("Failed to remove rigidBody from: " + name);
 		}
+		geometry.removeFromParent();
 	    }
 	}
-    }
-
-    @Override
-    public void doAction(Vec3 currentLocation) {
-	currentLocation.subtract(are.getPosition());
-
-	if (currentLocation.equals(Vec3.ZERO()) || are.isMoving()) {
-	    return;
-	}
-
-	System.out.println("Moved: " + currentLocation.toString() + " (Are position: " + are.getPosition() + ")");
-	AreMessage message = new AreMessage(AreMessage.AreMessageType.ARE_MOVE, currentLocation);
-	are.postMessage(message);
-	are.setMoving(true);
     }
 }

@@ -4,37 +4,27 @@
  */
 package com.lagecompany.nifty.gui;
 
-import de.lessvoid.nifty.Nifty;
 import de.lessvoid.nifty.builder.LayerBuilder;
 import de.lessvoid.nifty.builder.PanelBuilder;
 import de.lessvoid.nifty.builder.ScreenBuilder;
 import de.lessvoid.nifty.builder.TextBuilder;
-import de.lessvoid.nifty.elements.Element;
 import de.lessvoid.nifty.elements.render.TextRenderer;
 import de.lessvoid.nifty.screen.DefaultScreenController;
-import de.lessvoid.nifty.screen.Screen;
 
 /**
  *
  * @author afonsolage
  */
-public class LoadingScreen {
+public class LoadingScreen extends SimpleScreen {
 
     public static final String ID = "loading-gui";
-    private Nifty nifty;
-    private Screen screen;
+    private TextRenderer textRenderer;
 
-    public LoadingScreen(Nifty n) {
-	this.nifty = n;
-
-	nifty.loadStyleFile("nifty-default-styles.xml");
-	nifty.loadControlFile("nifty-default-controls.xml");
+    public LoadingScreen() {
+	super();
     }
 
-    public void delete() {
-	nifty.removeScreen(ID);
-    }
-
+    @Override
     public void create() {
 	screen = new ScreenBuilder("Loading GUI") {
 	    {
@@ -45,7 +35,7 @@ public class LoadingScreen {
 			backgroundColor("#000000FF");
 			height("100%");
 			width("100%");
-			
+
 			panel(new PanelBuilder("main_panel") {
 			    {
 				childLayoutCenter();
@@ -67,18 +57,17 @@ public class LoadingScreen {
 	    }
 	}.build(nifty);
 
+	textRenderer = getElement("foreground", "main_panel", "text_renderer").getRenderer(TextRenderer.class);
+
 	nifty.addScreen(ID, screen);
     }
 
+    @Override
     public void display() {
 	nifty.gotoScreen(ID);
     }
 
     public void setMessage(String message) {
-	Element e = screen.findElementByName("foreground");
-	e = e.findElementByName("main_panel");
-	e = e.findElementByName("text_renderer");
-	TextRenderer renderer = e.getRenderer(TextRenderer.class);
-	renderer.setText(message);
+	textRenderer.setText(message);
     }
 }

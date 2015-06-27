@@ -7,9 +7,7 @@ import com.jme3.asset.AssetManager;
 import com.jme3.audio.AudioRenderer;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.input.InputManager;
-import com.jme3.niftygui.NiftyJmeDisplay;
 import com.jme3.renderer.ViewPort;
-import com.lagecompany.nifty.gui.DebugWindow;
 import com.lagecompany.nifty.gui.LoadingScreen;
 import com.lagecompany.storage.Are;
 
@@ -25,6 +23,7 @@ public class LoadingStage extends AbstractAppState {
     private float total = -1;
     private float lastVal = 0f;
     private int state = 0;
+    private Are are;
 
     @Override
     public void initialize(AppStateManager stateManager, Application app) {
@@ -34,18 +33,18 @@ public class LoadingStage extends AbstractAppState {
 	this.guiViewPort = app.getGuiViewPort();
 	this.audioRenderer = app.getAudioRenderer();
 
-	NiftyJmeDisplay niftyDisplay = new NiftyJmeDisplay(assetManager, inputManager, audioRenderer, guiViewPort);
-	guiViewPort.addProcessor(niftyDisplay);
-	loadingScreen = new LoadingScreen(niftyDisplay.getNifty());
+	loadingScreen = new LoadingScreen();
 	loadingScreen.create();
 	loadingScreen.display();
+
+	are = Are.getInstance();
 
 	attachStates();
     }
 
     @Override
     public void update(float tpf) {
-	if (Are.isInstanciated()) {
+	if (are.isInited()) {
 	    switch (state) {
 		case 0: {
 		    showLoadingChunk();
@@ -72,12 +71,12 @@ public class LoadingStage extends AbstractAppState {
 
     private void showLoadingChunk() {
 	if (total < 0) {
-	    total = Are.getInstance().getQueueSize();
+	    total = are.getChunkQueueSize();
 	} else {
-	    float val = (((float) Are.getInstance().getQueueSize() / total)) * 100f;
+	    float val = (((float) are.getChunkQueueSize() / total)) * 100f;
 	    val = 100f - val;
 	    if (val > lastVal) {
-		loadingScreen.setMessage(String.format("Loading chunks...%.2f%%",val));
+		loadingScreen.setMessage(String.format("Loading chunks...%.2f%%", val));
 		lastVal = val;
 	    }
 	    if (lastVal >= 100f) {
@@ -90,14 +89,14 @@ public class LoadingStage extends AbstractAppState {
 
     private void showRenderingChunk() {
 	if (total < 0) {
-	    total = terrainState.getRendererQueueSize();
+	    total = are.getAttachQueueSize();
 	    terrainState.maxChunkLoad = (int) total;
 	    terrainState.setShouldRender(true);
 	} else {
-	    float val = (((float) terrainState.getRendererQueueSize() / total)) * 100f;
+	    float val = (((float) are.getAttachQueueSize() / total)) * 100f;
 	    val = 100f - val;
 	    if (val > lastVal) {
-		loadingScreen.setMessage(String.format("Rendering chunks...%.2f%%",val));
+		loadingScreen.setMessage(String.format("Rendering chunks...%.2f%%", val));
 		lastVal = val;
 	    }
 	    if (lastVal >= 100f) {

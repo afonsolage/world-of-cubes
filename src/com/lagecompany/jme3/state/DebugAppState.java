@@ -5,8 +5,6 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
-import com.jme3.audio.AudioRenderer;
-import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
@@ -20,8 +18,6 @@ import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
-import com.jme3.niftygui.NiftyJmeDisplay;
-import com.jme3.renderer.ViewPort;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
@@ -29,8 +25,9 @@ import com.jme3.scene.debug.Arrow;
 import com.jme3.scene.debug.Grid;
 import com.jme3.scene.shape.Box;
 import com.lagecompany.jme3.control.CameraFollowControl;
+import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.jme3.input.CameraController;
-import com.lagecompany.nifty.gui.DebugWindow;
+import com.lagecompany.nifty.gui.DebugScreen;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {
 
@@ -39,14 +36,11 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private Node playerNode;
     private AssetManager assetManager;
     private InputManager inputManager;
-    private AudioRenderer audioRenderer;
-    private ViewPort guiViewPort;
     private FlyByCamera flyCam;
-    private DebugWindow debugWindow;
-    private AppStateManager stateManager;
-    private BulletAppState bulletState;
+    private DebugScreen debugScreen;
     private BetterCharacterControl characterController;
     private CameraFollowControl followControl;
+    private AreFollowControl translateControl;
     public static boolean wireframe;
     public static boolean backfaceCulled;
     public static boolean axisArrowsEnabled;
@@ -56,19 +50,15 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     public void initialize(AppStateManager stateManager, Application application) {
 	super.initialize(stateManager, application);
 	this.app = (SimpleApplication) application;
-	this.stateManager = stateManager;
 	this.rootNode = app.getRootNode();
 	this.inputManager = app.getInputManager();
 	this.assetManager = app.getAssetManager();
-	this.guiViewPort = app.getGuiViewPort();
-	this.audioRenderer = app.getAudioRenderer();
 	this.flyCam = app.getFlyByCamera();
-	this.stateManager = stateManager;
-	this.bulletState = stateManager.getState(BulletAppState.class);
 
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
 	characterController = playerNode.getControl(BetterCharacterControl.class);
 	followControl = playerNode.getControl(CameraFollowControl.class);
+	translateControl = playerNode.getControl(AreFollowControl.class);
 
 	wireframe = false;
 	backfaceCulled = false;
@@ -78,11 +68,12 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	showPlayerNode();
 
 	this.bindKeys();
-	//this.initGUI();
+	this.initGUI();
     }
 
     @Override
     public void update(float tpf) {
+	updateGUI();
     }
 
     private void bindKeys() {
@@ -277,18 +268,13 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void initGUI() {
-	NiftyJmeDisplay niftyDisplay = new NiftyJmeDisplay(assetManager, inputManager, audioRenderer, guiViewPort);
-	guiViewPort.addProcessor(niftyDisplay);
-	debugWindow = new DebugWindow(niftyDisplay.getNifty());
-	debugWindow.create();
-
-	debugWindow.display();
+	debugScreen = new DebugScreen();
+	debugScreen.create();
+	debugScreen.display();
     }
 
     private void updateGUI() {
-	debugWindow.delete();
-	debugWindow.create();
-	debugWindow.display();
+	debugScreen.setPlayerPosition(translateControl.getPosition().toString());
     }
 
     private void customFunction() {
