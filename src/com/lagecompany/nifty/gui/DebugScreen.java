@@ -10,6 +10,7 @@ import de.lessvoid.nifty.screen.DefaultScreenController;
 public class DebugScreen extends SimpleScreen {
 
     public static final String ID = "debug-gui";
+    private TextRenderer playerAreTextRenderer;
     private TextRenderer playerTextRenderer;
 
     public DebugScreen() {
@@ -25,19 +26,18 @@ public class DebugScreen extends SimpleScreen {
 		    {
 			childLayoutVertical();
 			backgroundColor("#0000");
-
 			panel(new PanelBuilder("root") {
 			    {
 				childLayoutVertical();
 				alignLeft();
 				backgroundColor("#0007");
-				height("25%");
-				width("30%");
+				height("150px");
+				width("300px");
 
 				panel(new PanelBuilder("title") {
 				    {
 					childLayoutCenter();
-					alignCenter();
+					width("100%");
 					text(new TextBuilder() {
 					    {
 						text("Debug Tools");
@@ -49,17 +49,29 @@ public class DebugScreen extends SimpleScreen {
 
 				panel(new PanelBuilder("content") {
 				    {
-					childLayoutHorizontal();
-					alignCenter();
-
+					childLayoutVertical();
+					alignLeft();
+					width("100%");
+					
 					panel(new PanelBuilder("player position") {
 					    {
-						childLayoutHorizontal();
-						alignLeft();
+						childLayoutVertical();
 						width("100%");
-						x("10");
 
 						text(new TextBuilder("player position text") {
+						    {
+							text("Player Position: 0, 0, 0");
+							font("Interface/Fonts/sz_12.fnt");
+						    }
+						});
+					    }
+					});
+					panel(new PanelBuilder("player are position") {
+					    {
+						childLayoutVertical();
+						width("100%");
+
+						text(new TextBuilder("player are position text") {
 						    {
 							text("Player Position: 0, 0, 0");
 							font("Interface/Fonts/sz_12.fnt");
@@ -77,6 +89,12 @@ public class DebugScreen extends SimpleScreen {
 	    }
 	}.build(nifty);
 
+	playerAreTextRenderer = getElement("foreground",
+		"root",
+		"content",
+		"player are position",
+		"player are position text").getRenderer(TextRenderer.class);
+
 	playerTextRenderer = getElement("foreground",
 		"root",
 		"content",
@@ -89,6 +107,10 @@ public class DebugScreen extends SimpleScreen {
     @Override
     public void display() {
 	nifty.gotoScreen(ID);
+    }
+
+    public void setPlayerArePosition(String text) {
+	playerAreTextRenderer.setText("Player are position: " + text);
     }
 
     public void setPlayerPosition(String text) {

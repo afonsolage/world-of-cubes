@@ -38,8 +38,6 @@ public class Chunk {
 	 */
 	this.are = are;
 	this.position = position;
-	voxels = new Voxel[DATA_LENGTH];
-	bufferFacesOffset = new int[6];
 	this.name = "Chunk " + position.toString();
 	this.lock = new ReentrantLock(true);
     }
@@ -126,6 +124,14 @@ public class Chunk {
     }
 
     public boolean load() {
+	checkVisibleFaces();
+	mergeVisibleFaces();
+	loaded = true;
+
+	return (getVertexCount() > 0);
+    }
+
+    public boolean update() {
 	if (isLoaded() && voxels != null) {
 	    for (Voxel v : voxels) {
 		if (v == null) {
@@ -136,15 +142,13 @@ public class Chunk {
 	    }
 	    loaded = false;
 	}
-
-	checkVisibleFaces();
-	mergeVisibleFaces();
-	loaded = true;
-
-	return (getVertexCount() > 0);
+	return load();
     }
 
     public boolean setup() {
+	voxels = new Voxel[DATA_LENGTH];
+	bufferFacesOffset = new int[6];
+
 	int setupCount = 0;
 
 	int x = position.getX();
@@ -169,7 +173,6 @@ public class Chunk {
     void unload() {
 	buffer = null;
 	voxels = null;
-
     }
 
     public float[] getNormalList() {

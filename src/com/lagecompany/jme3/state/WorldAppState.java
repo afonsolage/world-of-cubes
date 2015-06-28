@@ -7,6 +7,7 @@ import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.control.BetterCharacterControl;
+import com.jme3.input.ChaseCamera;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.light.AmbientLight;
@@ -17,7 +18,7 @@ import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.lagecompany.jme3.control.CameraFollowControl;
-import com.lagecompany.jme3.input.CameraController;
+import com.lagecompany.jme3.input.CameraMan;
 
 public class WorldAppState extends AbstractAppState {
 
@@ -26,7 +27,9 @@ public class WorldAppState extends AbstractAppState {
     private InputManager inputManager;
     private AssetManager assetManager;
     private FlyByCamera flyCam;
+    private ChaseCamera chaseCam;
     private Camera cam;
+    private CameraMan cameraMan;
     private Node playerNode;
     private BulletAppState bulletState;
 
@@ -41,10 +44,11 @@ public class WorldAppState extends AbstractAppState {
 	this.cam = app.getCamera();
 	this.bulletState = stateManager.getState(BulletAppState.class);
 
-	CameraController.setup(flyCam, inputManager);
 	inputManager.setCursorVisible(true);
+	rootNode.setCullHint(Spatial.CullHint.Never); //TODO: Fix frustum culling.
 
-	rootNode.setCullHint(Spatial.CullHint.Never);
+
+	//Create some lights.
 	AmbientLight ambient = new AmbientLight();
 	ambient.setColor(ColorRGBA.White.mult(0.25f));
 	rootNode.addLight(ambient);
@@ -55,18 +59,27 @@ public class WorldAppState extends AbstractAppState {
 	sun.setColor(ColorRGBA.White);
 	rootNode.addLight(sun);
 
+	//Create player node.
 	playerNode = new Node("Player Node");
+
+	//Add Physics to our node.
 	BetterCharacterControl characterControl = new BetterCharacterControl(0.5f, 1.8f, 60f);
 	bulletState.getPhysicsSpace().add(characterControl);
-	CameraFollowControl followControl = new CameraFollowControl(cam);
 	playerNode.addControl(characterControl);
+
+	//Add a camera follow control to our node.
+	CameraFollowControl followControl = new CameraFollowControl(cam, inputManager);
 	playerNode.addControl(followControl);
 
 	characterControl.setEnabled(false); //For debug reasons.
 	followControl.setEnabled(false); //For debug reasons.
 
+	cameraMan = new CameraMan(flyCam, followControl, inputManager);
+	cameraMan.toggleCam(false);
+	cameraMan.unbind();
 
 	rootNode.attachChild(playerNode);
+
     }
 
     @Override
@@ -76,5 +89,9 @@ public class WorldAppState extends AbstractAppState {
 
     public Node getPlayerNode() {
 	return playerNode;
+    }
+
+    public CameraMan getCameraMan() {
+	return cameraMan;
     }
 }

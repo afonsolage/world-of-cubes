@@ -90,7 +90,6 @@ public class LoadingStage extends AbstractAppState {
     private void showRenderingChunk() {
 	if (total < 0) {
 	    total = are.getAttachQueueSize();
-	    terrainState.maxChunkLoad = (int) total;
 	    terrainState.setShouldRender(true);
 	} else {
 	    float val = (((float) are.getAttachQueueSize() / total)) * 100f;
@@ -109,7 +108,6 @@ public class LoadingStage extends AbstractAppState {
     public void cleanup() {
 	super.cleanup();
 	loadingScreen.delete();
-	terrainState.maxChunkLoad = 5;
 	stateManager.attach(new DebugAppState());
     }
 }

@@ -14,7 +14,7 @@ import java.util.concurrent.Semaphore;
  * @author afonsolage
  */
 public class Are extends Thread {
-    
+
     public static final int WIDTH = 16;
     public static final int HEIGHT = 64;
     public static final int LENGTH = 16;
@@ -35,18 +35,19 @@ public class Are extends Thread {
     private boolean moving;
     private boolean inited = false;
     private AreWorker worker;
-    
+    private float timePast;
+
     public static Are getInstance() {
 	if (instance == null) {
 	    instance = new Are();
 	}
 	return instance;
     }
-    
+
     public static boolean isInstanciated() {
 	return Are.instance != null;
     }
-    
+
     private Are() {
 	/*
 	 * The memory needed by this class will be (WIDTH * HEIGHT * LENGTH * (Chunk memory usage)) + 12;
@@ -54,7 +55,7 @@ public class Are extends Thread {
 	 */
 	this.setName("Are Thread");
 	position = new Vec3();
-	
+
 	chunkMap = new HashMap<>();
 	actionQueue = new LinkedBlockingQueue<>();
 	detachQueue = new ConcurrentLinkedQueue<>();
@@ -67,68 +68,97 @@ public class Are extends Thread {
 	worker = new AreWorker(actionQueue, this);
 	worker.setName("Are Worker");
     }
-    
+
     public ConcurrentLinkedQueue<AreMessage> getAttachQueue() {
 	return attachQueue;
     }
-    
+
     public ConcurrentLinkedQueue<AreMessage> getDetachQueue() {
 	return detachQueue;
     }
-    
+
+    public void tick(float tpf) {
+	timePast += tpf;
+
+	if (timePast > 0.5f) {
+//	    if (permitCount > 500) {
+//		int remain = permitCount - 500;
+//		permitCount = 500;
+//		System.out.println("Releasing " + permitCount + " permits. " + remain + " remain...");
+//		process();
+//		permitCount = remain;
+//	    } else {
+//		System.out.println("Releasing " + permitCount + " permits.");
+	    process();
+//	    }
+	    timePast -= 0.5f;
+	}
+
+    }
+
     @Override
     public void run() {
 	worker.start();
-	
+	boolean worked;
 	while (!Thread.currentThread().isInterrupted()) {
+	    worked = false;
 	    try {
 		semaphore.acquire();
 		for (AreMessage msg = unloadQueue.poll(); msg != null; msg = unloadQueue.poll()) {
 		    unloadChunk(msg);
+		    worked = true;
 		}
-		
+
 		for (AreMessage msg = setupQueue.poll(); msg != null; msg = setupQueue.poll()) {
 		    setupChunk(msg);
+		    worked = true;
 		}
-		
+
 		for (AreMessage msg = loadQueue.poll(); msg != null; msg = loadQueue.poll()) {
 		    loadChunk(msg);
+		    worked = true;
 		}
-		
+
 		for (AreMessage msg = updateQueue.poll(); msg != null; msg = updateQueue.poll()) {
 		    updateChunk(msg);
+		    worked = true;
 		}
-		
+		if (worked) {
+		    System.out.println("Wasted permit...");
+		}
 	    } catch (InterruptedException ex) {
 		break;
 	    }
 	}
+
 	worker.interrupt();
     }
-    
+
     public int getChunkQueueSize() {
 	return loadQueue.size() + setupQueue.size();
     }
-    
+
     public int getAttachQueueSize() {
 	return attachQueue.size();
     }
-    
+
     private void unloadChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 	set(c.getPosition(), null);
-	
+
 	try {
 	    c.lock();
 	    c.unload();
+	} catch (Exception ex) {
+	    ex.printStackTrace();
 	} finally {
 	    c.unlock();
 	}
     }
-    
+
     private void setupChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
-	
+
 	try {
 	    c.lock();
 	    if (c.setup()) {
@@ -136,13 +166,15 @@ public class Are extends Thread {
 	    } else {
 		message.setType(AreMessageType.CHUNK_UNLOAD);
 	    }
+	    postMessage(message);
+	} catch (Exception ex) {
+	    ex.printStackTrace();
 	} finally {
 	    c.unlock();
 	}
-	
-	postMessage(message);
+
     }
-    
+
     private void loadChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 	try {
@@ -151,28 +183,31 @@ public class Are extends Thread {
 		message.setType(AreMessageType.CHUNK_ATTACH);
 		postMessage(message);
 	    }
+	} catch (Exception ex) {
+	    ex.printStackTrace();
 	} finally {
 	    c.unlock();
 	}
     }
-    
+
     private void updateChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
-	
+
 	try {
 	    c.lock();
-	    if (c.load()) {
+	    if (c.update()) {
 		message.setType(AreMessageType.CHUNK_ATTACH);
 	    } else {
 		message.setType(AreMessageType.CHUNK_DETACH);
 	    }
+	    postMessage(message);
+	} catch (Exception ex) {
+	    ex.printStackTrace();
 	} finally {
 	    c.unlock();
 	}
-	
-	postMessage(message);
     }
-    
+
     public void init() {
 	for (int x = 0; x < WIDTH; x++) {
 	    for (int y = 0; y < HEIGHT; y++) {
@@ -185,48 +220,49 @@ public class Are extends Thread {
 	    }
 	}
 	inited = true;
+	process();
     }
-    
+
     public boolean isMoving() {
 	return moving;
     }
-    
+
     public void setMoving(boolean moving) {
 	this.moving = moving;
     }
-    
+
     public boolean isInited() {
 	return inited;
     }
-    
+
     public void setInited(boolean inited) {
 	this.inited = inited;
     }
-    
+
     protected Voxel getVoxel(Vec3 chunkPos, int x, int y, int z) {
 	Chunk c = get(chunkPos);
-	
+
 	if (c == null) {
 	    return null;
 	}
-	
+
 	return c.get(x, y, z);
     }
-    
+
     public Chunk get(int x, int y, int z) {
 	Vec3 v = new Vec3(x, y, z);
 	return get(v);
     }
-    
+
     public Chunk get(Vec3 v) {
 	return chunkMap.get(v);
     }
-    
+
     public void set(int x, int y, int z, Chunk c) {
 	Vec3 v = new Vec3(x, y, z);
 	set(v, c);
     }
-    
+
     public void set(Vec3 v, Chunk c) {
 	if (c == null) {
 	    chunkMap.remove(v);
@@ -234,35 +270,35 @@ public class Are extends Thread {
 	    chunkMap.put(v, c);
 	}
     }
-    
+
     public void move(AreMessage message) {
 	Vec3 direction = (Vec3) message.getData();
-	
+
 	if (direction == null || direction.equals(Vec3.ZERO)) {
 	    moving = false;
 	    return;
 	}
-	
+
 	position.add(direction);
-	
+
 	if (direction.getX() > 0) {
 	    moveRight();
 	} else if (direction.getX() < 0) {
 	    moveLeft();
 	}
-	
+
 	if (direction.getY() > 0) {
 	    moveUp();
 	} else if (direction.getY() < 0) {
 	    moveDown();
 	}
-	
+
 	if (direction.getZ() > 0) {
 	    moveFront();
 	} else if (direction.getZ() < 0) {
 	    moveBack();
 	}
-	
+
 	moving = false;
     }
 
@@ -303,7 +339,7 @@ public class Are extends Thread {
 	    }
 	}
     }
-    
+
     private void moveLeft() {
 	int boundBegin = WIDTH - 1;
 	int boundEnd = 0;
@@ -313,7 +349,7 @@ public class Are extends Thread {
 		Chunk c = get(position.copy().add(boundBegin + 1, y, z));
 		if (c != null) {
 		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    attachQueue.offer(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
 		}
 
 		//Reload chunk at new left border.
@@ -336,7 +372,7 @@ public class Are extends Thread {
 	    }
 	}
     }
-    
+
     private void moveFront() {
 	int boundBegin = 0;
 	int boundEnd = LENGTH - 1;
@@ -369,7 +405,7 @@ public class Are extends Thread {
 	    }
 	}
     }
-    
+
     private void moveBack() {
 	int boundBegin = LENGTH - 1;
 	int boundEnd = 0;
@@ -402,7 +438,7 @@ public class Are extends Thread {
 	    }
 	}
     }
-    
+
     private void moveUp() {
 	int boundBegin = 0;
 	int boundEnd = HEIGHT - 1;
@@ -435,7 +471,7 @@ public class Are extends Thread {
 	    }
 	}
     }
-    
+
     private void moveDown() {
 	int boundBegin = HEIGHT - 1;
 	int boundEnd = 0;
@@ -468,13 +504,13 @@ public class Are extends Thread {
 	    }
 	}
     }
-    
+
     public Vec3 getAbsoluteChunkPosition(Vec3 chunkPosition) {
 	return new Vec3((chunkPosition.getX() * Chunk.WIDTH) - (DATA_WIDTH / 2),
 		(chunkPosition.getY() - 8) * Chunk.HEIGHT, //TODO: Add "- (DATA_HEIGHT / 2)"
 		chunkPosition.getZ() * Chunk.LENGTH - (DATA_LENGHT / 2));
     }
-    
+
     public void postMessage(AreMessage message) {
 	switch (message.getType()) {
 	    case CHUNK_DETACH: {
@@ -503,16 +539,19 @@ public class Are extends Thread {
 	    }
 	    default: {
 		actionQueue.offer(message);
-		return;
 	    }
 	}
-	semaphore.release();
     }
-    
+
+    public void process() {
+	semaphore.release();
+//	permitCount = 0;
+    }
+
     public Vec3 getPosition() {
 	return position;
     }
-    
+
     public Vec3 setPosition(int x, int y, int z) {
 	return position = new Vec3(x, y, z);
     }

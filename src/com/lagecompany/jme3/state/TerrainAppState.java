@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @author afonsolage
  */
 public class TerrainAppState extends AbstractAppState {
-
+    
     private Are are;
     private Node node;
     private AssetManager assetManager;
@@ -43,17 +43,14 @@ public class TerrainAppState extends AbstractAppState {
     private final ConcurrentLinkedQueue<AreMessage> attachQueue;
     private final ConcurrentLinkedQueue<AreMessage> detachQueue;
     private Material defaultMat;
-    private float elapsedTime;
-    private int chunkLoaded;
     private boolean shouldRender;
-    public int maxChunkLoad = -1;
-
+    
     public TerrainAppState() {
 	are = Are.getInstance();
 	attachQueue = are.getAttachQueue();
 	detachQueue = are.getDetachQueue();
     }
-
+    
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
 	this.app = (SimpleApplication) application;
@@ -62,34 +59,35 @@ public class TerrainAppState extends AbstractAppState {
 	this.bulletState = stateManager.getState(BulletAppState.class);
 	this.physicsSpace = bulletState.getPhysicsSpace();
 	initMaterials();
-
+	
 	node = new Node("Chunks Node");
 	rootNode.attachChild(node);
-
+	
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
 	playerNode.addControl(new AreFollowControl());
-
+	
 	Vector3f playerPosition = playerNode.getLocalTranslation().clone();
 	node.setLocalTranslation(playerPosition);
 	are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
-
+	
 	are.init();
 	are.start();
     }
-
+    
     @Override
     public void update(float tpf) {
+	are.tick(tpf);
 	if (shouldRender) {
 	    processChunks(tpf);
 	}
     }
-
+    
     @Override
     public void cleanup() {
 	super.cleanup(); //To change body of generated methods, choose Tools | Templates.
 	are.interrupt();
     }
-
+    
     private void initMaterials() {
 	defaultMat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
 	//mat.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/rock.jpg"));
@@ -99,44 +97,39 @@ public class TerrainAppState extends AbstractAppState {
 	defaultMat.setFloat("Shininess", 0f);
 	defaultMat.setBoolean("UseMaterialColors", true);
     }
-
+    
     public boolean shouldRender() {
 	return shouldRender;
     }
-
+    
     public void setShouldRender(boolean should) {
 	this.shouldRender = should;
     }
-
+    
     public void processChunks(float tpf) {
-	elapsedTime += tpf;
-
-	if (elapsedTime > 0.1) {
-	    elapsedTime = 0;
-	    chunkLoaded = 0;
-	}
-
 	for (AreMessage message = attachQueue.poll(); message != null; message = attachQueue.poll()) {
 	    Chunk c = (Chunk) message.getData();
-
+	    
 	    if (c.getVertexCount() == 0) {
+		message.setType(AreMessage.AreMessageType.CHUNK_DETACH);
+		are.postMessage(message);
 		continue;
 	    }
-
+	    
 	    Vec3 v = c.getPosition();
 	    String name = c.getName();
 	    Spatial spatial = node.getChild(name);
-
+	    
 	    Geometry geometry;
 	    RigidBodyControl rigidBodyControl;
-
+	    
 	    if (spatial == null) {
 		geometry = new Geometry(name);
 		node.attachChild(geometry);
 	    } else {
 		geometry = (Geometry) spatial;
 	    }
-
+	    
 	    Mesh mesh = new Mesh();
 	    
 	    try {
@@ -149,16 +142,16 @@ public class TerrainAppState extends AbstractAppState {
 	    }
 	    geometry.setMesh(mesh);
 	    geometry.setMaterial(defaultMat);
-
+	    
 	    Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
 	    geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
-
+	    
 	    rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-
+	    
 	    CollisionShape collisionShape;
-
+	    
 	    collisionShape = CollisionShapeFactory.createMeshShape(geometry);
-
+	    
 	    if (rigidBodyControl == null) {
 		rigidBodyControl = new RigidBodyControl(collisionShape, 0);
 		geometry.addControl(rigidBodyControl);
@@ -166,34 +159,30 @@ public class TerrainAppState extends AbstractAppState {
 	    } else {
 		rigidBodyControl.setCollisionShape(collisionShape);
 	    }
-
+	    
 	    if (DebugAppState.backfaceCulled) {
 		geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
 	    } else {
 		geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
 	    }
-
+	    
 	    if (DebugAppState.wireframe) {
 		geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
-	    }
-	    chunkLoaded++;
-	    if (chunkLoaded > maxChunkLoad) {
-		return;
 	    }
 	}
 	for (AreMessage message = detachQueue.poll(); message != null; message = detachQueue.poll()) {
 	    Chunk c = (Chunk) message.getData();
 	    String name;
-
+	    
 	    try {
 		c.lock();
 		name = c.getName();
 	    } finally {
 		c.unlock();
 	    }
-
+	    
 	    Spatial spatial = node.getChild(name);
-
+	    
 	    if (spatial != null) {
 		Geometry geometry = (Geometry) spatial;
 		RigidBodyControl rigidBodyControl;
