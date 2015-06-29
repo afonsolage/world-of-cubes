@@ -26,7 +26,7 @@ import com.jme3.scene.debug.Grid;
 import com.jme3.scene.shape.Box;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.AreFollowControl;
-import com.lagecompany.jme3.input.CameraMan;
+import com.lagecompany.jme3.manager.CameraMan;
 import com.lagecompany.nifty.gui.DebugScreen;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {

@@ -1,14 +1,18 @@
-package com.lagecompany.jme3.input;
+package com.lagecompany.jme3.manager;
 
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
-import com.jme3.input.controls.InputListener;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.MouseAxisTrigger;
 import com.lagecompany.jme3.control.CameraFollowControl;
 
+/**
+ * Camera manager class. This class manage all camera states, key bidings and such.
+ *
+ * @author Afonso Lage
+ */
 public class CameraMan {
 
     public static final String FLYCAM_Left = "FLYCAM_Left";
@@ -33,9 +37,16 @@ public class CameraMan {
     public static final String PLAYER_NODE_Lower = "PLAYER_NODE_Lower";
     private FlyByCamera flyCam;
     private CameraFollowControl followCam;
-    private boolean chaseCamEnabled;
+    private boolean followCamEnabled;
     private InputManager inputManager;
 
+    /**
+     * Instanciate a new CameraMan class.
+     *
+     * @param flyCam The default FlyByCam to be used on debug.
+     * @param followCam The main CameraFollowControl.
+     * @param inputManager To register input triggers.
+     */
     public CameraMan(FlyByCamera flyCam, CameraFollowControl followCam, InputManager inputManager) {
 	this.flyCam = flyCam;
 	this.inputManager = inputManager;
@@ -44,29 +55,45 @@ public class CameraMan {
 	this.flyCam.setMoveSpeed(3f);
     }
 
-    public void toggleCam(boolean chaseCamEnabled) {
-	this.chaseCamEnabled = chaseCamEnabled;
+    /**
+     * Troggle the active camera FollowCamera between FlyByCamera
+     *
+     * @param followCamEnabled Enable or disable FollowCamera.
+     */
+    public void toggleCam(boolean followCamEnabled) {
+	this.followCamEnabled = followCamEnabled;
 
-	flyCam.setEnabled(!chaseCamEnabled);
-	bindFlyCamKeys(!chaseCamEnabled);
+	flyCam.setEnabled(!followCamEnabled);
+	bindFlyCamKeys(!followCamEnabled);
 
-	followCam.setEnabled(chaseCamEnabled);
-	bindFollowCamKeys(chaseCamEnabled);
+	followCam.setEnabled(followCamEnabled);
+	bindFollowCamKeys(followCamEnabled);
     }
 
+    /**
+     * Unbind all camera triggers.
+     */
     public void unbind() {
-	if (chaseCamEnabled) {
+	if (followCamEnabled) {
 	    bindFollowCamKeys(false);
 	} else {
 	    bindFlyCamKeys(false);
 	}
     }
 
+    /**
+     * Rebind all camera triggers.
+     */
     public void bind() {
-	bindFlyCamKeys(!chaseCamEnabled);
-	bindFollowCamKeys(chaseCamEnabled);
+	bindFlyCamKeys(!followCamEnabled);
+	bindFollowCamKeys(followCamEnabled);
     }
 
+    /**
+     * Bind FlyByCamera triggers and listener.
+     *
+     * @param enabled Should bind or unbind keys?
+     */
     public void bindFlyCamKeys(boolean enabled) {
 	if (enabled) {
 	    // both mouse and button - rotation of cam
@@ -110,6 +137,11 @@ public class CameraMan {
 	}
     }
 
+    /**
+     * Bind FollowCamera triggers and listener.
+     *
+     * @param enabled Should bind or unbind keys?
+     */
     public void bindFollowCamKeys(boolean enabled) {
 	if (enabled) {
 	    // both mouse and button - rotation of cam

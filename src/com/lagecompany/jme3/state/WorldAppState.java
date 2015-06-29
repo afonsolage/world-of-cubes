@@ -4,10 +4,8 @@ import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
-import com.jme3.asset.AssetManager;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.control.BetterCharacterControl;
-import com.jme3.input.ChaseCamera;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.light.AmbientLight;
@@ -18,28 +16,36 @@ import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.lagecompany.jme3.control.CameraFollowControl;
-import com.lagecompany.jme3.input.CameraMan;
+import com.lagecompany.jme3.manager.CameraMan;
 
+/**
+ * On this stage, the world will be processed. By world we mean all content relative to world except Terrain.
+ *
+ * @author Afonso Lage
+ */
 public class WorldAppState extends AbstractAppState {
 
     private SimpleApplication app;
     private Node rootNode;
     private InputManager inputManager;
-    private AssetManager assetManager;
     private FlyByCamera flyCam;
-    private ChaseCamera chaseCam;
     private Camera cam;
     private CameraMan cameraMan;
     private Node playerNode;
     private BulletAppState bulletState;
 
+    /**
+     * Initialize this stage. Is called intenally by JME3.
+     *
+     * @param stateManager The StateManager used by JME3
+     * @param app The application which this stage was attached to
+     */
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
 	super.initialize(stateManager, application);
 	this.app = (SimpleApplication) application;
 	this.rootNode = app.getRootNode();
 	this.inputManager = app.getInputManager();
-	this.assetManager = app.getAssetManager();
 	this.flyCam = app.getFlyByCamera();
 	this.cam = app.getCamera();
 	this.bulletState = stateManager.getState(BulletAppState.class);
@@ -82,15 +88,30 @@ public class WorldAppState extends AbstractAppState {
 
     }
 
+    /**
+     * Update loop of this stage. Is called by main loop.
+     *
+     * @param tpf Time per frame in seconds.
+     */
     @Override
     public void update(float tpf) {
 	super.update(tpf); //To change body of generated methods, choose Tools | Templates.
     }
 
+    /**
+     * Get the player node
+     *
+     * @return The player node
+     */
     public Node getPlayerNode() {
 	return playerNode;
     }
 
+    /**
+     * Get the camera manager
+     *
+     * @return The camera manager
+     */
     public CameraMan getCameraMan() {
 	return cameraMan;
     }

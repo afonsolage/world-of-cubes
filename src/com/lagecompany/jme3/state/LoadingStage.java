@@ -3,35 +3,35 @@ package com.lagecompany.jme3.state;
 import com.jme3.app.Application;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
-import com.jme3.asset.AssetManager;
-import com.jme3.audio.AudioRenderer;
 import com.jme3.bullet.BulletAppState;
-import com.jme3.input.InputManager;
-import com.jme3.renderer.ViewPort;
 import com.lagecompany.nifty.gui.LoadingScreen;
 import com.lagecompany.storage.Are;
 
+/**
+ * The loading app state of game. On this state, Are will be initiated and chunks being loaded, while a loading message
+ * is shown.
+ *
+ * @author Afonso Lage
+ */
 public class LoadingStage extends AbstractAppState {
 
     private TerrainAppState terrainState;
     private AppStateManager stateManager;
-    private AssetManager assetManager;
-    private InputManager inputManager;
-    private AudioRenderer audioRenderer;
-    private ViewPort guiViewPort;
     private LoadingScreen loadingScreen;
     private float total = -1;
     private float lastVal = 0f;
     private int state = 0;
     private Are are;
 
+    /**
+     * Initialize this stage. Is called intenally by JME3.
+     *
+     * @param stateManager The StateManager used by JME3
+     * @param app The application which this stage was attached to
+     */
     @Override
     public void initialize(AppStateManager stateManager, Application app) {
 	this.stateManager = stateManager;
-	this.inputManager = app.getInputManager();
-	this.assetManager = app.getAssetManager();
-	this.guiViewPort = app.getGuiViewPort();
-	this.audioRenderer = app.getAudioRenderer();
 
 	loadingScreen = new LoadingScreen();
 	loadingScreen.create();
@@ -42,8 +42,13 @@ public class LoadingStage extends AbstractAppState {
 	attachStates();
     }
 
+    /**
+     * Update loop of this stage. Is called by main loop.
+     * @param tpf Time per frame in seconds.
+     */
     @Override
     public void update(float tpf) {
+	// The loading has tree stages: 0 - Loading Chunks, 1 - Rendering Chunks and 2 - Go to next screen.
 	if (are.isInited()) {
 	    switch (state) {
 		case 0: {
@@ -61,6 +66,9 @@ public class LoadingStage extends AbstractAppState {
 	}
     }
 
+    /**
+     * Attach all stages needed by game play.
+     */
     private void attachStates() {
 	stateManager.attach(new BulletAppState());
 	stateManager.attach(new WorldAppState());
@@ -69,6 +77,9 @@ public class LoadingStage extends AbstractAppState {
 	stateManager.attach(terrainState);
     }
 
+    /**
+     * Show the loading chunks message.
+     */
     private void showLoadingChunk() {
 	if (total < 0) {
 	    total = are.getChunkQueueSize();
@@ -87,6 +98,9 @@ public class LoadingStage extends AbstractAppState {
 	}
     }
 
+    /**
+     * Show the rendering chunks message.
+     */
     private void showRenderingChunk() {
 	if (total < 0) {
 	    total = are.getAttachQueueSize();
@@ -104,6 +118,9 @@ public class LoadingStage extends AbstractAppState {
 	}
     }
 
+    /**
+     * This method is called by JME3 when this stage is detached, so it must be used for cleanup.
+     */
     @Override
     public void cleanup() {
 	super.cleanup();

@@ -10,25 +10,42 @@ import com.lagecompany.storage.AreMessage;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
 
+/**
+ * A Control that tracks spatial location and move Are based on it.
+ * @author Afonso Lage
+ */
 public class AreFollowControl extends AbstractControl {
 
     private Vec3 lastAreLocation;
     private Vector3f lastPlayerLocation;
     private Are are;
 
+    /**
+     * Create an instance and get Are instance.
+     */
     public AreFollowControl() {
 	are = Are.getInstance();
     }
 
+    /**
+     * This method is called by JME3 when this Control is attached to a Spatial.
+     * @param spatial 
+     */
     @Override
     public void setSpatial(Spatial spatial) {
 	super.setSpatial(spatial);
 	this.lastAreLocation = toArePosition(spatial.getLocalTranslation());
     }
 
+    /**
+     * Main update method, called each frame.
+     * @param tpf Time per fame in seconds.
+     */
     @Override
     protected void controlUpdate(float tpf) {
 	lastPlayerLocation = getSpatial().getLocalTranslation();
+
+	//TODO: Create a margin area to avoid constant load and unload.
 	if (are.isMoving()) {
 	    return;
 	}
@@ -39,12 +56,15 @@ public class AreFollowControl extends AbstractControl {
 	}
 	lastAreLocation = currentLocation;
 	Vec3 moved = lastAreLocation.subtractNew(are.getPosition());
+	
+	//TODO: For debug reason, we wont move Are on Y axis.
 	moved.setY(0);
 
 	if (moved.equals(Vec3.ZERO)) {
 	    return;
 	}
 
+	//Send a message to Are move it self.
 	System.out.println("Moving Are chunk to: " + moved + " - " + are.getPosition());
 	are.setMoving(true);
 	are.postMessage(new AreMessage(AreMessage.AreMessageType.ARE_MOVE, moved));
@@ -54,16 +74,29 @@ public class AreFollowControl extends AbstractControl {
     protected void controlRender(RenderManager rm, ViewPort vp) {
     }
 
+    /**
+     * Ulitity class used to convert a Vector3f position to a Vec3 position, used by Are.
+     * @param A Vector3f position to be converted.
+     * @return A Vec3 position converted.
+     */
     private Vec3 toArePosition(Vector3f position) {
 	return new Vec3((int) (position.getX() / Chunk.WIDTH),
 		(int) (position.getY() / Chunk.HEIGHT),
 		(int) (position.getZ() / Chunk.LENGTH));
     }
 
+    /**
+     * Returns the current Are position tracked by this control.
+     * @return The last Are position tracked.
+     */
     public Vec3 getArePosition() {
 	return lastAreLocation;
     }
 
+    /**
+     * Returns the current player position tracked by this control.
+     * @return The last player position tracked.
+     */
     public Vector3f getPlayerPosition() {
 	return lastPlayerLocation;
     }

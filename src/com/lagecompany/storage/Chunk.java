@@ -280,6 +280,30 @@ public class Chunk {
 	return (buffer == null) ? new float[]{} : buffer;
     }
 
+    public float[] getTextCoord() {
+	if (buffer == null) {
+	    return new float[]{};
+	}
+
+	//A vertex is made of 3 floats.
+	int vertexCount = buffer.length / 3;
+
+	float[] r = new float[vertexCount * 2]; //Each vertex needs a UV text coord;
+
+	for (int i = 0; i < r.length;) {
+	    r[i++] = 1;
+	    r[i++] = 0;
+	    r[i++] = 0;
+	    r[i++] = 0;
+	    r[i++] = 0;
+	    r[i++] = 1;
+	    r[i++] = 1;
+	    r[i++] = 1;
+	}
+
+	return r;
+    }
+
     private void checkVisibleFaces() {
 	Voxel nv; //Neighbor Voxel.
 	byte faces;
