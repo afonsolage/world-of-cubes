@@ -19,7 +19,6 @@ import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
-import com.jme3.texture.Texture;
 import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;

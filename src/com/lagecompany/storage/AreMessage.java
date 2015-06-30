@@ -14,6 +14,7 @@ public class AreMessage {
     
     private AreMessageType type;
     private Object data;
+    private int batch;
 
     public AreMessage(AreMessageType type) {
 	this.type = type;
