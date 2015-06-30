@@ -41,8 +41,7 @@ public class TerrainAppState extends AbstractAppState {
     private SimpleApplication app;
     private BulletAppState bulletState;
     private PhysicsSpace physicsSpace;
-    private final ConcurrentLinkedQueue<AreMessage> attachQueue;
-    private final ConcurrentLinkedQueue<AreMessage> detachQueue;
+    private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
     private Material defaultMat;
     private boolean shouldRender;
 
@@ -51,8 +50,7 @@ public class TerrainAppState extends AbstractAppState {
      */
     public TerrainAppState() {
 	are = Are.getInstance();
-	attachQueue = are.getAttachQueue();
-	detachQueue = are.getDetachQueue();
+	renderBatchQueue = are.getRenderBatchQueue();
     }
 
     /**
@@ -151,12 +149,28 @@ public class TerrainAppState extends AbstractAppState {
      * @param tpf Time per frame in seconds.
      */
     public void processChunks(float tpf) {
-	for (AreMessage message = attachQueue.poll(); message != null; message = attachQueue.poll()) {
-	    attachChunk(message);
+	Integer batch = renderBatchQueue.poll();
+
+	if (batch == null) {
+	    return;
 	}
-	for (AreMessage message = detachQueue.poll(); message != null; message = detachQueue.poll()) {
-	    detachChunk(message);
+
+	ConcurrentLinkedQueue<AreMessage> queue = are.getAttachQueue(batch);
+	if (queue != null) {
+	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
+		attachChunk(message);
+	    }
+	    are.finishBatch(AreMessage.AreMessageType.CHUNK_ATTACH, batch);
 	}
+
+	queue = are.getDetachQueue(batch);
+	if (queue != null) {
+	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
+		detachChunk(message);
+	    }
+	    are.finishBatch(AreMessage.AreMessageType.CHUNK_DETACH, batch);
+	}
+
     }
 
     /**

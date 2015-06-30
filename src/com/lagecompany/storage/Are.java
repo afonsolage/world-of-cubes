@@ -2,10 +2,11 @@ package com.lagecompany.storage;
 
 import com.lagecompany.storage.AreMessage.AreMessageType;
 import java.util.HashMap;
+import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.Semaphore;
 
 /**
  * An Are is made of 10 chunks². It is an analogy to the real Are which is 10 m². It doesnt store any voxels, just
@@ -24,18 +25,15 @@ public class Are extends Thread {
     private static Are instance;
     private final HashMap<Vec3, Chunk> chunkMap;
     private final BlockingQueue<AreMessage> actionQueue;
-    private final ConcurrentLinkedQueue<AreMessage> detachQueue;
-    private final ConcurrentLinkedQueue<AreMessage> unloadQueue;
-    private final ConcurrentLinkedQueue<AreMessage> setupQueue;
-    private final ConcurrentLinkedQueue<AreMessage> loadQueue;
-    private final ConcurrentLinkedQueue<AreMessage> updateQueue;
-    private final ConcurrentLinkedQueue<AreMessage> attachQueue;
-    private final Semaphore semaphore;
+    private final BlockingDeque<Integer> processBatchQueue;
+    private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
+    private final AreQueue areQueue;
     private Vec3 position;
     private boolean moving;
     private boolean inited = false;
     private AreWorker worker;
     private float timePast;
+    private int currentBatch;
 
     public static Are getInstance() {
 	if (instance == null) {
@@ -58,23 +56,15 @@ public class Are extends Thread {
 
 	chunkMap = new HashMap<>();
 	actionQueue = new LinkedBlockingQueue<>();
-	detachQueue = new ConcurrentLinkedQueue<>();
-	unloadQueue = new ConcurrentLinkedQueue<>();
-	setupQueue = new ConcurrentLinkedQueue<>();
-	loadQueue = new ConcurrentLinkedQueue<>();
-	updateQueue = new ConcurrentLinkedQueue<>();
-	attachQueue = new ConcurrentLinkedQueue<>();
-	semaphore = new Semaphore(-1, true);
+	processBatchQueue = new LinkedBlockingDeque<>();
+	renderBatchQueue = new ConcurrentLinkedQueue<>();
+	areQueue = new AreQueue();
 	worker = new AreWorker(actionQueue, this);
 	worker.setName("Are Worker");
     }
 
-    public ConcurrentLinkedQueue<AreMessage> getAttachQueue() {
-	return attachQueue;
-    }
-
-    public ConcurrentLinkedQueue<AreMessage> getDetachQueue() {
-	return detachQueue;
+    public ConcurrentLinkedQueue<Integer> getRenderBatchQueue() {
+	return renderBatchQueue;
     }
 
     public void tick(float tpf) {
@@ -89,7 +79,6 @@ public class Are extends Thread {
 //		permitCount = remain;
 //	    } else {
 //		System.out.println("Releasing " + permitCount + " permits.");
-	    process();
 //	    }
 	    timePast -= 0.5f;
 	}
@@ -100,46 +89,56 @@ public class Are extends Thread {
     public void run() {
 	worker.start();
 	boolean worked;
+	ConcurrentLinkedQueue<AreMessage> queue;
 	while (!Thread.currentThread().isInterrupted()) {
 	    worked = false;
 	    try {
-		semaphore.acquire();
-		for (AreMessage msg = unloadQueue.poll(); msg != null; msg = unloadQueue.poll()) {
-		    unloadChunk(msg);
-		    worked = true;
+		currentBatch = processBatchQueue.take();
+
+		queue = areQueue.getQueue(AreMessageType.CHUNK_UNLOAD, currentBatch);
+		if (queue != null) {
+		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+			unloadChunk(msg);
+		    }
+		    areQueue.finishBatch(AreMessageType.CHUNK_UNLOAD, currentBatch);
 		}
 
-		for (AreMessage msg = setupQueue.poll(); msg != null; msg = setupQueue.poll()) {
-		    setupChunk(msg);
-		    worked = true;
+		queue = areQueue.getQueue(AreMessageType.CHUNK_SETUP, currentBatch);
+		if (queue != null) {
+		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+			setupChunk(msg);
+			worked = true;
+		    }
+		    areQueue.finishBatch(AreMessageType.CHUNK_SETUP, currentBatch);
 		}
 
-		for (AreMessage msg = loadQueue.poll(); msg != null; msg = loadQueue.poll()) {
-		    loadChunk(msg);
-		    worked = true;
+		queue = areQueue.getQueue(AreMessageType.CHUNK_LOAD, currentBatch);
+		if (queue != null) {
+		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+			loadChunk(msg);
+		    }
+		    areQueue.finishBatch(AreMessageType.CHUNK_LOAD, currentBatch);
 		}
 
-		for (AreMessage msg = updateQueue.poll(); msg != null; msg = updateQueue.poll()) {
-		    updateChunk(msg);
-		    worked = true;
+		queue = areQueue.getQueue(AreMessageType.CHUNK_UPDATE, currentBatch);
+		if (queue != null) {
+		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+			updateChunk(msg);
+		    }
+		    areQueue.finishBatch(AreMessageType.CHUNK_UPDATE, currentBatch);
 		}
+
 		if (worked) {
-		    System.out.println("Wasted permit...");
+		    processNow(currentBatch);
 		}
+
+		renderBatchQueue.offer(currentBatch);
 	    } catch (InterruptedException ex) {
 		break;
 	    }
 	}
 
 	worker.interrupt();
-    }
-
-    public int getChunkQueueSize() {
-	return loadQueue.size() + setupQueue.size();
-    }
-
-    public int getAttachQueueSize() {
-	return attachQueue.size();
     }
 
     private void unloadChunk(AreMessage message) {
@@ -166,6 +165,7 @@ public class Are extends Thread {
 	    } else {
 		message.setType(AreMessageType.CHUNK_UNLOAD);
 	    }
+	    message.setBatch(currentBatch);
 	    postMessage(message);
 	} catch (Exception ex) {
 	    ex.printStackTrace();
@@ -209,18 +209,19 @@ public class Are extends Thread {
     }
 
     public void init() {
+	int batch = areQueue.nextBatch();
 	for (int x = 0; x < WIDTH; x++) {
 	    for (int y = 0; y < HEIGHT; y++) {
 		for (int z = 0; z < LENGTH; z++) {
 		    Vec3 v = new Vec3(x, y, z);
 		    Chunk c = new Chunk(this, v);
 		    set(v, c);
-		    postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 		}
 	    }
 	}
 	inited = true;
-	process();
+	process(batch);
     }
 
     public boolean isMoving() {
@@ -281,24 +282,27 @@ public class Are extends Thread {
 
 	position.add(direction);
 
+	int batch = areQueue.nextBatch();
+
 	if (direction.getX() > 0) {
-	    moveRight();
+	    moveRight(batch);
 	} else if (direction.getX() < 0) {
-	    moveLeft();
+	    moveLeft(batch);
 	}
 
 	if (direction.getY() > 0) {
-	    moveUp();
+	    moveUp(batch);
 	} else if (direction.getY() < 0) {
-	    moveDown();
+	    moveDown(batch);
 	}
 
 	if (direction.getZ() > 0) {
-	    moveFront();
+	    moveFront(batch);
 	} else if (direction.getZ() < 0) {
-	    moveBack();
+	    moveBack(batch);
 	}
 
+	process(batch);
 	moving = false;
     }
 
@@ -307,7 +311,7 @@ public class Are extends Thread {
      * position is the LEFT, BOTTOM, Back cornder, we need to remove the 0 X axis chunks and create a new one at
      * DATA_WIDTH + 1 X axis.
      */
-    private void moveRight() {
+    private void moveRight(int batch) {
 	int boundBegin = 0;
 	int boundEnd = WIDTH - 1;
 	for (int y = 0; y < HEIGHT; y++) {
@@ -315,32 +319,32 @@ public class Are extends Thread {
 		//Remove the left most and detach it from scene.
 		Chunk c = get(position.copy().add(boundBegin - 1, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c, batch));
 		}
 
 		//Reload chunk at new left border.
 		c = get(position.copy().add(boundBegin, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 
 		//Add new chunks at right most of Are.
 		Vec3 v = position.copy().add(boundEnd, y, z);
 		c = new Chunk(this, v);
 		set(v, c);
-		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 
 		//Reload the previous right border.
 		c = get(position.copy().add(boundEnd - 1, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 	    }
 	}
     }
 
-    private void moveLeft() {
+    private void moveLeft(int batch) {
 	int boundBegin = WIDTH - 1;
 	int boundEnd = 0;
 	for (int y = 0; y < HEIGHT; y++) {
@@ -348,32 +352,32 @@ public class Are extends Thread {
 		//Remove the left most and detach it from scene.
 		Chunk c = get(position.copy().add(boundBegin + 1, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c, batch));
 		}
 
 		//Reload chunk at new left border.
 		c = get(position.copy().add(boundBegin, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 
 		//Add new chunks at right most of Are.
 		Vec3 v = position.copy().add(boundEnd, y, z);
 		c = new Chunk(this, v);
 		set(v, c);
-		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 
 		//Reload the previous right border.
 		c = get(position.copy().add(boundEnd + 1, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 	    }
 	}
     }
 
-    private void moveFront() {
+    private void moveFront(int batch) {
 	int boundBegin = 0;
 	int boundEnd = LENGTH - 1;
 	for (int y = 0; y < HEIGHT; y++) {
@@ -381,32 +385,32 @@ public class Are extends Thread {
 		//Remove the back most and detach it from scene.
 		Chunk c = get(position.copy().add(x, y, boundBegin - 1));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c, batch));
 		}
 
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, y, boundBegin));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
 		Vec3 v = position.copy().add(x, y, boundEnd);
 		c = new Chunk(this, v);
 		set(v, c);
-		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 
 		//Reload the previous front border.
 		c = get(position.copy().add(x, y, boundEnd - 1));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 	    }
 	}
     }
 
-    private void moveBack() {
+    private void moveBack(int batch) {
 	int boundBegin = LENGTH - 1;
 	int boundEnd = 0;
 	for (int y = 0; y < HEIGHT; y++) {
@@ -414,32 +418,32 @@ public class Are extends Thread {
 		//Remove the back most and detach it from scene.
 		Chunk c = get(position.copy().add(x, y, boundBegin + 1));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c, batch));
 		}
 
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, y, boundBegin));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
 		Vec3 v = position.copy().add(x, y, boundEnd);
 		c = new Chunk(this, v);
 		set(v, c);
-		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 
 		//Reload the previous front border.
 		c = get(position.copy().add(x, y, boundEnd + 1));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 	    }
 	}
     }
 
-    private void moveUp() {
+    private void moveUp(int batch) {
 	int boundBegin = 0;
 	int boundEnd = HEIGHT - 1;
 	for (int x = 0; x < WIDTH; x++) {
@@ -447,32 +451,32 @@ public class Are extends Thread {
 		//Remove the back most and detach it from scene.
 		Chunk c = get(position.copy().add(x, boundBegin - 1, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c, batch));
 		}
 
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, boundBegin, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
 		Vec3 v = position.copy().add(x, boundEnd, z);
 		c = new Chunk(this, v);
 		set(v, c);
-		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 
 		//Reload the previous front border.
 		c = get(position.copy().add(x, boundEnd - 1, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 	    }
 	}
     }
 
-    private void moveDown() {
+    private void moveDown(int batch) {
 	int boundBegin = HEIGHT - 1;
 	int boundEnd = 0;
 	for (int x = 0; x < WIDTH; x++) {
@@ -480,26 +484,26 @@ public class Are extends Thread {
 		//Remove the back most and detach it from scene.
 		Chunk c = get(position.copy().add(x, boundBegin + 1, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c));
-		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UNLOAD, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_DETACH, c, batch));
 		}
 
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, boundBegin, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
 		Vec3 v = position.copy().add(x, boundEnd, z);
 		c = new Chunk(this, v);
 		set(v, c);
-		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c));
+		postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 
 		//Reload the previous front border.
 		c = get(position.copy().add(x, boundEnd + 1, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
 		}
 	    }
 	}
@@ -514,27 +518,17 @@ public class Are extends Thread {
     public void postMessage(AreMessage message) {
 	switch (message.getType()) {
 	    case CHUNK_DETACH: {
-		detachQueue.offer(message);
-		break;
 	    }
 	    case CHUNK_SETUP: {
-		setupQueue.offer(message);
-		break;
 	    }
 	    case CHUNK_LOAD: {
-		loadQueue.offer(message);
-		break;
 	    }
 	    case CHUNK_UNLOAD: {
-		unloadQueue.offer(message);
-		break;
 	    }
 	    case CHUNK_UPDATE: {
-		updateQueue.offer(message);
-		break;
 	    }
 	    case CHUNK_ATTACH: {
-		attachQueue.offer(message);
+		areQueue.queue(message);
 		break;
 	    }
 	    default: {
@@ -543,9 +537,12 @@ public class Are extends Thread {
 	}
     }
 
-    public void process() {
-	semaphore.release();
-//	permitCount = 0;
+    public void process(int batch) {
+	processBatchQueue.offer(batch);
+    }
+
+    private void processNow(int batch) {
+	processBatchQueue.offerFirst(batch);
     }
 
     public Vec3 getPosition() {
@@ -554,5 +551,27 @@ public class Are extends Thread {
 
     public Vec3 setPosition(int x, int y, int z) {
 	return position = new Vec3(x, y, z);
+    }
+
+    public ConcurrentLinkedQueue<AreMessage> getAttachQueue(Integer batch) {
+	return areQueue.getQueue(AreMessageType.CHUNK_ATTACH, batch);
+    }
+
+    public ConcurrentLinkedQueue<AreMessage> getDetachQueue(Integer batch) {
+	return areQueue.getQueue(AreMessageType.CHUNK_DETACH, batch);
+    }
+
+    public void finishBatch(AreMessage.AreMessageType type, Integer batch) {
+	areQueue.finishBatch(type, batch);
+    }
+
+    public float getChunkQueueSize() {
+	int size = areQueue.getQueueSize(AreMessageType.CHUNK_SETUP);
+	size += areQueue.getQueueSize(AreMessageType.CHUNK_LOAD);
+	return size;
+    }
+
+    public float getAttachQueueSize() {
+	return areQueue.getQueueSize(AreMessageType.CHUNK_ATTACH);
     }
 }
