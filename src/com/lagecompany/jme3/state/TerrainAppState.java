@@ -226,6 +226,7 @@ public class TerrainAppState extends AbstractAppState {
 
 	if (rigidBodyControl == null) {
 	    rigidBodyControl = new RigidBodyControl(collisionShape, 0);
+	    rigidBodyControl.setFriction(1f);
 	    geometry.addControl(rigidBodyControl);
 	    physicsSpace.add(rigidBodyControl);
 	} else {

@@ -5,7 +5,6 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.bullet.BulletAppState;
-import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.light.AmbientLight;
@@ -16,6 +15,7 @@ import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.lagecompany.jme3.control.CameraFollowControl;
+import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
 
 /**
@@ -69,7 +69,7 @@ public class WorldAppState extends AbstractAppState {
 	playerNode = new Node("Player Node");
 
 	//Add Physics to our node.
-	BetterCharacterControl characterControl = new BetterCharacterControl(0.5f, 1.8f, 60f);
+	PlayerControl characterControl = new PlayerControl(0.25f, 3f, 120f);
 	bulletState.getPhysicsSpace().add(characterControl);
 	playerNode.addControl(characterControl);
 

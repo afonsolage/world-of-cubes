@@ -5,7 +5,7 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
-import com.jme3.bullet.control.BetterCharacterControl;
+import com.jme3.bullet.BulletAppState;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
@@ -26,6 +26,7 @@ import com.jme3.scene.debug.Grid;
 import com.jme3.scene.shape.Box;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.AreFollowControl;
+import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
 import com.lagecompany.nifty.gui.DebugScreen;
 
@@ -37,11 +38,12 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private AssetManager assetManager;
     private InputManager inputManager;
     private FlyByCamera flyCam;
-    private BetterCharacterControl characterController;
+    private PlayerControl characterController;
     private CameraMan cameraMan;
     private DebugScreen debugScreen;
     private CameraFollowControl followControl;
     private AreFollowControl translateControl;
+    private BulletAppState bulletState;
     public static boolean wireframe;
     public static boolean backfaceCulled;
     public static boolean axisArrowsEnabled;
@@ -58,7 +60,8 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
 	cameraMan = stateManager.getState(WorldAppState.class).getCameraMan();
-	characterController = playerNode.getControl(BetterCharacterControl.class);
+	bulletState = stateManager.getState(BulletAppState.class);
+	characterController = playerNode.getControl(PlayerControl.class);
 	followControl = playerNode.getControl(CameraFollowControl.class);
 	translateControl = playerNode.getControl(AreFollowControl.class);
 
@@ -67,7 +70,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	axisArrowsEnabled = false;
 	playerFollow = false;
 
-	showPlayerNode();
+	//showPlayerNode();
 
 	this.bindKeys();
 	this.initGUI();
@@ -245,12 +248,12 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void showPlayerNode() {
-	Box b = new Box(0.25f, 0.9f, 0.25f);
+	Box b = new Box(0.25f, 1.5f, 0.25f);
 	Geometry geom = new Geometry("PlayerNode Box", b);
 	Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
 	mat.setColor("Color", ColorRGBA.DarkGray);
 	geom.setMaterial(mat);
 	playerNode.attachChild(geom);
-	geom.move(0, 1f, 0);
+	geom.move(0, 1.5f, 0);
     }
 }

@@ -1,6 +1,5 @@
 package com.lagecompany.jme3.control;
 
-import com.jme3.bullet.control.BetterCharacterControl;
 import com.jme3.input.InputManager;
 import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.AnalogListener;
@@ -30,13 +29,14 @@ import static com.lagecompany.jme3.manager.CameraMan.PLAYER_NODE_StrafeRight;
  * @author Afonso Lage
  */
 public class CameraFollowControl extends AbstractControl implements ActionListener, AnalogListener {
-
+    
+    public static float PLAYER_HEIGHT = 3f;
     private Camera cam;
     private Vector3f camDir;
     private Vector3f camLeft;
     private Vector3f walkDir;
     private Node playerNode;
-    private BetterCharacterControl playerControl;
+    private PlayerControl playerControl;
     private InputManager inputManager;
     private int leftRight;
     private int backFront;
@@ -65,8 +65,7 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
     public void setSpatial(Spatial spatial) {
 	super.setSpatial(spatial);
 	this.playerNode = (Node) spatial;
-	this.playerControl = playerNode.getControl(BetterCharacterControl.class);
-	playerControl.setPhysicsDamping(0);
+	this.playerControl = playerNode.getControl(PlayerControl.class);
     }
 
     /**
@@ -77,7 +76,7 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
     @Override
     public void setEnabled(boolean enabled) {
 	super.setEnabled(enabled);
-
+	
 	if (enabled) {
 	    cam.lookAtDirection(playerControl.getViewDirection(), Vector3f.UNIT_Y);
 	    inputManager.setCursorVisible(true);
@@ -94,31 +93,35 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
 	//Get the looking direction of camera, to move our player on this direction.
 	camDir.set(cam.getDirection()).multLocal(1f, 0f, 1f);
 	camLeft.set(cam.getLeft()).multLocal(1f);
-
+	
 	walkDir.set(0, 0, 0);
 	if (leftRight > 0) {
 	    walkDir.addLocal(camLeft.negate());
 	} else if (leftRight < 0) {
 	    walkDir.addLocal(camLeft);
 	}
-
+	
 	if (backFront > 0) {
 	    walkDir.addLocal(camDir.negate());
 	} else if (backFront < 0) {
 	    walkDir.addLocal(camDir);
 	}
-
+	
 	if (jump && playerControl.isOnGround()) {
 	    playerControl.jump();
 	    jump = false;
 	}
 
 	//TODO: Configure the walk speed and add run speed.
-	playerControl.setWalkDirection(walkDir.multLocal(2f));
+	if (walkDir.equals(Vector3f.ZERO)) {
+	    playerControl.setWalkDirection(walkDir.normalizeLocal(), 0f);
+	} else {
+	    playerControl.setWalkDirection(walkDir.normalizeLocal(), 4f);
+	}
 	playerControl.setViewDirection(camDir);
 
 	//Set the camera location the same as player, plus 1.8f to match the head of player.
-	cam.setLocation(spatial.getLocalTranslation().add(0f, 1.8f, 0f));
+	cam.setLocation(spatial.getLocalTranslation().add(0f, PLAYER_HEIGHT, 0f));
     }
 
     /**
@@ -195,24 +198,24 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
      */
     private void rotateCamera(float value, Vector3f axis) {
 	Matrix3f mat = new Matrix3f();
-	
+
 	//TODO: Add camera move speed configuration.
 	mat.fromAngleNormalAxis(value * 2f, axis);
-
+	
 	Vector3f up = cam.getUp();
 	Vector3f left = cam.getLeft();
 	Vector3f dir = cam.getDirection();
-
+	
 	mat.mult(up, up);
 	mat.mult(left, left);
 	mat.mult(dir, dir);
-
+	
 	Quaternion q = new Quaternion();
 	q.fromAxes(left, up, dir);
 	q.normalizeLocal();
 	cam.setAxes(q);
     }
-
+    
     @Override
     protected void controlRender(RenderManager rm, ViewPort vp) {
     }
