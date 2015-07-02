@@ -250,6 +250,82 @@ public class Are extends Thread {
 	return c.get(x, y, z);
     }
 
+    protected void updateVoxel(int x, int y, int z, Voxel v) {
+	int chunkX = x / Chunk.WIDTH;
+	int chunkY = y / Chunk.HEIGHT;
+	int chunkZ = z / Chunk.LENGTH;
+
+	Chunk c = get(chunkX, chunkY, chunkZ);
+
+	if (c == null) {
+	    return;
+	}
+
+	int voxelX = x % Chunk.WIDTH;
+	int voxelY = y % Chunk.HEIGHT;
+	int voxelZ = z % Chunk.LENGTH;
+
+	c.lock();
+	Voxel vo = c.get(voxelX, voxelY, voxelZ);
+	c.set(voxelX, voxelY, voxelZ, v);
+	c.unlock();
+
+	int batch = areQueue.nextBatch();
+	postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+
+	updateNeighborhood(chunkX, chunkY, chunkZ, batch);
+
+	process(batch);
+    }
+
+    public void updateNeighborhood(Vec3 v, int batch) {
+	updateNeighborhood(v.getX(), v.getY(), v.getZ(), batch);
+    }
+
+    public void updateNeighborhood(int x, int y, int z, int batch) {
+	Chunk c = get(x - 1, y, z);
+	{
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	    }
+	}
+
+	c = get(x + 1, y, z);
+	{
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	    }
+	}
+
+	c = get(x, y - 1, z);
+	{
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	    }
+	}
+
+	c = get(x, y + 1, z);
+	{
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	    }
+	}
+
+	c = get(x, y, z - 1);
+	{
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	    }
+	}
+
+	c = get(x, y, z + 1);
+	{
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	    }
+	}
+    }
+
     public Chunk get(int x, int y, int z) {
 	Vec3 v = new Vec3(x, y, z);
 	return get(v);
@@ -515,6 +591,15 @@ public class Are extends Thread {
 		chunkPosition.getZ() * Chunk.LENGTH - (DATA_LENGHT / 2));
     }
 
+    public Vec3 getRelativePosition(Vec3 chunkPosition) {
+	return getRelativePosition(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
+    }
+
+    public Vec3 getRelativePosition(int x, int y, int z) {
+	//TODO: Add "y + (DATA_HEIGHT / 2)"
+	return new Vec3(x + (DATA_WIDTH / 2), y + (8 * Chunk.HEIGHT), (z + (DATA_LENGHT / 2)));
+    }
+
     public void postMessage(AreMessage message) {
 	switch (message.getType()) {
 	    case CHUNK_DETACH: {
@@ -573,5 +658,13 @@ public class Are extends Thread {
 
     public float getAttachQueueSize() {
 	return areQueue.getQueueSize(AreMessageType.CHUNK_ATTACH);
+    }
+
+    public void setVoxel(Vec3 v, short type) {
+	if (type == Voxel.VT_NONE) {
+	    updateVoxel(v.getX(), v.getY(), v.getZ(), null);
+	} else {
+	    updateVoxel(v.getX(), v.getY(), v.getZ(), new Voxel(type));
+	}
     }
 }

@@ -49,9 +49,10 @@ public class WorldAppState extends AbstractAppState {
 	this.flyCam = app.getFlyByCamera();
 	this.cam = app.getCamera();
 	this.bulletState = stateManager.getState(BulletAppState.class);
-
+	app.getViewPort().setBackgroundColor(new ColorRGBA(0.5294f, 0.8078f, 0.9215f, 1f));
+	
 	inputManager.setCursorVisible(true);
-	rootNode.setCullHint(Spatial.CullHint.Never); //TODO: Fix frustum culling.
+//	rootNode.setCullHint(Spatial.CullHint.Never); //TODO: Fix frustum culling.
 
 
 	//Create some lights.

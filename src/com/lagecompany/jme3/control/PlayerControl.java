@@ -196,7 +196,7 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
 	rigidBody.setLinearVelocity(velocity);
 
 
-	if (isOnGround()) {
+	if (isOnGround() && !sloping) {
 	    float slopeImpulse = getSlopeImpulse();
 	    if (slopeImpulse > 0) {
 		sloping = true;
@@ -520,15 +520,15 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
     protected boolean canSlopeIn() {
 	//TempVars is a utility class to avoid instantiating variables on loops;
 	TempVars vars = TempVars.get();
-	Vector3f location = vars.vect1;
+	Vector3f loc = vars.vect1;
 	Vector3f rayVector = vars.vect2;
 	float rad = getFinalRadius();
 	//Calculate the current location of player.
-	location.set(location).addLocal(0, maxSlope, 0);
+	loc.set(loc).addLocal(0, maxSlope, 0);
 	//Calculate the direction of ground based on player location.
-	rayVector.set(location).addLocal(walkDirection.normalize().multLocal(rad + 0.5f));
+	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 0.5f));
 	//Use a PhysicsRay to check if the palyer is grounded.
-	List<PhysicsRayTestResult> results = space.rayTest(location, rayVector);
+	List<PhysicsRayTestResult> results = space.rayTest(loc, rayVector);
 	vars.release();
 	for (PhysicsRayTestResult physicsRayTestResult : results) {
 	    //It it hit's something instead of it self, it is grounded.

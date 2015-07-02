@@ -113,13 +113,17 @@ public class Vec3 {
 	return this;
     }
 
-    public Vec3 subtract(Vec3 v) {
-	this.x -= v.x;
-	this.y -= v.y;
-	this.z -= v.z;
+    public Vec3 subtract(int x, int y, int z) {
+	this.x -= x;
+	this.y -= y;
+	this.z -= z;
 
 	updateHashCode();
 	return this;
+    }
+
+    public Vec3 subtract(Vec3 v) {
+	return subtract(v.getX(), v.getY(), v.getZ());
     }
 
     public Vec3 copy() {

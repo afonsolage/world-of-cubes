@@ -1,11 +1,14 @@
 package com.lagecompany.jme3.manager;
 
+import com.jme3.collision.CollisionResults;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.MouseAxisTrigger;
+import com.jme3.math.Ray;
+import com.jme3.renderer.Camera;
 import com.lagecompany.jme3.control.CameraFollowControl;
 
 /**

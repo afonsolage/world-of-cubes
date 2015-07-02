@@ -5,6 +5,7 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
+import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
@@ -19,6 +20,7 @@ import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
+import com.jme3.texture.Texture;
 import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
@@ -70,13 +72,15 @@ public class TerrainAppState extends AbstractAppState {
 	initMaterials();
 
 	node = new Node("Chunks Node");
-	rootNode.attachChild(node);
 
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
 	playerNode.addControl(new AreFollowControl());
 
 	Vector3f playerPosition = playerNode.getLocalTranslation();
 	node.setLocalTranslation(playerPosition);
+	rootNode.attachChild(node);
+
+
 	are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
 	are.init();
 	are.start();
@@ -110,16 +114,18 @@ public class TerrainAppState extends AbstractAppState {
     private void initMaterials() {
 	//TODO: Add texture atlas and a better Material management.
 	defaultMat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
-//	Texture texture = assetManager.loadTexture("Textures/Elements/rock.jpg");
-//	texture.setWrap(Texture.WrapMode.Repeat);
-//	defaultMat.setTexture("DiffuseMap", texture);
-//
+
+	Texture texture = assetManager.loadTexture("Textures/Elements/grass.png");
+	defaultMat.setTexture("DiffuseMap", texture);
+
 //	texture = assetManager.loadTexture("Textures/Elements/rock-norm.jpg");
-//	texture.setWrap(Texture.WrapMode.Repeat);
 //	defaultMat.setTexture("NormalMap", texture);
 
+	defaultMat.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Repeat);
+	//defaultMat.getTextureParam("NormalMap").getTextureValue().setWrap(Texture.WrapMode.Repeat);
+
 	defaultMat.setColor("Ambient", ColorRGBA.White);
-	defaultMat.setColor("Diffuse", ColorRGBA.Gray);
+	defaultMat.setColor("Diffuse", ColorRGBA.White);
 	defaultMat.setColor("Specular", ColorRGBA.White);
 	defaultMat.setFloat("Shininess", 0f);
 	defaultMat.setBoolean("UseMaterialColors", true);
@@ -209,11 +215,13 @@ public class TerrainAppState extends AbstractAppState {
 	    mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
 	    mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
 	    mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
+	    mesh.updateBound();
 	} finally {
 	    c.unlock();
 	}
 	geometry.setMesh(mesh);
 	geometry.setMaterial(defaultMat);
+	geometry.updateModelBound();
 
 	Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
 	geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());

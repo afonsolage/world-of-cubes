@@ -290,15 +290,42 @@ public class Chunk {
 
 	float[] r = new float[vertexCount * 2]; //Each vertex needs a UV text coord;
 
-	for (int i = 0; i < r.length;) {
-	    r[i++] = 1;
-	    r[i++] = 0;
-	    r[i++] = 0;
-	    r[i++] = 0;
-	    r[i++] = 0;
-	    r[i++] = 1;
-	    r[i++] = 1;
-	    r[i++] = 1;
+	Vec3 v1 = new Vec3();
+	Vec3 v2 = new Vec3();
+	Vec3 v3 = new Vec3();
+	Vec3 v4 = new Vec3();
+
+	int xTile = 0;
+	int yTile = 0;
+
+	for (int i = 0, j = 0; i < buffer.length;) {
+	    v1.setX((int) buffer[i++]);
+	    v1.setY((int) buffer[i++]);
+	    v1.setZ((int) buffer[i++]);
+
+	    v2.setX((int) buffer[i++]);
+	    v2.setY((int) buffer[i++]);
+	    v2.setZ((int) buffer[i++]);
+
+	    v3.setX((int) buffer[i++]);
+	    v3.setY((int) buffer[i++]);
+	    v3.setZ((int) buffer[i++]);
+
+	    v4.setX((int) buffer[i++]);
+	    v4.setY((int) buffer[i++]);
+	    v4.setZ((int) buffer[i++]);
+
+	    xTile = Math.abs(v1.getX() - v2.getX()) + Math.abs(v1.getY() - v2.getY()) + Math.abs(v1.getZ() - v2.getZ());
+	    yTile = Math.abs(v1.getX() - v4.getX()) + Math.abs(v1.getY() - v4.getY()) + Math.abs(v1.getZ() - v4.getZ());
+
+	    r[j++] = xTile;
+	    r[j++] = 0;
+	    r[j++] = 0;
+	    r[j++] = 0;
+	    r[j++] = 0;
+	    r[j++] = yTile;
+	    r[j++] = xTile;
+	    r[j++] = yTile;
 	}
 
 	return r;

@@ -6,6 +6,11 @@ import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
 import com.jme3.bullet.BulletAppState;
+import com.jme3.bullet.PhysicsSpace;
+import com.jme3.bullet.debug.BulletDebugAppState;
+import com.jme3.collision.CollisionResult;
+import com.jme3.collision.CollisionResults;
+import com.jme3.font.BitmapText;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
@@ -14,41 +19,58 @@ import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.AnalogListener;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.MouseAxisTrigger;
+import com.jme3.input.controls.MouseButtonTrigger;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.FastMath;
+import com.jme3.math.Ray;
 import com.jme3.math.Vector3f;
+import com.jme3.renderer.Camera;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.debug.Arrow;
 import com.jme3.scene.debug.Grid;
 import com.jme3.scene.shape.Box;
+import com.jme3.scene.shape.Sphere;
+import com.jme3.system.AppSettings;
+import com.jme3.ui.Picture;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
 import com.lagecompany.nifty.gui.DebugScreen;
+import com.lagecompany.storage.Are;
+import com.lagecompany.storage.Chunk;
+import com.lagecompany.storage.Vec3;
+import com.lagecompany.storage.Voxel;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {
-
+    
     private SimpleApplication app;
     private Node rootNode;
     private Node playerNode;
+    private Node guiNode;
+    private Are are;
     private AssetManager assetManager;
     private InputManager inputManager;
     private FlyByCamera flyCam;
     private PlayerControl characterController;
     private CameraMan cameraMan;
+    private Camera cam;
     private DebugScreen debugScreen;
     private CameraFollowControl followControl;
     private AreFollowControl translateControl;
     private BulletAppState bulletState;
+    private PhysicsSpace physicsSpace;
+    private AppSettings settings;
+    private Node compass;
     public static boolean wireframe;
     public static boolean backfaceCulled;
     public static boolean axisArrowsEnabled;
     public static boolean playerFollow;
-
+    
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
 	super.initialize(stateManager, application);
@@ -57,30 +79,41 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	this.inputManager = app.getInputManager();
 	this.assetManager = app.getAssetManager();
 	this.flyCam = app.getFlyByCamera();
-
+	this.settings = app.getContext().getSettings();
+	this.guiNode = app.getGuiNode();
+	this.cam = app.getCamera();
+	
 	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
 	cameraMan = stateManager.getState(WorldAppState.class).getCameraMan();
 	bulletState = stateManager.getState(BulletAppState.class);
+	physicsSpace = bulletState.getPhysicsSpace();
+	stateManager.attach(new BulletDebugAppState(physicsSpace));
 	characterController = playerNode.getControl(PlayerControl.class);
 	followControl = playerNode.getControl(CameraFollowControl.class);
 	translateControl = playerNode.getControl(AreFollowControl.class);
-
+	
+	are = Are.getInstance();
+	
 	wireframe = false;
 	backfaceCulled = false;
 	axisArrowsEnabled = false;
 	playerFollow = false;
-
-	//showPlayerNode();
-
+	
+	showPlayerNode();
+	showAim();
+	createCompass();
+	
 	this.bindKeys();
 	this.initGUI();
     }
-
+    
     @Override
     public void update(float tpf) {
+	compass.setLocalRotation(cam.getRotation());
+	compass.rotate(0, FastMath.DEG_TO_RAD * 180, 0);
 	updateGUI();
     }
-
+    
     private void bindKeys() {
 	inputManager.addMapping("TOGGLE_WIREFRAME", new KeyTrigger(KeyInput.KEY_F1));
 	inputManager.addMapping("TOGGLE_CURSOR", new KeyTrigger(KeyInput.KEY_F2));
@@ -89,15 +122,18 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	inputManager.addMapping("UPDATE_GUI", new KeyTrigger(KeyInput.KEY_F6));
 	inputManager.addMapping("CUSTOM_FUNCTION", new KeyTrigger(KeyInput.KEY_F7));
 	inputManager.addMapping("TOGGLE_CAM_VIEW", new KeyTrigger(KeyInput.KEY_TAB));
-
+	inputManager.addMapping("SET_VOXEL", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
+	inputManager.addMapping("REMOVE_VOXEL", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
+	
 	inputManager.addMapping("MOVESPEED_UP", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
 	inputManager.addMapping("MOVESPEED_DOWN", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
-
+	
 	inputManager.addListener(this, "TOGGLE_WIREFRAME", "TOGGLE_CURSOR", "TOGGLE_CULLING", "TOGGLE_AXISARROWS",
-		"MOVESPEED_UP", "MOVESPEED_DOWN", "UPDATE_GUI", "CUSTOM_FUNCTION", "TOGGLE_CAM_VIEW");
-
+		"MOVESPEED_UP", "MOVESPEED_DOWN", "UPDATE_GUI", "CUSTOM_FUNCTION", "TOGGLE_CAM_VIEW", "SET_VOXEL",
+		"REMOVE_VOXEL");
+	
     }
-
+    
     @Override
     public void onAction(String name, boolean isPressed, float tpf) {
 	if ("TOGGLE_WIREFRAME".equals(name) && !isPressed) {
@@ -116,9 +152,14 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	    toggleCamView();
 	} else if ("CUSTOM_FUNCTION".equals(name) && !isPressed) {
 	    //customFunction();
+	} else if ("REMOVE_VOXEL".equals(name) && !isPressed) {
+	    cursorPicking(true);
+	} else if ("SET_VOXEL".equals(name) && !isPressed) {
+	    cursorPicking(false);
 	}
+	
     }
-
+    
     @Override
     public void onAnalog(String name, float value, float tpf) {
 	switch (name) {
@@ -131,129 +172,232 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 		break;
 	    }
 	}
-
+	
     }
-
+    
     private void toggleWireframe(Node node, boolean enabled) {
 	for (Spatial spatial : node.getChildren()) {
 	    if (spatial instanceof Geometry) {
 		Geometry geometry = (Geometry) spatial;
-
+		
 		geometry.getMaterial().getAdditionalRenderState().setWireframe(enabled);
 	    } else if (spatial instanceof Node) {
 		toggleWireframe((Node) spatial, enabled);
 	    }
 	}
     }
-
+    
     private void toggleCursor() {
 	boolean isEnabled = inputManager.isCursorVisible();
-
+	
 	isEnabled = !isEnabled;
-
+	
 	inputManager.setCursorVisible(isEnabled);
     }
-
+    
     private void toggleBackfaceCulling(Node node) {
 	for (Spatial spatial : node.getChildren()) {
 	    if (spatial instanceof Geometry) {
 		Geometry geometry = (Geometry) spatial;
-
+		
 		if (backfaceCulled) {
 		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
 		} else {
 		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
 		}
-
+		
 	    } else if (spatial instanceof Node) {
 		toggleBackfaceCulling((Node) spatial);
 	    }
 	}
     }
-
+    
     private void toggleAxisArrows() {
 	if (axisArrowsEnabled) {
 	    for (Spatial spatial : rootNode.getChildren()) {
-		if (spatial instanceof Geometry && spatial.getName().equals("Axis Arrow")) {
+		if (spatial instanceof Geometry && spatial.getName().equals("Grid")) {
 		    rootNode.detachChild(spatial);
 		}
 	    }
 	} else {
-	    Arrow arrow = new Arrow(Vector3f.UNIT_X);
-	    arrow.setLineWidth(4);
-	    attachArrow(arrow, ColorRGBA.Blue);
-
-	    arrow = new Arrow(Vector3f.UNIT_Y);
-	    arrow.setLineWidth(4);
-	    attachArrow(arrow, ColorRGBA.Green);
-
-	    arrow = new Arrow(Vector3f.UNIT_Z);
-	    arrow.setLineWidth(4);
-	    attachArrow(arrow, ColorRGBA.Red);
-
 	    attachGrid();
 	}
-
+	
 	axisArrowsEnabled = !axisArrowsEnabled;
     }
-
+    
     private void attachGrid() {
-	Geometry g = new Geometry("Axis Arrow", new Grid(200, 200, 1f));
+	Geometry g = new Geometry("Grid", new Grid(200, 200, 1f));
 	Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
 	mat.setColor("Color", ColorRGBA.DarkGray);
 	g.setMaterial(mat);
 	g.setLocalTranslation(new Vector3f(-100, 0, -100));
 	rootNode.attachChild(g);
     }
-
-    private void attachArrow(Arrow arrow, ColorRGBA color) {
-	Geometry g = new Geometry("Axis Arrow", arrow);
-	Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
-	mat.setColor("Color", color);
-	g.setMaterial(mat);
-	g.setLocalTranslation(Vector3f.ZERO);
-	rootNode.attachChild(g);
-    }
-
+    
     private void speedUpMove(float value) {
 	float speed = flyCam.getMoveSpeed() + value;
 	flyCam.setMoveSpeed(speed);
     }
-
+    
     private void speedDownMove(float value) {
 	float speed = flyCam.getMoveSpeed() - value;
 	flyCam.setMoveSpeed((speed < 2f) ? 2f : speed); //Minimum walk speed.
     }
-
+    
     private void toggleCamView() {
 	playerFollow = !playerFollow;
-
+	
 	characterController.setEnabled(playerFollow);
 	cameraMan.toggleCam(playerFollow);
     }
-
+    
     private void initGUI() {
 	debugScreen = new DebugScreen();
 	debugScreen.create();
 	debugScreen.display();
     }
-
+    
     private void updateGUI() {
 	debugScreen.setPlayerArePosition(translateControl.getArePosition().toString());
 	debugScreen.setPlayerPosition(translateControl.getPlayerPosition().toString());
     }
-
+    
     private void customFunction() {
 	//
     }
-
+    
     private void showPlayerNode() {
 	Box b = new Box(0.25f, 1.5f, 0.25f);
 	Geometry geom = new Geometry("PlayerNode Box", b);
 	Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
 	mat.setColor("Color", ColorRGBA.DarkGray);
 	geom.setMaterial(mat);
+	geom.setUserData("skipRayCast", true);
 	playerNode.attachChild(geom);
 	geom.move(0, 1.5f, 0);
+    }
+    
+    private void showAim() {
+	Picture pic = new Picture("Crosshair");
+	pic.setImage(assetManager, "Interface/Icons/crosshair.png", true);
+	pic.setWidth(30);
+	pic.setHeight(30);
+	pic.setPosition((settings.getWidth() / 2) - 15, (settings.getHeight() / 2) - 15);
+	guiNode.attachChild(pic);
+    }
+    
+    private void cursorPicking(boolean remove) {
+	CollisionResults results = new CollisionResults();
+	
+	Ray ray = new Ray(cam.getLocation(), cam.getDirection());
+	rootNode.collideWith(ray, results);
+	
+	CollisionResult collision = null;
+	for (CollisionResult result : results) {
+	    if (result.getGeometry().getUserData("skipRayCast") != null) {
+		continue;
+	    }
+	    collision = result;
+	    break;
+	}
+	
+	if (collision == null) {
+	    return;
+	}
+	
+	Vector3f point;
+	short type;
+	if (remove) {
+	    point = collision
+		    .getContactPoint()
+		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.HEIGHT), (Are.DATA_LENGHT / 2))
+		    .subtractLocal(collision.getContactNormal().mult(0.5f));
+	    type = Voxel.VT_NONE;
+	} else {
+	    point = collision
+		    .getContactPoint()
+		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.HEIGHT), (Are.DATA_LENGHT / 2))
+		    .addLocal(collision.getContactNormal().mult(0.5f));
+	    type = Voxel.VT_ROCK;
+	    
+	}
+	Vec3 v = new Vec3((int) point.x, (int) point.y, (int) point.z);
+	are.setVoxel(v, type);
+	
+    }
+    
+    public void showPoint(Vector3f p, ColorRGBA color) {
+	Sphere point = new Sphere(10, 10, 0.03f);
+	Geometry geoPoint = new Geometry("DebugCollisionPoint", point);
+	
+	Material matPoint = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	matPoint.setColor("Color", color);
+	geoPoint.setMaterial(matPoint);
+	
+	geoPoint.setLocalTranslation(p);
+	
+	rootNode.attachChild(geoPoint);
+    }
+    
+    public void showCollisingPoint(CollisionResult collision, ColorRGBA color) {
+	Sphere point = new Sphere(10, 10, 0.03f);
+	Geometry geoPoint = new Geometry("DebugCollisionPoint", point);
+	geoPoint.setUserData("skipRayCast", true);
+	
+	Material matPoint = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	matPoint.setColor("Color", color);
+	geoPoint.setMaterial(matPoint);
+	
+	Arrow normal = new Arrow(collision.getContactNormal().mult(0.3f));
+	Geometry geoNormal = new Geometry("DebugCollisionArrow", normal);
+	geoNormal.setUserData("skipRayCast", true);
+	
+	Material matNormal = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	matNormal.setColor("Color", color);
+	geoNormal.setMaterial(matNormal);
+	
+	Node node = new Node("DebugPoint");
+	node.attachChild(geoPoint);
+	node.attachChild(geoNormal);
+	
+	node.setLocalTranslation(collision.getContactPoint());
+	
+	rootNode.attachChild(node);
+    }
+    
+    private void createCompass() {
+	compass = new Node("Compass Node");
+	
+	Arrow arrow = new Arrow(Vector3f.UNIT_X);
+	arrow.setLineWidth(4);
+	Geometry g = new Geometry("Axis Arrow X", arrow);
+	Material mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	mat.setColor("Color", ColorRGBA.Blue);
+	g.setMaterial(mat);
+	
+	compass.attachChild(g);
+	
+	arrow = new Arrow(Vector3f.UNIT_Y);
+	arrow.setLineWidth(4);
+	g = new Geometry("Axis Arrow Y", arrow);
+	mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	mat.setColor("Color", ColorRGBA.Green);
+	g.setMaterial(mat);
+	
+	compass.attachChild(g);
+	
+	arrow = new Arrow(Vector3f.UNIT_Z);
+	arrow.setLineWidth(4);
+	g = new Geometry("Axis Arrow Z", arrow);
+	mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+	mat.setColor("Color", ColorRGBA.Red);
+	g.setMaterial(mat);
+	
+	compass.attachChild(g);
+	
+	compass.scale(40);
+	compass.setLocalTranslation(settings.getWidth() - 60, settings.getHeight() - 60, 0f);
+	guiNode.attachChild(compass);
     }
 }

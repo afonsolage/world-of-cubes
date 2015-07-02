@@ -219,4 +219,5 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
     @Override
     protected void controlRender(RenderManager rm, ViewPort vp) {
     }
+    
 }
