@@ -1,5 +1,7 @@
 package com.lagecompany.storage;
 
+import com.lagecompany.util.MathUtils;
+
 public class Vec3 {
 
     public static final Vec3 RIGHT = new Vec3(1, 0, 0);
@@ -26,6 +28,14 @@ public class Vec3 {
 	this.x = x;
 	this.y = y;
 	this.z = z;
+
+	updateHashCode();
+    }
+
+    public Vec3(float x, float y, float z) {
+	this.x = MathUtils.floorRound(x);
+	this.y = MathUtils.floorRound(y);
+	this.z = MathUtils.floorRound(z);
 
 	updateHashCode();
     }

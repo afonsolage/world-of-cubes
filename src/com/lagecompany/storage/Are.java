@@ -1,6 +1,7 @@
 package com.lagecompany.storage;
 
 import com.lagecompany.storage.AreMessage.AreMessageType;
+import com.lagecompany.util.MathUtils;
 import java.util.HashMap;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
@@ -17,7 +18,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Are extends Thread {
 
     public static final int WIDTH = 16;
-    public static final int HEIGHT = 64;
+    public static final int HEIGHT = 32;
     public static final int LENGTH = 16;
     public static final int DATA_WIDTH = WIDTH * Chunk.WIDTH;
     public static final int DATA_HEIGHT = HEIGHT * Chunk.HEIGHT;
@@ -251,22 +252,21 @@ public class Are extends Thread {
     }
 
     protected void updateVoxel(int x, int y, int z, Voxel v) {
-	int chunkX = x / Chunk.WIDTH;
-	int chunkY = y / Chunk.HEIGHT;
-	int chunkZ = z / Chunk.LENGTH;
+	int chunkX = MathUtils.floorDiv(x, Chunk.WIDTH);
+	int chunkY = MathUtils.floorDiv(y, Chunk.HEIGHT);
+	int chunkZ = MathUtils.floorDiv(z, Chunk.LENGTH);
 
 	Chunk c = get(chunkX, chunkY, chunkZ);
 
 	if (c == null) {
-	    return;
+	    c = new Chunk(this, new Vec3(chunkX, chunkY, chunkZ));
 	}
 
-	int voxelX = x % Chunk.WIDTH;
-	int voxelY = y % Chunk.HEIGHT;
-	int voxelZ = z % Chunk.LENGTH;
+	int voxelX = MathUtils.absMod(x, Chunk.WIDTH);
+	int voxelY = MathUtils.absMod(y, Chunk.WIDTH);
+	int voxelZ = MathUtils.absMod(z, Chunk.WIDTH);
 
 	c.lock();
-	Voxel vo = c.get(voxelX, voxelY, voxelZ);
 	c.set(voxelX, voxelY, voxelZ, v);
 	c.unlock();
 

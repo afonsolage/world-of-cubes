@@ -1,13 +1,11 @@
 package com.lagecompany.jme3.manager;
 
-import com.jme3.collision.CollisionResults;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
 import com.jme3.input.MouseInput;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.input.controls.MouseAxisTrigger;
-import com.jme3.math.Ray;
 import com.jme3.renderer.Camera;
 import com.lagecompany.jme3.control.CameraFollowControl;
 
@@ -39,6 +37,7 @@ public class CameraMan {
     public static final String PLAYER_NODE_Rise = "PLAYER_NODE_Rise";
     public static final String PLAYER_NODE_Lower = "PLAYER_NODE_Lower";
     private FlyByCamera flyCam;
+    private Camera cam;
     private CameraFollowControl followCam;
     private boolean followCamEnabled;
     private InputManager inputManager;
@@ -54,8 +53,10 @@ public class CameraMan {
 	this.flyCam = flyCam;
 	this.inputManager = inputManager;
 	this.followCam = followCam;
+	this.cam = followCam.getCamera();
 
-	this.flyCam.setMoveSpeed(3f);
+	flyCam.setMoveSpeed(3f);
+	cam.setFrustumPerspective(45f, (float) cam.getWidth() / (float) cam.getHeight(), 0.01f, 1000f);
     }
 
     /**

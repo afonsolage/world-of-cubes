@@ -16,6 +16,7 @@ import com.lagecompany.storage.Are;
 public class LoadingStage extends AbstractAppState {
 
     private TerrainAppState terrainState;
+    private WorldAppState worldState;
     private AppStateManager stateManager;
     private LoadingScreen loadingScreen;
     private float total = -1;
@@ -44,6 +45,7 @@ public class LoadingStage extends AbstractAppState {
 
     /**
      * Update loop of this stage. Is called by main loop.
+     *
      * @param tpf Time per frame in seconds.
      */
     @Override
@@ -75,6 +77,8 @@ public class LoadingStage extends AbstractAppState {
 	terrainState = new TerrainAppState();
 	terrainState.setShouldRender(false);
 	stateManager.attach(terrainState);
+	
+	this.worldState = stateManager.getState(WorldAppState.class);
     }
 
     /**
@@ -126,5 +130,6 @@ public class LoadingStage extends AbstractAppState {
 	super.cleanup();
 	loadingScreen.delete();
 	stateManager.attach(new DebugAppState());
+	worldState.startEnvironment();
     }
 }

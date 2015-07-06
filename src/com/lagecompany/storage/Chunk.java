@@ -1,7 +1,6 @@
 package com.lagecompany.storage;
 
 import static com.lagecompany.storage.Voxel.*;
-import com.lagecompany.util.ArrayUtils;
 import com.lagecompany.util.TerrainNoise;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -23,8 +22,7 @@ public class Chunk {
     public static final int FS_DOWN = 5;
     public static final int FS_COUNT = 6;
     private Voxel[] voxels;
-    private float[] buffer;
-    private int[] bufferFacesOffset;
+    private ChunkSideBuffer buffer;
     private boolean loaded;
     private final Are are;
     private final Vec3 position;
@@ -40,6 +38,8 @@ public class Chunk {
 	this.position = position;
 	this.name = "Chunk " + position.toString();
 	this.lock = new ReentrantLock(true);
+	this.voxels = new Voxel[DATA_LENGTH];
+	this.buffer = new ChunkSideBuffer();
     }
 
     public boolean isLoaded() {
@@ -128,7 +128,7 @@ public class Chunk {
 	mergeVisibleFaces();
 	loaded = true;
 
-	return (getVertexCount() > 0);
+	return (hasVertext());
     }
 
     public boolean update() {
@@ -141,14 +141,12 @@ public class Chunk {
 		v.setMergedSides(VS_NONE);
 	    }
 	    loaded = false;
+	    buffer = new ChunkSideBuffer();
 	}
 	return load();
     }
 
     public boolean setup() {
-	voxels = new Voxel[DATA_LENGTH];
-	bufferFacesOffset = new int[6];
-
 	int setupCount = 0;
 
 	int x = position.getX();
@@ -176,15 +174,16 @@ public class Chunk {
     }
 
     public float[] getNormalList() {
-	if (buffer == null) {
+	if (buffer == null || buffer.isEmpty()) {
 	    return new float[]{};
 	}
 
-	float[] r = new float[buffer.length]; //Each vertex needs a normal;
+	float[] r = new float[buffer.size()]; //Each vertex needs a normal;
 	int n = 0;
 
+	float[] tmp = buffer.get(Voxel.VS_FRONT);
 	//Front face
-	for (int i = 0; i < bufferFacesOffset[FS_FRONT];) {
+	for (int i = 0; i < tmp.length;) {
 	    r[n++] = 0;
 	    r[n++] = 0;
 	    r[n++] = 1;
@@ -192,8 +191,9 @@ public class Chunk {
 	    i += 3;
 	}
 
+	tmp = buffer.get(Voxel.VS_RIGHT);
 	//Right face
-	for (int i = 0; i < bufferFacesOffset[FS_RIGHT];) {
+	for (int i = 0; i < tmp.length;) {
 	    r[n++] = 1;
 	    r[n++] = 0;
 	    r[n++] = 0;
@@ -201,8 +201,9 @@ public class Chunk {
 	    i += 3;
 	}
 
+	tmp = buffer.get(Voxel.VS_BACK);
 	//Back face
-	for (int i = 0; i < bufferFacesOffset[FS_BACK];) {
+	for (int i = 0; i < tmp.length;) {
 	    r[n++] = 0;
 	    r[n++] = 0;
 	    r[n++] = -1;
@@ -210,8 +211,9 @@ public class Chunk {
 	    i += 3;
 	}
 
+	tmp = buffer.get(Voxel.VS_LEFT);
 	//Left face
-	for (int i = 0; i < bufferFacesOffset[FS_LEFT];) {
+	for (int i = 0; i < tmp.length;) {
 	    r[n++] = -1;
 	    r[n++] = 0;
 	    r[n++] = 0;
@@ -220,8 +222,9 @@ public class Chunk {
 
 	}
 
+	tmp = buffer.get(Voxel.VS_TOP);
 	//Top face
-	for (int i = 0; i < bufferFacesOffset[FS_TOP];) {
+	for (int i = 0; i < tmp.length;) {
 	    r[n++] = 0;
 	    r[n++] = 1;
 	    r[n++] = 0;
@@ -229,8 +232,9 @@ public class Chunk {
 	    i += 3;
 	}
 
+	tmp = buffer.get(Voxel.VS_DOWN);
 	//Down face
-	for (int i = 0; i < bufferFacesOffset[FS_DOWN];) {
+	for (int i = 0; i < tmp.length;) {
 	    r[n++] = 0;
 	    r[n++] = -1;
 	    r[n++] = 0;
@@ -247,7 +251,7 @@ public class Chunk {
 	}
 
 	//Each four vertex make up a plane with six indexes for each plane.
-	int vertexCount = buffer.length / 3; //Get the vertex count (each vertex has 3 floats)
+	int vertexCount = buffer.size() / 3; //Get the vertex count (each vertex has 3 floats)
 	int[] result = new int[(int) (vertexCount * 1.5)]; //4 vertex needs 6 index (4 * 1.5 = 6)
 	int n = 0;
 
@@ -277,7 +281,7 @@ public class Chunk {
     }
 
     public float[] getVertexList() {
-	return (buffer == null) ? new float[]{} : buffer;
+	return (buffer == null) ? new float[]{} : buffer.get();
     }
 
     public float[] getTextCoord() {
@@ -286,7 +290,8 @@ public class Chunk {
 	}
 
 	//A vertex is made of 3 floats.
-	int vertexCount = buffer.length / 3;
+	float[] tmp = buffer.get();
+	int vertexCount = tmp.length / 3;
 
 	float[] r = new float[vertexCount * 2]; //Each vertex needs a UV text coord;
 
@@ -298,22 +303,22 @@ public class Chunk {
 	int xTile = 0;
 	int yTile = 0;
 
-	for (int i = 0, j = 0; i < buffer.length;) {
-	    v1.setX((int) buffer[i++]);
-	    v1.setY((int) buffer[i++]);
-	    v1.setZ((int) buffer[i++]);
+	for (int i = 0, j = 0; i < tmp.length;) {
+	    v1.setX((int) tmp[i++]);
+	    v1.setY((int) tmp[i++]);
+	    v1.setZ((int) tmp[i++]);
 
-	    v2.setX((int) buffer[i++]);
-	    v2.setY((int) buffer[i++]);
-	    v2.setZ((int) buffer[i++]);
+	    v2.setX((int) tmp[i++]);
+	    v2.setY((int) tmp[i++]);
+	    v2.setZ((int) tmp[i++]);
 
-	    v3.setX((int) buffer[i++]);
-	    v3.setY((int) buffer[i++]);
-	    v3.setZ((int) buffer[i++]);
+	    v3.setX((int) tmp[i++]);
+	    v3.setY((int) tmp[i++]);
+	    v3.setZ((int) tmp[i++]);
 
-	    v4.setX((int) buffer[i++]);
-	    v4.setY((int) buffer[i++]);
-	    v4.setZ((int) buffer[i++]);
+	    v4.setX((int) tmp[i++]);
+	    v4.setY((int) tmp[i++]);
+	    v4.setZ((int) tmp[i++]);
 
 	    xTile = Math.abs(v1.getX() - v2.getX()) + Math.abs(v1.getY() - v2.getY()) + Math.abs(v1.getZ() - v2.getZ());
 	    yTile = Math.abs(v1.getX() - v4.getX()) + Math.abs(v1.getY() - v4.getY()) + Math.abs(v1.getZ() - v4.getZ());
@@ -377,36 +382,16 @@ public class Chunk {
     }
 
     private void mergeVisibleFaces() {
-	bufferFacesOffset = new int[FS_COUNT];
-	buffer = null;
-	int lastSize = 0;
-
-	buffer = ArrayUtils.append(buffer, mergeFrontFaces());
-	bufferFacesOffset[FS_FRONT] = buffer.length - lastSize;
-	lastSize = buffer.length;
-
-	buffer = ArrayUtils.append(buffer, mergeRightFaces());
-	bufferFacesOffset[FS_RIGHT] = buffer.length - lastSize;
-	lastSize = buffer.length;
-
-	buffer = ArrayUtils.append(buffer, mergeBackFaces());
-	bufferFacesOffset[FS_BACK] = buffer.length - lastSize;
-	lastSize = buffer.length;
-
-	buffer = ArrayUtils.append(buffer, mergeLeftFaces());
-	bufferFacesOffset[FS_LEFT] = buffer.length - lastSize;
-	lastSize = buffer.length;
-
-	buffer = ArrayUtils.append(buffer, mergeTopFaces());
-	bufferFacesOffset[FS_TOP] = buffer.length - lastSize;
-	lastSize = buffer.length;
-
-	buffer = ArrayUtils.append(buffer, mergeDownFaces());
-	bufferFacesOffset[FS_DOWN] = buffer.length - lastSize;
+	mergeFrontFaces();
+	mergeRightFaces();
+	mergeBackFaces();
+	mergeLeftFaces();
+	mergeTopFaces();
+	mergeDownFaces();
     }
 
-    public int getVertexCount() {
-	return (buffer == null) ? 0 : buffer.length;
+    public boolean hasVertext() {
+	return (buffer != null && !buffer.isEmpty());
     }
 
     /**
@@ -416,16 +401,15 @@ public class Chunk {
      * looking into right voxels until it reaches the right most and top most voxels, when it combine all those voxels
      * on a singles float array and returns it.
      *
-     * @return A float aray with 4 voxels of 3 floats each.
      */
-    private float[] mergeFrontFaces() {
+    private void mergeFrontFaces() {
 	//Voxel and Neightbor Voxel
 	Voxel v, nv;
 
 	//Merge origin x and y to keep track of merged face bounds.
 	int ox, oy;
 	boolean done;
-	float[] result = null;
+	short currentType;
 
 	//When looking for front faces (Z+) we need to check X axis and later Y axis, becouse this, the iteration
 	//occurs this way.
@@ -441,6 +425,7 @@ public class Chunk {
 			continue;
 		    }
 
+		    currentType = v.getType();
 		    ox = x;
 		    oy = y;
 		    done = false;
@@ -480,7 +465,8 @@ public class Chunk {
 
 			//If the next voxel is invalid
 			if (nv == null || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT
-				|| (nv.getMergedSides() & VS_FRONT) == VS_FRONT) {
+				|| (nv.getMergedSides() & VS_FRONT) == VS_FRONT
+				|| (nv.getType() != currentType)) {
 			    //Go back to previous voxel;
 			    --x;
 			    break;
@@ -512,7 +498,9 @@ public class Chunk {
 
 			for (int k = ox; k <= x; k++) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT || (nv.getMergedSides() & VS_FRONT) == VS_FRONT) {
+			    if (nv == null || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT
+				    || (nv.getMergedSides() & VS_FRONT) == VS_FRONT
+				    || (nv.getType() != currentType)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -539,22 +527,21 @@ public class Chunk {
 			}
 		    }
 
-		    result = ArrayUtils.append(result, vertices);
+		    buffer.add(currentType, VS_FRONT, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
 	}
-	return result;
     }
 
-    private float[] mergeBackFaces() {
+    private void mergeBackFaces() {
 	//Voxel and Neightbor Voxel
 	Voxel v, nv;
 
 	//Merge origin x and y
 	int ox, oy;
 	boolean done;
-	float[] result = null;
+	short currentType;
 
 	for (int z = 0; z < LENGTH; z++) {
 	    for (int y = 0; y < HEIGHT; y++) {
@@ -571,6 +558,7 @@ public class Chunk {
 		    ox = x;
 		    oy = y;
 		    done = false;
+		    currentType = v.getType();
 
 		    //The back face is composed of v5, v4, v7 and v6.
 		    System.arraycopy(Voxel.v5(x, y, z), 0, vertices, 0, 3);
@@ -583,7 +571,9 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(--x, y, z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_BACK) != VS_BACK || (nv.getMergedSides() & VS_BACK) == VS_BACK) {
+			if (nv == null || (nv.getVisibleSides() & VS_BACK) != VS_BACK
+				|| (nv.getMergedSides() & VS_BACK) == VS_BACK
+				|| (nv.getType() != currentType)) {
 			    ++x; //Go back to previous voxel;
 			    break;
 			}
@@ -602,7 +592,9 @@ public class Chunk {
 
 			for (int k = ox; k >= x; k--) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_BACK) != VS_BACK || (nv.getMergedSides() & VS_BACK) == VS_BACK) {
+			    if (nv == null || (nv.getVisibleSides() & VS_BACK) != VS_BACK
+				    || (nv.getMergedSides() & VS_BACK) == VS_BACK
+				    || (nv.getType() != currentType)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -619,22 +611,21 @@ public class Chunk {
 			}
 		    }
 
-		    result = ArrayUtils.append(result, vertices);
+		    buffer.add(currentType, VS_BACK, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
 	}
-	return result;
     }
 
-    private float[] mergeTopFaces() {
+    private void mergeTopFaces() {
 	//Voxel and Neightbor Voxel
 	Voxel v, nv;
 
 	//Merge origin x and y
 	int ox, oz;
 	boolean done;
-	float[] result = null;
+	short currentType;
 
 	for (int y = HEIGHT - 1; y > -1; y--) {
 	    for (int z = LENGTH - 1; z > -1; z--) {
@@ -650,6 +641,7 @@ public class Chunk {
 		    ox = x;
 		    oz = z;
 		    done = false;
+		    currentType = v.getType();
 
 		    //The top face is composed of v3, v2, v6 and v7.
 		    System.arraycopy(Voxel.v3(x, y, z), 0, vertices, 0, 3);
@@ -662,7 +654,9 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(++x, y, z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_TOP) != VS_TOP || (nv.getMergedSides() & VS_TOP) == VS_TOP) {
+			if (nv == null || (nv.getVisibleSides() & VS_TOP) != VS_TOP
+				|| (nv.getMergedSides() & VS_TOP) == VS_TOP
+				|| (nv.getType() != currentType)) {
 			    --x; //Go back to previous voxel;
 			    break;
 			}
@@ -681,7 +675,9 @@ public class Chunk {
 
 			for (int k = ox; k <= x; k++) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_TOP) != VS_TOP || (nv.getMergedSides() & VS_TOP) == VS_TOP) {
+			    if (nv == null || (nv.getVisibleSides() & VS_TOP) != VS_TOP
+				    || (nv.getMergedSides() & VS_TOP) == VS_TOP
+				    || (nv.getType() != currentType)) {
 				++z; //Go back to previous voxel;
 				done = true;
 				break;
@@ -698,22 +694,21 @@ public class Chunk {
 			}
 		    }
 
-		    result = ArrayUtils.append(result, vertices);
+		    buffer.add(currentType, VS_TOP, vertices);
 		    z = oz; //Set the z back to orignal location, so we can iterate over it again.
 		}
 	    }
 	}
-	return result;
     }
 
-    private float[] mergeDownFaces() {
+    private void mergeDownFaces() {
 	//Voxel and Neightbor Voxel
 	Voxel v, nv;
 
 	//Merge origin x and y
 	int ox, oz;
 	boolean done;
-	float[] result = null;
+	short currentType;
 
 	for (int y = 0; y < HEIGHT; y++) {
 	    for (int z = 0; z < LENGTH; z++) {
@@ -730,6 +725,7 @@ public class Chunk {
 		    ox = x;
 		    oz = z;
 		    done = false;
+		    currentType = v.getType();
 
 		    //The top face is composed of v4, v5, v1 and v0.
 		    System.arraycopy(Voxel.v4(x, y, z), 0, vertices, 0, 3);
@@ -742,7 +738,9 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(++x, y, z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN || (nv.getMergedSides() & VS_DOWN) == VS_DOWN) {
+			if (nv == null || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN
+				|| (nv.getMergedSides() & VS_DOWN) == VS_DOWN
+				|| (nv.getType() != currentType)) {
 			    --x; //Go back to previous voxel;
 			    break;
 			}
@@ -761,7 +759,9 @@ public class Chunk {
 
 			for (int k = ox; k <= x; k++) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN || (nv.getMergedSides() & VS_DOWN) == VS_DOWN) {
+			    if (nv == null || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN
+				    || (nv.getMergedSides() & VS_DOWN) == VS_DOWN
+				    || (nv.getType() != currentType)) {
 				--z; //Go back to previous voxel;
 				done = true;
 				break;
@@ -778,22 +778,21 @@ public class Chunk {
 			}
 		    }
 
-		    result = ArrayUtils.append(result, vertices);
+		    buffer.add(currentType, VS_DOWN, vertices);
 		    z = oz; //Set the z back to orignal location, so we can iterate over it again.
 		}
 	    }
 	}
-	return result;
     }
 
-    private float[] mergeRightFaces() {
+    private void mergeRightFaces() {
 	//Voxel and Neightbor Voxel
 	Voxel v, nv;
 
 	//Merge origin x and y
 	int oz, oy;
 	boolean done;
-	float[] result = null;
+	short currentType;
 
 	for (int x = WIDTH - 1; x > -1; x--) {
 	    for (int y = 0; y < HEIGHT; y++) {
@@ -810,6 +809,7 @@ public class Chunk {
 		    oz = z;
 		    oy = y;
 		    done = false;
+		    currentType = v.getType();
 
 		    //The top face is composed of v1, v5, v6 and v2.
 		    System.arraycopy(Voxel.v1(x, y, z), 0, vertices, 0, 3);
@@ -822,7 +822,9 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(x, y, --z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT || (nv.getMergedSides() & VS_RIGHT) == VS_RIGHT) {
+			if (nv == null || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT
+				|| (nv.getMergedSides() & VS_RIGHT) == VS_RIGHT
+				|| (nv.getType() != currentType)) {
 			    ++z; //Go back to previous voxel;
 			    break;
 			}
@@ -841,7 +843,9 @@ public class Chunk {
 
 			for (int k = oz; k >= z; k--) {
 			    nv = get(x, y, k);
-			    if (nv == null || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT || (nv.getMergedSides() & VS_RIGHT) == VS_RIGHT) {
+			    if (nv == null || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT
+				    || (nv.getMergedSides() & VS_RIGHT) == VS_RIGHT
+				    || (nv.getType() != currentType)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -858,22 +862,21 @@ public class Chunk {
 			}
 		    }
 
-		    result = ArrayUtils.append(result, vertices);
+		    buffer.add(currentType, VS_RIGHT, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
 	}
-	return result;
     }
 
-    private float[] mergeLeftFaces() {
+    private void mergeLeftFaces() {
 	//Voxel and Neightbor Voxel
 	Voxel v, nv;
 
 	//Merge origin x and y
 	int oz, oy;
 	boolean done;
-	float[] result = null;
+	short currentType;
 
 	for (int x = 0; x < WIDTH; x++) {
 	    for (int y = 0; y < HEIGHT; y++) {
@@ -890,6 +893,7 @@ public class Chunk {
 		    oz = z;
 		    oy = y;
 		    done = false;
+		    currentType = v.getType();
 
 		    //The top face is composed of v4, v0, v3 and v7.
 		    System.arraycopy(Voxel.v4(x, y, z), 0, vertices, 0, 3);
@@ -902,7 +906,9 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(x, y, ++z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT || (nv.getMergedSides() & VS_LEFT) == VS_LEFT) {
+			if (nv == null || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT
+				|| (nv.getMergedSides() & VS_LEFT) == VS_LEFT
+				|| (nv.getType() != currentType)) {
 			    --z; //Go back to previous voxel;
 			    break;
 			}
@@ -921,7 +927,9 @@ public class Chunk {
 
 			for (int k = oz; k <= z; k++) {
 			    nv = get(x, y, k);
-			    if (nv == null || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT || (nv.getMergedSides() & VS_LEFT) == VS_LEFT) {
+			    if (nv == null || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT
+				    || (nv.getMergedSides() & VS_LEFT) == VS_LEFT
+				    || (nv.getType() != currentType)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -938,12 +946,11 @@ public class Chunk {
 			}
 		    }
 
-		    result = ArrayUtils.append(result, vertices);
+		    buffer.add(currentType, VS_LEFT, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
 	}
-	return result;
     }
 
     public void lock() {

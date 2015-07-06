@@ -29,8 +29,8 @@ import static com.lagecompany.jme3.manager.CameraMan.PLAYER_NODE_StrafeRight;
  * @author Afonso Lage
  */
 public class CameraFollowControl extends AbstractControl implements ActionListener, AnalogListener {
-    
-    public static float PLAYER_HEIGHT = 3f;
+
+    public static float PLAYER_HEAD = 3.8f;
     private Camera cam;
     private Vector3f camDir;
     private Vector3f camLeft;
@@ -76,7 +76,7 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
     @Override
     public void setEnabled(boolean enabled) {
 	super.setEnabled(enabled);
-	
+
 	if (enabled) {
 	    cam.lookAtDirection(playerControl.getViewDirection(), Vector3f.UNIT_Y);
 	    inputManager.setCursorVisible(true);
@@ -93,20 +93,21 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
 	//Get the looking direction of camera, to move our player on this direction.
 	camDir.set(cam.getDirection()).multLocal(1f, 0f, 1f);
 	camLeft.set(cam.getLeft()).multLocal(1f);
-	
+
+
 	walkDir.set(0, 0, 0);
 	if (leftRight > 0) {
 	    walkDir.addLocal(camLeft.negate());
 	} else if (leftRight < 0) {
 	    walkDir.addLocal(camLeft);
 	}
-	
+
 	if (backFront > 0) {
 	    walkDir.addLocal(camDir.negate());
 	} else if (backFront < 0) {
 	    walkDir.addLocal(camDir);
 	}
-	
+
 	if (jump && playerControl.isOnGround()) {
 	    playerControl.jump();
 	    jump = false;
@@ -120,8 +121,8 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
 	}
 	playerControl.setViewDirection(camDir);
 
-	//Set the camera location the same as player, plus 1.8f to match the head of player.
-	cam.setLocation(spatial.getLocalTranslation().add(0f, PLAYER_HEIGHT, 0f));
+	//Set the camera location the same as player, plus 1.5f to match the head of player.
+	cam.setLocation(spatial.getLocalTranslation().add(0f, PLAYER_HEAD, 0f));
     }
 
     /**
@@ -201,23 +202,26 @@ public class CameraFollowControl extends AbstractControl implements ActionListen
 
 	//TODO: Add camera move speed configuration.
 	mat.fromAngleNormalAxis(value * 2f, axis);
-	
+
 	Vector3f up = cam.getUp();
 	Vector3f left = cam.getLeft();
 	Vector3f dir = cam.getDirection();
-	
+
 	mat.mult(up, up);
 	mat.mult(left, left);
 	mat.mult(dir, dir);
-	
+
 	Quaternion q = new Quaternion();
 	q.fromAxes(left, up, dir);
 	q.normalizeLocal();
 	cam.setAxes(q);
     }
-    
+
     @Override
     protected void controlRender(RenderManager rm, ViewPort vp) {
     }
     
+    public Camera getCamera() {
+	return cam;
+    }
 }

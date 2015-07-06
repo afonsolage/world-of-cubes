@@ -137,7 +137,7 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
 	jumpForce = new Vector3f(0, mass * 5, 0);
 	slopeForce = new Vector3f(0, mass * maxSlope, 0);
 	rigidBody.setAngularFactor(0);
-	rigidBody.setAngularDamping(0.5f);
+	rigidBody.setAngularDamping(1f);
 	rigidBody.setFriction(1f);
     }
 
@@ -170,6 +170,7 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
 	    } else {
 		if (sloping()) {
 		    rigidBody.setPhysicsLocation(rigidBody.getPhysicsLocation().add(0, walkSpeed * tpf, 0));
+		    return;
 		}
 	    }
 	}
@@ -500,7 +501,7 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
 	//Calculate the current location of player.
 	loc.set(location).addLocal(0, 0.1f, 0);
 	//Calculate the direction of ground based on player location.
-	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 0.5f));
+	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 1f));
 	//Use a PhysicsRay to check if the palyer is grounded.
 	List<PhysicsRayTestResult> results = space.rayTest(loc, rayVector);
 	vars.release();
@@ -526,7 +527,7 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
 	//Calculate the current location of player.
 	loc.set(loc).addLocal(0, maxSlope, 0);
 	//Calculate the direction of ground based on player location.
-	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 0.5f));
+	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 1f));
 	//Use a PhysicsRay to check if the palyer is grounded.
 	List<PhysicsRayTestResult> results = space.rayTest(loc, rayVector);
 	vars.release();
@@ -548,7 +549,7 @@ public class PlayerControl extends AbstractPhysicsControl implements PhysicsTick
 	//Calculate the current location of player.
 	loc.set(location).addLocal(0, 0.1f, 0);
 	//Calculate the direction of ground based on player location.
-	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 0.5f));
+	rayVector.set(loc).addLocal(walkDirection.normalize().multLocal(rad + 1f));
 	//Use a PhysicsRay to check if the palyer is grounded.
 	List<PhysicsRayTestResult> results = space.rayTest(loc, rayVector);
 	vars.release();

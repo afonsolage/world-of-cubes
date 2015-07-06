@@ -13,7 +13,6 @@ import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
 import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
-import com.jme3.scene.Spatial;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
@@ -50,10 +49,9 @@ public class WorldAppState extends AbstractAppState {
 	this.cam = app.getCamera();
 	this.bulletState = stateManager.getState(BulletAppState.class);
 	app.getViewPort().setBackgroundColor(new ColorRGBA(0.5294f, 0.8078f, 0.9215f, 1f));
-	
+
 	inputManager.setCursorVisible(true);
 //	rootNode.setCullHint(Spatial.CullHint.Never); //TODO: Fix frustum culling.
-
 
 	//Create some lights.
 	AmbientLight ambient = new AmbientLight();
@@ -68,9 +66,10 @@ public class WorldAppState extends AbstractAppState {
 
 	//Create player node.
 	playerNode = new Node("Player Node");
+	playerNode.lookAt(Vector3f.UNIT_Z, Vector3f.UNIT_Y);
 
 	//Add Physics to our node.
-	PlayerControl characterControl = new PlayerControl(0.25f, 3f, 120f);
+	PlayerControl characterControl = new PlayerControl(0.4f, 4f, 60f);
 	bulletState.getPhysicsSpace().add(characterControl);
 	playerNode.addControl(characterControl);
 
@@ -78,7 +77,7 @@ public class WorldAppState extends AbstractAppState {
 	CameraFollowControl followControl = new CameraFollowControl(cam, inputManager);
 	playerNode.addControl(followControl);
 
-	characterControl.setEnabled(false); //For debug reasons.
+	characterControl.setEnabled(false);
 	followControl.setEnabled(false); //For debug reasons.
 
 	cameraMan = new CameraMan(flyCam, followControl, inputManager);
@@ -115,5 +114,9 @@ public class WorldAppState extends AbstractAppState {
      */
     public CameraMan getCameraMan() {
 	return cameraMan;
+    }
+
+    void startEnvironment() {
+	this.playerNode.getControl(PlayerControl.class).setEnabled(true);
     }
 }

@@ -5,7 +5,6 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
-import com.jme3.bounding.BoundingBox;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.bullet.collision.shapes.CollisionShape;
@@ -187,7 +186,7 @@ public class TerrainAppState extends AbstractAppState {
     private void attachChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 
-	if (c.getVertexCount() == 0) {
+	if (!c.hasVertext()) {
 	    message.setType(AreMessage.AreMessageType.CHUNK_DETACH);
 	    are.postMessage(message);
 	    return;
@@ -208,6 +207,7 @@ public class TerrainAppState extends AbstractAppState {
 	}
 
 	Mesh mesh = new Mesh();
+	CollisionShape collisionShape;
 
 	try {
 	    c.lock();
@@ -215,10 +215,11 @@ public class TerrainAppState extends AbstractAppState {
 	    mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
 	    mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
 	    mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
-	    mesh.updateBound();
 	} finally {
 	    c.unlock();
 	}
+
+	mesh.updateBound();
 	geometry.setMesh(mesh);
 	geometry.setMaterial(defaultMat);
 	geometry.updateModelBound();
@@ -227,9 +228,6 @@ public class TerrainAppState extends AbstractAppState {
 	geometry.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
 
 	rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-
-	CollisionShape collisionShape;
-
 	collisionShape = CollisionShapeFactory.createMeshShape(geometry);
 
 	if (rigidBodyControl == null) {
@@ -238,7 +236,9 @@ public class TerrainAppState extends AbstractAppState {
 	    geometry.addControl(rigidBodyControl);
 	    physicsSpace.add(rigidBodyControl);
 	} else {
+	    rigidBodyControl.setEnabled(false);
 	    rigidBodyControl.setCollisionShape(collisionShape);
+	    rigidBodyControl.setEnabled(true);
 	}
 
 	if (DebugAppState.backfaceCulled) {
