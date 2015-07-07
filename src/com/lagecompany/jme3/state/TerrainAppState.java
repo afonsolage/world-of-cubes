@@ -19,12 +19,16 @@ import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
+import com.jme3.texture.Image;
 import com.jme3.texture.Texture;
+import com.jme3.texture.Texture2D;
 import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
+import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -43,8 +47,8 @@ public class TerrainAppState extends AbstractAppState {
     private BulletAppState bulletState;
     private PhysicsSpace physicsSpace;
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
-    private Material defaultMat;
     private boolean shouldRender;
+    private Texture atlas;
 
     /**
      * Create a new instance of this AppState
@@ -111,23 +115,46 @@ public class TerrainAppState extends AbstractAppState {
      * Init all default materials to be used by chunks.
      */
     private void initMaterials() {
-	//TODO: Add texture atlas and a better Material management.
-	defaultMat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
+	atlas = assetManager.loadTexture("Textures/Elements/atlas.png");
+    }
 
-	Texture texture = assetManager.loadTexture("Textures/Elements/grass.png");
-	defaultMat.setTexture("DiffuseMap", texture);
+    private Material getMaterial() {
+	Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
 
-//	texture = assetManager.loadTexture("Textures/Elements/rock-norm.jpg");
-//	defaultMat.setTexture("NormalMap", texture);
+	mat.setTexture("DiffuseMap", getTexture(15, 2));
+	mat.setBoolean("UseMaterialColors", true);
+	mat.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Repeat);
+	mat.setColor("Ambient", ColorRGBA.White);
+	mat.setColor("Diffuse", ColorRGBA.White);
+	mat.setColor("Specular", ColorRGBA.White);
+	mat.setFloat("Shininess", 0f);
 
-	defaultMat.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Repeat);
-	//defaultMat.getTextureParam("NormalMap").getTextureValue().setWrap(Texture.WrapMode.Repeat);
+	return mat;
+    }
 
-	defaultMat.setColor("Ambient", ColorRGBA.White);
-	defaultMat.setColor("Diffuse", ColorRGBA.White);
-	defaultMat.setColor("Specular", ColorRGBA.White);
-	defaultMat.setFloat("Shininess", 0f);
-	defaultMat.setBoolean("UseMaterialColors", true);
+    private Texture getTexture(int x, int y) {
+	List<ByteBuffer> list = atlas.getImage().getData();
+	ByteBuffer buffer = list.get(0);
+
+	int IMAGE_TILE_SIZE = 16;
+
+	int IMAGE_PIXELS = 128;
+	int IMAGE_CHANNELS = 4;
+	int IMAGE_BYTES = IMAGE_PIXELS * IMAGE_CHANNELS;
+	int IMAGE_SIZE = IMAGE_PIXELS * IMAGE_PIXELS * IMAGE_CHANNELS;
+	int IMAGE_ROW_SIZE = IMAGE_BYTES * IMAGE_TILE_SIZE;
+
+	int beginIndex = (x * IMAGE_PIXELS * IMAGE_ROW_SIZE) + (y * IMAGE_BYTES);
+
+	byte[] b = new byte[IMAGE_SIZE];
+
+	for (int i = 0; i < IMAGE_PIXELS; i++) {
+	    buffer.position(beginIndex + (i * IMAGE_ROW_SIZE));
+	    buffer.get(b, i * IMAGE_BYTES, IMAGE_BYTES);
+	}
+
+	Image img = new Image(Image.Format.ABGR8, IMAGE_PIXELS, IMAGE_PIXELS, ByteBuffer.allocateDirect(IMAGE_SIZE).put(b));
+	return new Texture2D(img);
     }
 
     /**
@@ -221,7 +248,7 @@ public class TerrainAppState extends AbstractAppState {
 
 	mesh.updateBound();
 	geometry.setMesh(mesh);
-	geometry.setMaterial(defaultMat);
+	geometry.setMaterial(getMaterial());
 	geometry.updateModelBound();
 
 	Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
