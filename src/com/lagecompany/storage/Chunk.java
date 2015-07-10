@@ -2,6 +2,7 @@ package com.lagecompany.storage;
 
 import static com.lagecompany.storage.Voxel.*;
 import com.lagecompany.util.TerrainNoise;
+import java.nio.FloatBuffer;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -284,6 +285,22 @@ public class Chunk {
 	return (buffer == null) ? new float[]{} : buffer.get();
     }
 
+    public float[] getTextColor() {
+	if (buffer == null) {
+	    return new float[]{};
+	}
+
+	float[] r = new float[(int) (buffer.size() * 1.33333333333f)];
+	for (int i = 0; i < r.length;) {
+	    r[i++] = 0.79f;
+	    r[i++] = 1f;
+	    r[i++] = 0.52f;
+	    r[i++] = 1.0f;
+	}
+
+	return r;
+    }
+
     public float[] getTextCoord() {
 	if (buffer == null) {
 	    return new float[]{};
@@ -300,8 +317,8 @@ public class Chunk {
 	Vec3 v3 = new Vec3();
 	Vec3 v4 = new Vec3();
 
-	int xTile = 0;
-	int yTile = 0;
+	int xTile;
+	int yTile;
 
 	for (int i = 0, j = 0; i < tmp.length;) {
 	    v1.setX((int) tmp[i++]);
@@ -331,6 +348,26 @@ public class Chunk {
 	    r[j++] = yTile;
 	    r[j++] = xTile;
 	    r[j++] = yTile;
+	}
+
+	return r;
+    }
+
+    public float[] getTileCoord() {
+	if (buffer == null) {
+	    return new float[]{};
+	}
+
+	//A vertex is made of 3 floats.
+	float[] tmp = buffer.get();
+	int vertexCount = tmp.length / 3;
+
+	float[] r = new float[vertexCount * 2]; //Each vertex needs a UV tile coord;
+
+	//TODO: Add tile coord per side.
+	for (int i = 0; i < r.length;) {
+	    r[i++] = 0;
+	    r[i++] = 1;
 	}
 
 	return r;

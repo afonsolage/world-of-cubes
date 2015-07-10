@@ -1,0 +1,48 @@
+ShaderNodeDefinitions {
+    ShaderNodeDefinition VoxelLightingVert {
+        Type: Vertex
+        Shader GLSL100: MatDefs/ShaderNodes/VoxelLighting/VoxelLighting.vert
+        Documentation {
+            This node is reponsable for calculating a simple voxel lighting.
+            @input modelPosition the vertex position in model space (usually assigned with Attr.inPosition or Global.position)
+            @input worldViewProjectionMatrix the World View Projection Matrix transforms model space to projection space.
+            @output projPosition Position of the vertex in projection space.(usually assigned to Global.position)
+        }
+        Input {
+	    mat4 worldViewProjectionMatrix
+	    vec3 vertexPosition
+	    vec3 vertexNormal
+	    vec2 textCoord
+	    vec2 tileCoord
+	    vec4 materialColor
+	    float tileSize
+	    float maxTileSize
+        }
+        Output {
+	    vec2 textCoord
+	    vec2 baseCoord
+            vec4 projPosition
+	    vec3 lightingColor
+        }
+    }
+    ShaderNodeDefinition VoxelLightingFrag {      
+	Type: Fragment
+	Shader GLSL100: MatDefs/ShaderNodes/VoxelLighting/VoxelLighting.frag
+	Documentation {
+	    Renders a simple color
+	    @input color1 the first color
+	    @input color2 the second color            
+	    @output outColor the resulting color
+	}
+	Input {
+	    sampler2D textureMap
+	    float tileSize
+	    vec2 baseCoord
+	    vec2 textCoord
+	    vec3 lightingColor
+	}
+	Output {
+	    vec4 outColor
+	}
+    }
+}

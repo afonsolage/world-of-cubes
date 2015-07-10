@@ -12,23 +12,19 @@ import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.util.CollisionShapeFactory;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
-import com.jme3.math.ColorRGBA;
+import com.jme3.material.TechniqueDef;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.jme3.scene.VertexBuffer;
-import com.jme3.texture.Image;
 import com.jme3.texture.Texture;
-import com.jme3.texture.Texture2D;
 import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
-import java.nio.ByteBuffer;
-import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -48,7 +44,7 @@ public class TerrainAppState extends AbstractAppState {
     private PhysicsSpace physicsSpace;
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
     private boolean shouldRender;
-    private Texture atlas;
+    private Material atlas;
 
     /**
      * Create a new instance of this AppState
@@ -115,46 +111,20 @@ public class TerrainAppState extends AbstractAppState {
      * Init all default materials to be used by chunks.
      */
     private void initMaterials() {
-	atlas = assetManager.loadTexture("Textures/Elements/atlas.png");
-    }
+	atlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
 
-    private Material getMaterial() {
-	Material mat = new Material(assetManager, "Common/MatDefs/Light/Lighting.j3md");
-
-	mat.setTexture("DiffuseMap", getTexture(15, 2));
-	mat.setBoolean("UseMaterialColors", true);
-	mat.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Repeat);
-	mat.setColor("Ambient", ColorRGBA.White);
-	mat.setColor("Diffuse", ColorRGBA.White);
-	mat.setColor("Specular", ColorRGBA.White);
-	mat.setFloat("Shininess", 0f);
-
-	return mat;
-    }
-
-    private Texture getTexture(int x, int y) {
-	List<ByteBuffer> list = atlas.getImage().getData();
-	ByteBuffer buffer = list.get(0);
-
-	int IMAGE_TILE_SIZE = 16;
-
-	int IMAGE_PIXELS = 128;
-	int IMAGE_CHANNELS = 4;
-	int IMAGE_BYTES = IMAGE_PIXELS * IMAGE_CHANNELS;
-	int IMAGE_SIZE = IMAGE_PIXELS * IMAGE_PIXELS * IMAGE_CHANNELS;
-	int IMAGE_ROW_SIZE = IMAGE_BYTES * IMAGE_TILE_SIZE;
-
-	int beginIndex = (x * IMAGE_PIXELS * IMAGE_ROW_SIZE) + (y * IMAGE_BYTES);
-
-	byte[] b = new byte[IMAGE_SIZE];
-
-	for (int i = 0; i < IMAGE_PIXELS; i++) {
-	    buffer.position(beginIndex + (i * IMAGE_ROW_SIZE));
-	    buffer.get(b, i * IMAGE_BYTES, IMAGE_BYTES);
-	}
-
-	Image img = new Image(Image.Format.ABGR8, IMAGE_PIXELS, IMAGE_PIXELS, ByteBuffer.allocateDirect(IMAGE_SIZE).put(b));
-	return new Texture2D(img);
+//	atlas.setColor("Color", ColorRGBA.Blue);
+	atlas.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/atlas.png"));
+	atlas.setFloat("TileSize", 1f/2f);
+	atlas.setFloat("MaxTileSize", 1f/Chunk.WIDTH);
+//	atlas.setBoolean("UseMaterialColors", true);
+	atlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
+//	atlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
+	atlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestNearestMipMap);
+//	atlas.setColor("Ambient", ColorRGBA.White);
+//	atlas.setColor("Diffuse", ColorRGBA.White);
+//	atlas.setColor("Specular", ColorRGBA.White);
+//	atlas.setFloat("Shininess", 0f);
     }
 
     /**
@@ -242,13 +212,15 @@ public class TerrainAppState extends AbstractAppState {
 	    mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
 	    mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
 	    mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
+	    mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, c.getTileCoord());
+	    mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTextColor());
 	} finally {
 	    c.unlock();
 	}
 
 	mesh.updateBound();
 	geometry.setMesh(mesh);
-	geometry.setMaterial(getMaterial());
+	geometry.setMaterial(atlas);
 	geometry.updateModelBound();
 
 	Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);

@@ -1,0 +1,46 @@
+MaterialDef Simple {
+    MaterialParameters {
+        Texture2D DiffuseMap
+        Float TileSize
+        Float MaxTileSize
+    }
+    Technique {
+        LightMode MultiPass
+        WorldParameters {
+            WorldViewProjectionMatrix
+        }
+        VertexShaderNodes {
+            ShaderNode VoxelLightingVert {
+                Definition : VoxelLightingVert : MatDefs/ShaderNodes/VoxelLighting.j3sn
+                InputMappings {
+                    worldViewProjectionMatrix = WorldParam.WorldViewProjectionMatrix
+                    vertexPosition = Global.position.xyz
+                    vertexNormal = Attr.inNormal
+                    textCoord = Attr.inTexCoord
+                    tileCoord = Attr.inTexCoord2
+                    tileSize = MatParam.TileSize
+                    maxTileSize = MatParam.MaxTileSize
+                    materialColor = Attr.inColor
+                }
+                OutputMappings {
+                    Global.position = projPosition
+                }
+            }
+        }
+        FragmentShaderNodes {
+            ShaderNode VoxelLightingFrag {
+                Definition : VoxelLightingFrag : MatDefs/ShaderNodes/VoxelLighting.j3sn
+                InputMappings {
+                    textureMap = MatParam.DiffuseMap
+                    textCoord = VoxelLightingVert.textCoord
+                    baseCoord = VoxelLightingVert.baseCoord
+                    lightingColor = VoxelLightingVert.lightingColor
+                    tileSize = MatParam.TileSize
+                }
+                OutputMappings {
+                    Global.color = outColor
+                }
+            }
+        }
+    }
+}
