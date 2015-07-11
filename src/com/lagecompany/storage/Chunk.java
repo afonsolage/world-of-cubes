@@ -1,8 +1,8 @@
 package com.lagecompany.storage;
 
-import static com.lagecompany.storage.Voxel.*;
+import com.lagecompany.storage.voxel.Voxel;
+import static com.lagecompany.storage.voxel.Voxel.*;
 import com.lagecompany.util.TerrainNoise;
-import java.nio.FloatBuffer;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -160,7 +160,7 @@ public class Chunk {
 		for (int vY = 0; vY < HEIGHT; vY++) {
 		    if (vY + y * HEIGHT < noiseHeight) {
 			setupCount++;
-			set(vX, vY, vZ, new Voxel(VT_ROCK));
+			set(vX, vY, vZ, new Voxel(VT_DIRT));
 		    }
 		}
 	    }
@@ -175,130 +175,19 @@ public class Chunk {
     }
 
     public float[] getNormalList() {
-	if (buffer == null || buffer.isEmpty()) {
-	    return new float[]{};
-	}
-
-	float[] r = new float[buffer.size()]; //Each vertex needs a normal;
-	int n = 0;
-
-	float[] tmp = buffer.get(Voxel.VS_FRONT);
-	//Front face
-	for (int i = 0; i < tmp.length;) {
-	    r[n++] = 0;
-	    r[n++] = 0;
-	    r[n++] = 1;
-
-	    i += 3;
-	}
-
-	tmp = buffer.get(Voxel.VS_RIGHT);
-	//Right face
-	for (int i = 0; i < tmp.length;) {
-	    r[n++] = 1;
-	    r[n++] = 0;
-	    r[n++] = 0;
-
-	    i += 3;
-	}
-
-	tmp = buffer.get(Voxel.VS_BACK);
-	//Back face
-	for (int i = 0; i < tmp.length;) {
-	    r[n++] = 0;
-	    r[n++] = 0;
-	    r[n++] = -1;
-
-	    i += 3;
-	}
-
-	tmp = buffer.get(Voxel.VS_LEFT);
-	//Left face
-	for (int i = 0; i < tmp.length;) {
-	    r[n++] = -1;
-	    r[n++] = 0;
-	    r[n++] = 0;
-
-	    i += 3;
-
-	}
-
-	tmp = buffer.get(Voxel.VS_TOP);
-	//Top face
-	for (int i = 0; i < tmp.length;) {
-	    r[n++] = 0;
-	    r[n++] = 1;
-	    r[n++] = 0;
-
-	    i += 3;
-	}
-
-	tmp = buffer.get(Voxel.VS_DOWN);
-	//Down face
-	for (int i = 0; i < tmp.length;) {
-	    r[n++] = 0;
-	    r[n++] = -1;
-	    r[n++] = 0;
-
-	    i += 3;
-	}
-
-	return r;
+	return buffer.getNormalList();
     }
 
     public int[] getIndexList() {
-	if (buffer == null) {
-	    return new int[]{};
-	}
-
-	//Each four vertex make up a plane with six indexes for each plane.
-	int vertexCount = buffer.size() / 3; //Get the vertex count (each vertex has 3 floats)
-	int[] result = new int[(int) (vertexCount * 1.5)]; //4 vertex needs 6 index (4 * 1.5 = 6)
-	int n = 0;
-
-	/*  Vertexes are built using the counter-clockwise, we just need to follow this index pattern:
-	 *		     3		2   2
-	 *		     +--------+    + 
-	 *		     |       /   / |
-	 *		     |     /   /   |
-	 *		     |   /   /     |
-	 *		     | /   /	   |
-	 *		     +   +---------+
-	 *		    0    0	    1
-	 */
-
-	for (int i = 0; i < result.length;) {
-	    result[i++] = n; //0
-	    result[i++] = n + 1; //1
-	    result[i++] = n + 2; //2
-	    result[i++] = n + 2;   //2
-	    result[i++] = n + 3; //3
-	    result[i++] = n; //0
-
-	    n += 4;
-	}
-
-	return result;
+	return buffer.getIndexList();
     }
 
     public float[] getVertexList() {
-	return (buffer == null) ? new float[]{} : buffer.get();
+	return (buffer == null) ? ChunkSideBuffer.EMPTY_FLOAT_BUFFER : buffer.get();
     }
 
-    public float[] getTextColor() {
-	if (buffer == null) {
-	    return new float[]{};
-	}
-
-	float[] r = new float[(int) (buffer.size() * 1.33333333333f)];
-	for (int i = 0; i < r.length;) {
-	    r[i++] = 0.79f;
-	    r[i++] = 1f;
-	    r[i++] = 0.52f;
-	    r[i++] = 1.0f;
-	}
-
-	return r;
+    public float[] getTexColor() {
+	return buffer.getTexColor();
     }
 
     public float[] getTextCoord() {
@@ -354,23 +243,7 @@ public class Chunk {
     }
 
     public float[] getTileCoord() {
-	if (buffer == null) {
-	    return new float[]{};
-	}
-
-	//A vertex is made of 3 floats.
-	float[] tmp = buffer.get();
-	int vertexCount = tmp.length / 3;
-
-	float[] r = new float[vertexCount * 2]; //Each vertex needs a UV tile coord;
-
-	//TODO: Add tile coord per side.
-	for (int i = 0; i < r.length;) {
-	    r[i++] = 0;
-	    r[i++] = 1;
-	}
-
-	return r;
+	return buffer.getTileCoord();
     }
 
     private void checkVisibleFaces() {

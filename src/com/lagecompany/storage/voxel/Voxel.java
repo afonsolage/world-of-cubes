@@ -1,4 +1,7 @@
-package com.lagecompany.storage;
+package com.lagecompany.storage.voxel;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * This class stores all info needed by a voxel. It is made of 4 bytes, plus 12 bytes from object header, so the memory
@@ -21,7 +24,17 @@ public class Voxel {
     private byte visibleSides;
     private byte mergedSides;
     private short type;
-    
+    private static final List<VoxelInfo> infoList;
+
+    static {
+	infoList = new ArrayList<>();
+	loadInfo();
+    }
+
+    private static void loadInfo() {
+	infoList.add(new DirtVoxelInfo());
+    }
+
     public Voxel() {
 	this.visibleSides = VS_NONE;
 	this.mergedSides = VS_NONE;
@@ -60,10 +73,11 @@ public class Voxel {
 	this.visibleSides |= side;
     }
 
-    void toggleMergedSide(byte side) {
+    public void toggleMergedSide(byte side) {
 	this.mergedSides |= side;
     }
 
+    //TODO: Remove array creation and change for global buffer.
     /*
      * 
      *      v7 +-------+ v6	y
@@ -104,5 +118,23 @@ public class Voxel {
 
     public static float[] v7(int x, int y, int z) {
 	return new float[]{x, y + 1, z};
+    }
+    
+    private static VoxelInfo getInfo(short type) {
+	for(VoxelInfo vi : infoList) {
+	    if (vi.getCode() == type) {
+		return vi;
+	    }
+	}
+	
+	return null;
+    }
+    
+    public static float[] getColor(short type, short side) {
+	return getInfo(type).getColor(side);
+    }
+    
+    public static float[] getTile(short type, short side) {
+	return getInfo(type).getTile(side);
     }
 }

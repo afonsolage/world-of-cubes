@@ -213,7 +213,7 @@ public class TerrainAppState extends AbstractAppState {
 	    mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
 	    mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
 	    mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, c.getTileCoord());
-	    mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTextColor());
+	    mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTexColor());
 	} finally {
 	    c.unlock();
 	}

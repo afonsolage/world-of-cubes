@@ -1,6 +1,6 @@
 package test;
 
-import com.lagecompany.storage.Voxel;
+import com.lagecompany.storage.voxel.Voxel;
 
 public class MemoryTest {
 

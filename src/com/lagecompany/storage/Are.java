@@ -1,5 +1,6 @@
 package com.lagecompany.storage;
 
+import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.storage.AreMessage.AreMessageType;
 import com.lagecompany.util.MathUtils;
 import java.util.HashMap;
@@ -17,9 +18,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class Are extends Thread {
 
-    public static final int WIDTH = 2;
-    public static final int HEIGHT = 2;
-    public static final int LENGTH = 2;
+    public static final int WIDTH = 16;
+    public static final int HEIGHT = 32;
+    public static final int LENGTH = 16;
     public static final int DATA_WIDTH = WIDTH * Chunk.WIDTH;
     public static final int DATA_HEIGHT = HEIGHT * Chunk.HEIGHT;
     public static final int DATA_LENGHT = LENGTH * Chunk.LENGTH;

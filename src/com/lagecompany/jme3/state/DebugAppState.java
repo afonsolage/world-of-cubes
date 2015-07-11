@@ -42,7 +42,7 @@ import com.lagecompany.nifty.gui.DebugScreen;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
-import com.lagecompany.storage.Voxel;
+import com.lagecompany.storage.voxel.Voxel;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {
 
@@ -319,7 +319,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 		    .getContactPoint()
 		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.HEIGHT), (Are.DATA_LENGHT / 2))
 		    .addLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
-	    type = Voxel.VT_ROCK;
+	    type = Voxel.VT_DIRT;
 
 	}
 	Vec3 v = new Vec3(point.x, point.y, point.z);
