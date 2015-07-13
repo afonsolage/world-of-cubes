@@ -9,6 +9,7 @@ import java.util.List;
  */
 public class Voxel {
 
+    //VS = Visible Sides
     public static final byte VS_FRONT = 0x01;
     public static final byte VS_RIGHT = 0x02;
     public static final byte VS_BACK = 0x04;
@@ -17,14 +18,22 @@ public class Voxel {
     public static final byte VS_DOWN = 0x20;
     public static final byte VS_ALL = 0x3F;
     public static final byte VS_NONE = 0x00;
+    //VT = Voxel Type
     public static final short VT_NONE = 0x0000;
     public static final short VT_DIRT = 0x0001;
     public static final short VT_GRASS = 0x0002;
-    public static final short VT_ROCK = 0x0003;
+    public static final short VT_STONE = 0x0003;
+    public static final byte LIGHT_SUN = 0x0F;
+    private static final List<VoxelInfo> infoList;
     private byte visibleSides;
     private byte mergedSides;
+    private byte frontLight;
+    private byte rightLight;
+    private byte backLight;
+    private byte leftLight;
+    private byte topLight;
+    private byte downLight;
     private short type;
-    private static final List<VoxelInfo> infoList;
 
     static {
 	infoList = new ArrayList<>();
@@ -33,12 +42,10 @@ public class Voxel {
 
     private static void loadInfo() {
 	infoList.add(new DirtVoxelInfo());
+	infoList.add(new StoneVoxelInfo());
     }
 
     public Voxel() {
-	this.visibleSides = VS_NONE;
-	this.mergedSides = VS_NONE;
-	this.type = VT_NONE;
     }
 
     public Voxel(short type) {
@@ -67,6 +74,54 @@ public class Voxel {
 
     public void setType(short type) {
 	this.type = type;
+    }
+
+    public byte getFrontLight() {
+	return frontLight;
+    }
+
+    public void setFrontLight(byte frontLight) {
+	this.frontLight = frontLight;
+    }
+
+    public byte getRightLight() {
+	return rightLight;
+    }
+
+    public void setRightLight(byte rightLight) {
+	this.rightLight = rightLight;
+    }
+
+    public byte getBackLight() {
+	return backLight;
+    }
+
+    public void setBackLight(byte backLight) {
+	this.backLight = backLight;
+    }
+
+    public byte getLeftLight() {
+	return leftLight;
+    }
+
+    public void setLeftLight(byte leftLight) {
+	this.leftLight = leftLight;
+    }
+
+    public byte getTopLight() {
+	return topLight;
+    }
+
+    public void setTopLight(byte topLight) {
+	this.topLight = topLight;
+    }
+
+    public byte getDownLight() {
+	return downLight;
+    }
+
+    public void setDownLight(byte downLight) {
+	this.downLight = downLight;
     }
 
     public void toggleVisibleSide(byte side) {
@@ -119,21 +174,21 @@ public class Voxel {
     public static float[] v7(int x, int y, int z) {
 	return new float[]{x, y + 1, z};
     }
-    
+
     private static VoxelInfo getInfo(short type) {
-	for(VoxelInfo vi : infoList) {
+	for (VoxelInfo vi : infoList) {
 	    if (vi.getCode() == type) {
 		return vi;
 	    }
 	}
-	
+
 	return null;
     }
-    
+
     public static float[] getColor(short type, short side) {
 	return getInfo(type).getColor(side);
     }
-    
+
     public static float[] getTile(short type, short side) {
 	return getInfo(type).getTile(side);
     }

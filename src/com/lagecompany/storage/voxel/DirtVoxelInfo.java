@@ -7,12 +7,10 @@ package com.lagecompany.storage.voxel;
 public class DirtVoxelInfo extends VoxelInfo {
 
     private final float[] TILE_UP_GRASS;
-    private final float[] TILE_SIDE_DIRT;
     private final float[] TILE_DOWN_DIRT;
 
     protected DirtVoxelInfo() {
 	TILE_UP_GRASS = new float[]{0f, 1f};
-	TILE_SIDE_DIRT = new float[]{1f, 1f};
 	TILE_DOWN_DIRT = new float[]{1f, 0f};
     }
 
@@ -25,10 +23,8 @@ public class DirtVoxelInfo extends VoxelInfo {
     public float[] getTile(short side) {
 	if (side == Voxel.VS_TOP) {
 	    return TILE_UP_GRASS;
-	} else if (side == Voxel.VS_DOWN) {
-	    return TILE_DOWN_DIRT;
 	} else {
-	    return TILE_SIDE_DIRT;
+	    return TILE_DOWN_DIRT;
 	}
     }
 

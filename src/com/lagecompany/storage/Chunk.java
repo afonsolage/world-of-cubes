@@ -1,19 +1,21 @@
 package com.lagecompany.storage;
 
+import com.lagecompany.storage.voxel.VoxelNode;
 import com.lagecompany.storage.voxel.Voxel;
 import static com.lagecompany.storage.voxel.Voxel.*;
 import com.lagecompany.util.TerrainNoise;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Chunk {
 
-    public static final int WIDTH = 16;
-    public static final int HEIGHT = 16;
-    public static final int LENGTH = 16;
-    public static final int DATA_LENGTH = WIDTH * HEIGHT * LENGTH;
-    public static final int X_UNIT = HEIGHT * LENGTH;
-    public static final int Y_UNIT = LENGTH;
+    public static final int SIZE = 16;
+    public static final int DATA_LENGTH = SIZE * SIZE * SIZE;
+    public static final int X_UNIT = SIZE * SIZE;
+    public static final int Y_UNIT = SIZE;
     public static final int Z_UNIT = 1;
     public static final int FS_FRONT = 0;
     public static final int FS_RIGHT = 1;
@@ -22,8 +24,10 @@ public class Chunk {
     public static final int FS_TOP = 4;
     public static final int FS_DOWN = 5;
     public static final int FS_COUNT = 6;
-    private Voxel[] voxels;
+    private final Voxel[] voxels;
+    private final int[] lightMap;
     private ChunkSideBuffer buffer;
+    private final Deque<VoxelNode> lightQueue;
     private boolean loaded;
     private final Are are;
     private final Vec3 position;
@@ -40,7 +44,9 @@ public class Chunk {
 	this.name = "Chunk " + position.toString();
 	this.lock = new ReentrantLock(true);
 	this.voxels = new Voxel[DATA_LENGTH];
+	this.lightMap = new int[DATA_LENGTH];
 	this.buffer = new ChunkSideBuffer();
+	lightQueue = new ArrayDeque();
     }
 
     public boolean isLoaded() {
@@ -55,16 +61,32 @@ public class Chunk {
 	return name;
     }
 
+    public Voxel get(Vec3 v) {
+	return get(v.getX(), v.getY(), v.getZ());
+    }
+
     public Voxel get(int x, int y, int z) {
-	return get(z + LENGTH * (y + HEIGHT * x));
+	return get(z + SIZE * (y + SIZE * x));
+    }
+
+    public int getLight(int x, int y, int z) {
+	return getLight(z + SIZE * (y + SIZE * x));
     }
 
     public Voxel get(int i) {
 	return (voxels != null && i < voxels.length && i >= 0) ? voxels[i] : null;
     }
 
+    public int getLight(int i) {
+	return (lightMap != null && i < lightMap.length && i >= 0) ? lightMap[i] : -1;
+    }
+
     public void set(int x, int y, int z, Voxel v) {
-	voxels[z + LENGTH * (y + HEIGHT * x)] = v;
+	voxels[z + SIZE * (y + SIZE * x)] = v;
+    }
+
+    public void setLight(int x, int y, int z, int v) {
+	lightMap[z + SIZE * (y + SIZE * x)] = v;
     }
 
     public Voxel getAreVoxel(int x, int y, int z, byte direction) {
@@ -73,14 +95,14 @@ public class Chunk {
 	switch (direction) {
 	    case VS_LEFT: {
 		if (x == 0) {
-		    result = are.getVoxel(Vec3.copyAdd(position, -1, 0, 0), WIDTH - 1, y, z);
+		    result = are.getVoxel(Vec3.copyAdd(position, -1, 0, 0), SIZE - 1, y, z);
 		} else {
 		    result = get(x - 1, y, z);
 		}
 		break;
 	    }
 	    case VS_RIGHT: {
-		if (x == WIDTH - 1) {
+		if (x == SIZE - 1) {
 		    result = are.getVoxel(Vec3.copyAdd(position, 1, 0, 0), 0, y, z);
 		} else {
 		    result = get(x + 1, y, z);
@@ -89,14 +111,14 @@ public class Chunk {
 	    }
 	    case VS_DOWN: {
 		if (y == 0) {
-		    result = are.getVoxel(Vec3.copyAdd(position, 0, -1, 0), x, HEIGHT - 1, z);
+		    result = are.getVoxel(Vec3.copyAdd(position, 0, -1, 0), x, SIZE - 1, z);
 		} else {
 		    result = get(x, y - 1, z);
 		}
 		break;
 	    }
 	    case VS_TOP: {
-		if (y == HEIGHT - 1) {
+		if (y == SIZE - 1) {
 		    result = are.getVoxel(Vec3.copyAdd(position, 0, 1, 0), x, 0, z);
 		} else {
 		    result = get(x, y + 1, z);
@@ -105,17 +127,74 @@ public class Chunk {
 	    }
 	    case VS_BACK: {
 		if (z == 0) {
-		    result = are.getVoxel(Vec3.copyAdd(position, 0, 0, -1), x, y, LENGTH - 1);
+		    result = are.getVoxel(Vec3.copyAdd(position, 0, 0, -1), x, y, SIZE - 1);
 		} else {
 		    result = get(x, y, z - 1);
 		}
 		break;
 	    }
 	    case VS_FRONT: {
-		if (z == LENGTH - 1) {
+		if (z == SIZE - 1) {
 		    result = are.getVoxel(Vec3.copyAdd(position, 0, 0, 1), x, y, 0);
 		} else {
 		    result = get(x, y, z + 1);
+		}
+		break;
+	    }
+	}
+
+	return result;
+    }
+
+    public int getAreLight(int x, int y, int z, byte direction) {
+	int result = 0;
+
+	switch (direction) {
+	    case VS_LEFT: {
+		if (x == 0) {
+		    result = are.getLight(Vec3.copyAdd(position, -1, 0, 0), SIZE - 1, y, z);
+		} else {
+		    result = getLight(x - 1, y, z);
+		}
+		break;
+	    }
+	    case VS_RIGHT: {
+		if (x == SIZE - 1) {
+		    result = are.getLight(Vec3.copyAdd(position, 1, 0, 0), 0, y, z);
+		} else {
+		    result = getLight(x + 1, y, z);
+		}
+		break;
+	    }
+	    case VS_DOWN: {
+		if (y == 0) {
+		    result = are.getLight(Vec3.copyAdd(position, 0, -1, 0), x, SIZE - 1, z);
+		} else {
+		    result = getLight(x, y - 1, z);
+		}
+		break;
+	    }
+	    case VS_TOP: {
+		if (y == SIZE - 1) {
+		    result = are.getLight(Vec3.copyAdd(position, 0, 1, 0), x, 0, z);
+		} else {
+		    result = getLight(x, y + 1, z);
+		}
+		break;
+	    }
+	    case VS_BACK: {
+		if (z == 0) {
+		    result = are.getLight(Vec3.copyAdd(position, 0, 0, -1), x, y, SIZE - 1);
+		} else {
+		    result = getLight(x, y, z - 1);
+		}
+		break;
+	    }
+	    case VS_FRONT: {
+		if (z == SIZE - 1) {
+		    result = are.getLight(Vec3.copyAdd(position, 0, 0, 1), x, y, 0);
+		} else {
+		    result = getLight(x, y, z + 1);
 		}
 		break;
 	    }
@@ -132,6 +211,185 @@ public class Chunk {
 	return (hasVertext());
     }
 
+    public void propagateSunLight() {
+	//Get top chunk to check the light.
+	Arrays.fill(lightMap, 0);
+	Chunk top = are.get(Vec3.copyAdd(position, 0, 1, 0));
+	Voxel v;
+
+	//If top chunk is null, this means we are directly receiving sun light.
+	if (top == null) {
+	    //Propagate this light for all voxel at top of this chunk (SIZE - 1).
+	    for (int x = 0; x < SIZE; x++) {
+		for (int z = 0; z < SIZE; z++) {
+		    lightQueue.add(new VoxelNode(x, SIZE - 1, z, Voxel.LIGHT_SUN, VS_NONE));
+		}
+	    }
+	} else {
+	    //There is another chunk above us, so let's check if there is any transparent chunk and with SUN LIGHT.
+	    for (int x = 0; x < SIZE; x++) {
+		for (int z = 0; z < SIZE; z++) {
+		    v = top.get(x, 0, z);
+		    if (v.getType() == VT_NONE && top.getLight(x, 0, z) == Voxel.LIGHT_SUN) {
+			lightQueue.add(new VoxelNode(x, SIZE - 1, z, Voxel.LIGHT_SUN, VS_NONE));
+		    }
+		}
+	    }
+	}
+
+	//Let's propagate light on voxels.
+	VoxelNode node;
+	while (!lightQueue.isEmpty()) {
+	    node = lightQueue.pop();
+	    v = get(node.x, node.y, node.z);
+
+	    if (v.getType() == VT_NONE) {
+		setLight(node.x, node.y, node.z, node.light);
+		node = new VoxelNode(node.x, node.y - 1, node.z, node.light, VS_NONE);
+		if (node.y > -1) {
+		    lightQueue.add(node);
+		}
+	    }
+	}
+
+	int currentLight;
+	//Now let's reflect light on voxels non directly affected by sun light.
+	//Each voxel which direct receive sun light will act as a area light.
+	for (int x = 0; x < SIZE; x++) {
+	    for (int z = 0; z < SIZE; z++) {
+		for (int y = 0; y < SIZE; y++) {
+		    currentLight = getLight(x, y, z);
+		    v = get(x, y, z);
+		    if (v.getType() != VT_NONE || currentLight < 1) {
+			continue;
+		    }
+		    propagateAreaLightNeighborhood(x, y, z, currentLight, VS_NONE);
+		}
+	    }
+	}
+	propagateAreaLight();
+    }
+
+    private void propagateAreaLight() {
+	int light;
+	Voxel v;
+	VoxelNode node;
+	while (!lightQueue.isEmpty()) {
+	    node = lightQueue.pop();
+
+	    v = get(node.x, node.y, node.z);
+	    light = getLight(node.x, node.y, node.z);
+
+	    if (v.getType() == VT_NONE && light < node.light) {
+		setLight(node.x, node.y, node.z, node.light);
+		if (node.light > 1) {
+		    propagateAreaLightNeighborhood(node.x, node.y, node.z, node.light, node.skipDir);
+		}
+	    }
+	}
+    }
+
+    private void propagateAreaLightNeighborhood(int x, int y, int z, int currentLight, byte skipDir) {
+	Voxel v;
+	int light;
+	if (skipDir != VS_FRONT) {
+	    v = getAreVoxel(x, y, z, VS_FRONT);
+	    light = getAreLight(x, y, z, VS_FRONT);
+	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
+		if (z == SIZE - 1) {
+		    Vec3 vec = Vec3.copyAdd(position, 0, 0, 1);
+		    Chunk c = are.get(vec);
+		    if (c != null) {
+			c.lightQueue.push(new VoxelNode(x, y, 0, currentLight - 1, VS_NONE));
+//			c.propagateAreaLight();
+		    }
+		} else {
+		    lightQueue.push(new VoxelNode(x, y, z + 1, currentLight - 1, VS_NONE));
+		}
+	    }
+	}
+	if (skipDir != VS_RIGHT) {
+	    v = getAreVoxel(x, y, z, VS_RIGHT);
+	    light = getAreLight(x, y, z, VS_RIGHT);
+	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
+		if (x == SIZE - 1) {
+		    Vec3 vec = Vec3.copyAdd(position, 1, 0, 0);
+		    Chunk c = are.get(vec);
+		    if (c != null) {
+			c.lightQueue.push(new VoxelNode(0, y, z, currentLight - 1, VS_NONE));
+//			c.propagateAreaLight();
+		    }
+		} else {
+		    lightQueue.push(new VoxelNode(x + 1, y, z, currentLight - 1, VS_NONE));
+		}
+	    }
+	}
+	if (skipDir != VS_BACK) {
+	    v = getAreVoxel(x, y, z, VS_BACK);
+	    light = getAreLight(x, y, z, VS_BACK);
+	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
+		if (z == 0) {
+		    Vec3 vec = Vec3.copyAdd(position, 0, 0, -1);
+		    Chunk c = are.get(vec);
+		    if (c != null) {
+			c.lightQueue.push(new VoxelNode(x, y, SIZE - 1, currentLight - 1, VS_NONE));
+//			c.propagateAreaLight();
+		    }
+		} else {
+		    lightQueue.push(new VoxelNode(x, y, z - 1, currentLight - 1, VS_NONE));
+		}
+	    }
+	}
+	if (skipDir != VS_LEFT) {
+	    v = getAreVoxel(x, y, z, VS_LEFT);
+	    light = getAreLight(x, y, z, VS_LEFT);
+	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
+		if (x == 0) {
+		    Vec3 vec = Vec3.copyAdd(position, -1, 0, 0);
+		    Chunk c = are.get(vec);
+		    if (c != null) {
+			c.lightQueue.push(new VoxelNode(SIZE - 1, y, z, currentLight - 1, VS_NONE));
+//			c.propagateAreaLight();
+		    }
+		} else {
+		    lightQueue.push(new VoxelNode(x - 1, y, z, currentLight - 1, VS_NONE));
+		}
+	    }
+	}
+	if (skipDir != VS_TOP) {
+	    v = getAreVoxel(x, y, z, VS_TOP);
+	    light = getAreLight(x, y, z, VS_TOP);
+	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
+		if (y == SIZE - 1) {
+		    Vec3 vec = Vec3.copyAdd(position, 0, 1, 0);
+		    Chunk c = are.get(vec);
+		    if (c != null) {
+			c.lightQueue.push(new VoxelNode(x, 0, z, currentLight - 1, VS_NONE));
+//			c.propagateAreaLight();
+		    }
+		} else {
+		    lightQueue.push(new VoxelNode(x, y + 1, z, currentLight - 1, VS_NONE));
+		}
+	    }
+	}
+	if (skipDir != VS_DOWN) {
+	    v = getAreVoxel(x, y, z, VS_DOWN);
+	    light = getAreLight(x, y, z, VS_DOWN);
+	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
+		if (y == 0) {
+		    Vec3 vec = Vec3.copyAdd(position, 0, -1, 0);
+		    Chunk c = are.get(vec);
+		    if (c != null) {
+			c.lightQueue.push(new VoxelNode(x, SIZE - 1, z, currentLight - 1, VS_NONE));
+//			c.propagateAreaLight();
+		    }
+		} else {
+		    lightQueue.push(new VoxelNode(x, y - 1, z, currentLight - 1, VS_NONE));
+		}
+	    }
+	}
+    }
+
     public boolean update() {
 	if (isLoaded() && voxels != null) {
 	    for (Voxel v : voxels) {
@@ -144,34 +402,36 @@ public class Chunk {
 	    loaded = false;
 	    buffer = new ChunkSideBuffer();
 	}
+	propagateSunLight();
 	return load();
     }
 
     public boolean setup() {
 	int setupCount = 0;
-
-	int x = position.getX();
-	int y = position.getY();
-	int z = position.getZ();
-
-	for (int vX = 0; vX < WIDTH; vX++) {
-	    for (int vZ = 0; vZ < LENGTH; vZ++) {
-		double noiseHeight = TerrainNoise.getHeight(vX + x * WIDTH, vZ + z * HEIGHT);
-		for (int vY = 0; vY < HEIGHT; vY++) {
-		    if (vY + y * HEIGHT < noiseHeight) {
+	int px = position.getX();
+	int py = position.getY();
+	int pz = position.getZ();
+	short type;
+	for (int z = 0; z < SIZE; z++) {
+	    for (int x = 0; x < SIZE; x++) {
+		double noiseHeight = TerrainNoise.getHeight(x + px * SIZE, z + pz * SIZE);
+		for (int y = 0; y < SIZE; y++) {
+		    if (y + py * SIZE < noiseHeight) {
+			type = VT_STONE;
 			setupCount++;
-			set(vX, vY, vZ, new Voxel(VT_DIRT));
+		    } else {
+			type = VT_NONE;
 		    }
+		    set(x, y, z, new Voxel(type));
 		}
 	    }
 	}
-
+	propagateSunLight();
 	return setupCount > 0;
     }
 
     void unload() {
 	buffer = null;
-	voxels = null;
     }
 
     public float[] getNormalList() {
@@ -192,7 +452,7 @@ public class Chunk {
 
     public float[] getTextCoord() {
 	if (buffer == null) {
-	    return new float[]{};
+	    return ChunkSideBuffer.EMPTY_FLOAT_BUFFER;
 	}
 
 	//A vertex is made of 3 floats.
@@ -247,42 +507,61 @@ public class Chunk {
     }
 
     private void checkVisibleFaces() {
-	Voxel nv; //Neighbor Voxel.
+	//Neighbor Voxel.
+	Voxel nv;
 	byte faces;
 
-	for (int x = 0; x < WIDTH; x++) {
-	    for (int y = 0; y < HEIGHT; y++) {
-		for (int z = 0; z < LENGTH; z++) {
+	for (int x = 0; x < SIZE; x++) {
+	    for (int z = 0; z < SIZE; z++) {
+		for (int y = 0; y < SIZE; y++) {
 		    Voxel v = get(x, y, z);
 
 		    if (v == null) {
+			System.out.println("Kilroy was here");
+		    }
+		    if (v.getType() == VT_NONE) {
 			continue;
 		    }
 
 		    faces = VS_NONE;
 
-		    if ((nv = getAreVoxel(x, y, z, VS_LEFT)) == null || nv.getType() == VT_NONE) {
-			faces |= VS_LEFT;
-		    }
-
-		    if ((nv = getAreVoxel(x, y, z, VS_RIGHT)) == null || nv.getType() == VT_NONE) {
-			faces |= VS_RIGHT;
-		    }
-
-		    if ((nv = getAreVoxel(x, y, z, VS_DOWN)) == null || nv.getType() == VT_NONE) {
-			faces |= VS_DOWN;
-		    }
-
-		    if ((nv = getAreVoxel(x, y, z, VS_TOP)) == null || nv.getType() == VT_NONE) {
+		    if ((nv = getAreVoxel(x, y, z, VS_TOP)) == null) {
 			faces |= VS_TOP;
+		    } else if (nv.getType() == VT_NONE) {
+			faces |= VS_TOP;
+			v.setTopLight((byte) getAreLight(x, y, z, VS_TOP));
 		    }
 
-		    if ((nv = getAreVoxel(x, y, z, VS_BACK)) == null || nv.getType() == VT_NONE) {
-			faces |= VS_BACK;
+		    if ((nv = getAreVoxel(x, y, z, VS_DOWN)) == null) {
+			faces |= VS_DOWN;
+		    } else if (nv.getType() == VT_NONE) {
+			faces |= VS_DOWN;
+			v.setDownLight((byte) getAreLight(x, y, z, VS_DOWN));
 		    }
 
-		    if ((nv = getAreVoxel(x, y, z, VS_FRONT)) == null || nv.getType() == VT_NONE) {
+		    if ((nv = getAreVoxel(x, y, z, VS_LEFT)) == null) {
+			faces |= VS_LEFT;
+		    } else if (nv.getType() == VT_NONE) {
+			faces |= VS_LEFT;
+			v.setLeftLight((byte) getAreLight(x, y, z, VS_LEFT));
+		    }
+		    if ((nv = getAreVoxel(x, y, z, VS_RIGHT)) == null) {
+			faces |= VS_RIGHT;
+		    } else if (nv.getType() == VT_NONE) {
+			faces |= VS_RIGHT;
+			v.setRightLight((byte) getAreLight(x, y, z, VS_RIGHT));
+		    }
+		    if ((nv = getAreVoxel(x, y, z, VS_FRONT)) == null) {
 			faces |= VS_FRONT;
+		    } else if (nv.getType() == VT_NONE) {
+			faces |= VS_FRONT;
+			v.setFrontLight((byte) getAreLight(x, y, z, VS_FRONT));
+		    }
+		    if ((nv = getAreVoxel(x, y, z, VS_BACK)) == null) {
+			faces |= VS_BACK;
+		    } else if (nv.getType() == VT_NONE) {
+			faces |= VS_BACK;
+			v.setBackLight((byte) getAreLight(x, y, z, VS_BACK));
 		    }
 
 		    v.setVisibleSides(faces);
@@ -320,22 +599,24 @@ public class Chunk {
 	int ox, oy;
 	boolean done;
 	short currentType;
+	byte currentLight;
 
 	//When looking for front faces (Z+) we need to check X axis and later Y axis, becouse this, the iteration
 	//occurs this way.
-	for (int z = 0; z < LENGTH; z++) {
-	    for (int y = 0; y < HEIGHT; y++) {
-		for (int x = 0; x < WIDTH; x++) {
-		    float[] vertices = new float[12];
+	for (int z = 0; z < SIZE; z++) {
+	    for (int y = 0; y < SIZE; y++) {
+		for (int x = 0; x < SIZE; x++) {
 
 		    v = get(x, y, z);
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v == null || (v.getVisibleSides() & VS_FRONT) != VS_FRONT || (v.getMergedSides() & VS_FRONT) == VS_FRONT) {
+		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_FRONT) != VS_FRONT || (v.getMergedSides() & VS_FRONT) == VS_FRONT) {
 			continue;
 		    }
 
+		    float[] vertices = new float[12];
 		    currentType = v.getType();
+		    currentLight = v.getFrontLight();
 		    ox = x;
 		    oy = y;
 		    done = false;
@@ -366,7 +647,7 @@ public class Chunk {
 		    while (true) {
 
 			//We are on the boundary of chunk. Stop it;
-			if (x == WIDTH - 1) {
+			if (x == SIZE - 1) {
 			    break;
 			}
 
@@ -374,9 +655,10 @@ public class Chunk {
 			nv = get(++x, y, z);
 
 			//If the next voxel is invalid
-			if (nv == null || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT
+			if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT
 				|| (nv.getMergedSides() & VS_FRONT) == VS_FRONT
-				|| (nv.getType() != currentType)) {
+				|| (nv.getType() != currentType)
+				|| (nv.getFrontLight() != currentLight)) {
 			    //Go back to previous voxel;
 			    --x;
 			    break;
@@ -399,7 +681,7 @@ public class Chunk {
 
 		    //Go one step on Y direction and repeat the previous logic.
 		    while (!done) {
-			if (y == HEIGHT - 1) {
+			if (y == SIZE - 1) {
 			    //We are on the boundary of chunk. Stop it;
 			    break;
 			}
@@ -408,9 +690,10 @@ public class Chunk {
 
 			for (int k = ox; k <= x; k++) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT
+			    if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_FRONT) != VS_FRONT
 				    || (nv.getMergedSides() & VS_FRONT) == VS_FRONT
-				    || (nv.getType() != currentType)) {
+				    || (nv.getType() != currentType)
+				    || (nv.getFrontLight() != currentLight)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -437,7 +720,7 @@ public class Chunk {
 			}
 		    }
 
-		    buffer.add(currentType, VS_FRONT, vertices);
+		    buffer.add(currentType, currentLight, VS_FRONT, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
@@ -452,23 +735,25 @@ public class Chunk {
 	int ox, oy;
 	boolean done;
 	short currentType;
+	int currentLight;
 
-	for (int z = 0; z < LENGTH; z++) {
-	    for (int y = 0; y < HEIGHT; y++) {
-		for (int x = WIDTH - 1; x > -1; x--) {
-		    float[] vertices = new float[12];
+	for (int z = 0; z < SIZE; z++) {
+	    for (int y = 0; y < SIZE; y++) {
+		for (int x = SIZE - 1; x > -1; x--) {
 
 		    v = get(x, y, z);
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v == null || (v.getVisibleSides() & VS_BACK) != VS_BACK || (v.getMergedSides() & VS_BACK) == VS_BACK) {
+		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_BACK) != VS_BACK || (v.getMergedSides() & VS_BACK) == VS_BACK) {
 			continue;
 		    }
 
+		    float[] vertices = new float[12];
+		    currentType = v.getType();
+		    currentLight = v.getBackLight();
 		    ox = x;
 		    oy = y;
 		    done = false;
-		    currentType = v.getType();
 
 		    //The back face is composed of v5, v4, v7 and v6.
 		    System.arraycopy(Voxel.v5(x, y, z), 0, vertices, 0, 3);
@@ -481,9 +766,10 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(--x, y, z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_BACK) != VS_BACK
+			if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_BACK) != VS_BACK
 				|| (nv.getMergedSides() & VS_BACK) == VS_BACK
-				|| (nv.getType() != currentType)) {
+				|| (nv.getType() != currentType)
+				|| (nv.getBackLight() != currentLight)) {
 			    ++x; //Go back to previous voxel;
 			    break;
 			}
@@ -494,7 +780,7 @@ public class Chunk {
 		    System.arraycopy(Voxel.v4(x, y, z), 0, vertices, 3, 3);
 
 		    while (!done) {
-			if (y == HEIGHT - 1) {
+			if (y == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
@@ -502,9 +788,10 @@ public class Chunk {
 
 			for (int k = ox; k >= x; k--) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_BACK) != VS_BACK
+			    if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_BACK) != VS_BACK
 				    || (nv.getMergedSides() & VS_BACK) == VS_BACK
-				    || (nv.getType() != currentType)) {
+				    || (nv.getType() != currentType)
+				    || (nv.getBackLight() != currentLight)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -521,7 +808,7 @@ public class Chunk {
 			}
 		    }
 
-		    buffer.add(currentType, VS_BACK, vertices);
+		    buffer.add(currentType, currentLight, VS_BACK, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
@@ -536,37 +823,40 @@ public class Chunk {
 	int ox, oz;
 	boolean done;
 	short currentType;
+	int currentLight;
 
-	for (int y = HEIGHT - 1; y > -1; y--) {
-	    for (int z = LENGTH - 1; z > -1; z--) {
-		for (int x = 0; x < WIDTH; x++) {
+	for (int y = SIZE - 1; y > -1; y--) {
+	    for (int z = SIZE - 1; z > -1; z--) {
+		for (int x = 0; x < SIZE; x++) {
 		    v = get(x, y, z);
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v == null || (v.getVisibleSides() & VS_TOP) != VS_TOP || (v.getMergedSides() & VS_TOP) == VS_TOP) {
+		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_TOP) != VS_TOP || (v.getMergedSides() & VS_TOP) == VS_TOP) {
 			continue;
 		    }
 
 		    float[] vertices = new float[12];
+		    currentType = v.getType();
+		    currentLight = v.getTopLight();
 		    ox = x;
 		    oz = z;
 		    done = false;
-		    currentType = v.getType();
 
 		    //The top face is composed of v3, v2, v6 and v7.
 		    System.arraycopy(Voxel.v3(x, y, z), 0, vertices, 0, 3);
 
 		    while (true) {
-			if (x == WIDTH - 1) {
+			if (x == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
 			//Move to the next voxel on X axis.
 			nv = get(++x, y, z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_TOP) != VS_TOP
+			if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_TOP) != VS_TOP
 				|| (nv.getMergedSides() & VS_TOP) == VS_TOP
-				|| (nv.getType() != currentType)) {
+				|| (nv.getType() != currentType
+				|| (nv.getTopLight() != currentLight))) {
 			    --x; //Go back to previous voxel;
 			    break;
 			}
@@ -585,9 +875,10 @@ public class Chunk {
 
 			for (int k = ox; k <= x; k++) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_TOP) != VS_TOP
+			    if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_TOP) != VS_TOP
 				    || (nv.getMergedSides() & VS_TOP) == VS_TOP
-				    || (nv.getType() != currentType)) {
+				    || (nv.getType() != currentType
+				    || (nv.getTopLight() != currentLight))) {
 				++z; //Go back to previous voxel;
 				done = true;
 				break;
@@ -604,7 +895,7 @@ public class Chunk {
 			}
 		    }
 
-		    buffer.add(currentType, VS_TOP, vertices);
+		    buffer.add(currentType, currentLight, VS_TOP, vertices);
 		    z = oz; //Set the z back to orignal location, so we can iterate over it again.
 		}
 	    }
@@ -619,38 +910,41 @@ public class Chunk {
 	int ox, oz;
 	boolean done;
 	short currentType;
+	int currentLight;
 
-	for (int y = 0; y < HEIGHT; y++) {
-	    for (int z = 0; z < LENGTH; z++) {
-		for (int x = 0; x < WIDTH; x++) {
-		    float[] vertices = new float[12];
+	for (int y = 0; y < SIZE; y++) {
+	    for (int z = 0; z < SIZE; z++) {
+		for (int x = 0; x < SIZE; x++) {
 
 		    v = get(x, y, z);
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v == null || (v.getVisibleSides() & VS_DOWN) != VS_DOWN || (v.getMergedSides() & VS_DOWN) == VS_DOWN) {
+		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_DOWN) != VS_DOWN || (v.getMergedSides() & VS_DOWN) == VS_DOWN) {
 			continue;
 		    }
 
+		    float[] vertices = new float[12];
+		    currentType = v.getType();
+		    currentLight = v.getDownLight();
 		    ox = x;
 		    oz = z;
 		    done = false;
-		    currentType = v.getType();
 
 		    //The top face is composed of v4, v5, v1 and v0.
 		    System.arraycopy(Voxel.v4(x, y, z), 0, vertices, 0, 3);
 
 		    while (true) {
-			if (x == WIDTH - 1) {
+			if (x == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
 			//Move to the next voxel on X axis.
 			nv = get(++x, y, z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN
+			if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN
 				|| (nv.getMergedSides() & VS_DOWN) == VS_DOWN
-				|| (nv.getType() != currentType)) {
+				|| (nv.getType() != currentType
+				|| (nv.getDownLight() != currentLight))) {
 			    --x; //Go back to previous voxel;
 			    break;
 			}
@@ -661,7 +955,7 @@ public class Chunk {
 		    System.arraycopy(Voxel.v5(x, y, z), 0, vertices, 3, 3);
 
 		    while (!done) {
-			if (z == LENGTH - 1) {
+			if (z == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
@@ -669,9 +963,10 @@ public class Chunk {
 
 			for (int k = ox; k <= x; k++) {
 			    nv = get(k, y, z);
-			    if (nv == null || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN
+			    if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_DOWN) != VS_DOWN
 				    || (nv.getMergedSides() & VS_DOWN) == VS_DOWN
-				    || (nv.getType() != currentType)) {
+				    || (nv.getType() != currentType
+				    || (nv.getDownLight() != currentLight))) {
 				--z; //Go back to previous voxel;
 				done = true;
 				break;
@@ -688,7 +983,7 @@ public class Chunk {
 			}
 		    }
 
-		    buffer.add(currentType, VS_DOWN, vertices);
+		    buffer.add(currentType, currentLight, VS_DOWN, vertices);
 		    z = oz; //Set the z back to orignal location, so we can iterate over it again.
 		}
 	    }
@@ -703,23 +998,25 @@ public class Chunk {
 	int oz, oy;
 	boolean done;
 	short currentType;
+	int currentLight;
 
-	for (int x = WIDTH - 1; x > -1; x--) {
-	    for (int y = 0; y < HEIGHT; y++) {
-		for (int z = LENGTH - 1; z > -1; z--) {
-		    float[] vertices = new float[12];
+	for (int x = SIZE - 1; x > -1; x--) {
+	    for (int y = 0; y < SIZE; y++) {
+		for (int z = SIZE - 1; z > -1; z--) {
 
 		    v = get(x, y, z);
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v == null || (v.getVisibleSides() & VS_RIGHT) != VS_RIGHT || (v.getMergedSides() & VS_RIGHT) == VS_RIGHT) {
+		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_RIGHT) != VS_RIGHT || (v.getMergedSides() & VS_RIGHT) == VS_RIGHT) {
 			continue;
 		    }
 
+		    float[] vertices = new float[12];
+		    currentType = v.getType();
+		    currentLight = v.getRightLight();
 		    oz = z;
 		    oy = y;
 		    done = false;
-		    currentType = v.getType();
 
 		    //The top face is composed of v1, v5, v6 and v2.
 		    System.arraycopy(Voxel.v1(x, y, z), 0, vertices, 0, 3);
@@ -732,9 +1029,10 @@ public class Chunk {
 			//Move to the next voxel on X axis.
 			nv = get(x, y, --z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT
+			if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT
 				|| (nv.getMergedSides() & VS_RIGHT) == VS_RIGHT
-				|| (nv.getType() != currentType)) {
+				|| (nv.getType() != currentType)
+				|| (nv.getRightLight() != currentLight)) {
 			    ++z; //Go back to previous voxel;
 			    break;
 			}
@@ -745,7 +1043,7 @@ public class Chunk {
 		    System.arraycopy(Voxel.v5(x, y, z), 0, vertices, 3, 3);
 
 		    while (!done) {
-			if (y == HEIGHT - 1) {
+			if (y == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
@@ -753,9 +1051,10 @@ public class Chunk {
 
 			for (int k = oz; k >= z; k--) {
 			    nv = get(x, y, k);
-			    if (nv == null || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT
+			    if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_RIGHT) != VS_RIGHT
 				    || (nv.getMergedSides() & VS_RIGHT) == VS_RIGHT
-				    || (nv.getType() != currentType)) {
+				    || (nv.getType() != currentType)
+				    || (nv.getRightLight() != currentLight)) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -772,7 +1071,7 @@ public class Chunk {
 			}
 		    }
 
-		    buffer.add(currentType, VS_RIGHT, vertices);
+		    buffer.add(currentType, currentLight, VS_RIGHT, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
@@ -787,38 +1086,41 @@ public class Chunk {
 	int oz, oy;
 	boolean done;
 	short currentType;
+	int currentLight;
 
-	for (int x = 0; x < WIDTH; x++) {
-	    for (int y = 0; y < HEIGHT; y++) {
-		for (int z = 0; z < LENGTH; z++) {
-		    float[] vertices = new float[12];
+	for (int x = 0; x < SIZE; x++) {
+	    for (int y = 0; y < SIZE; y++) {
+		for (int z = 0; z < SIZE; z++) {
 
 		    v = get(x, y, z);
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v == null || (v.getVisibleSides() & VS_LEFT) != VS_LEFT || (v.getMergedSides() & VS_LEFT) == VS_LEFT) {
+		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_LEFT) != VS_LEFT || (v.getMergedSides() & VS_LEFT) == VS_LEFT) {
 			continue;
 		    }
 
-		    oz = z;
-		    oy = y;
-		    done = false;
+		    float[] vertices = new float[12];
 		    currentType = v.getType();
+		    currentLight = v.getLeftLight();
+		    oy = y;
+		    oz = z;
+		    done = false;
 
 		    //The top face is composed of v4, v0, v3 and v7.
 		    System.arraycopy(Voxel.v4(x, y, z), 0, vertices, 0, 3);
 
 		    while (true) {
-			if (z == LENGTH - 1) {
+			if (z == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
 			//Move to the next voxel on X axis.
 			nv = get(x, y, ++z);
 
-			if (nv == null || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT
+			if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT
 				|| (nv.getMergedSides() & VS_LEFT) == VS_LEFT
-				|| (nv.getType() != currentType)) {
+				|| (nv.getType() != currentType
+				|| (nv.getLeftLight() != currentLight))) {
 			    --z; //Go back to previous voxel;
 			    break;
 			}
@@ -829,7 +1131,7 @@ public class Chunk {
 		    System.arraycopy(Voxel.v0(x, y, z), 0, vertices, 3, 3);
 
 		    while (!done) {
-			if (y == HEIGHT - 1) {
+			if (y == SIZE - 1) {
 			    break; //We are on the boundary of chunk. Stop it;
 			}
 
@@ -837,9 +1139,10 @@ public class Chunk {
 
 			for (int k = oz; k <= z; k++) {
 			    nv = get(x, y, k);
-			    if (nv == null || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT
+			    if (nv.getType() == VT_NONE || (nv.getVisibleSides() & VS_LEFT) != VS_LEFT
 				    || (nv.getMergedSides() & VS_LEFT) == VS_LEFT
-				    || (nv.getType() != currentType)) {
+				    || (nv.getType() != currentType
+				    || (nv.getLeftLight() != currentLight))) {
 				--y; //Go back to previous voxel;
 				done = true;
 				break;
@@ -856,7 +1159,7 @@ public class Chunk {
 			}
 		    }
 
-		    buffer.add(currentType, VS_LEFT, vertices);
+		    buffer.add(currentType, currentLight, VS_LEFT, vertices);
 		    y = oy; //Set the y back to orignal location, so we can iterate over it again.
 		}
 	    }
@@ -873,5 +1176,8 @@ public class Chunk {
 
     public Vec3 getPosition() {
 	return this.position;
+    }
+
+    void updateNeightborhood(int voxelX, int voxelY, int voxelZ, Voxel v) {
     }
 }

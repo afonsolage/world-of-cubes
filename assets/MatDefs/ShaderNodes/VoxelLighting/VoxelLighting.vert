@@ -6,7 +6,7 @@ void main(){
     baseCoord = (tileSize * tileCoord);
     textCoord = textCoord * tileSize;
 
-    lightingColor = g_LightColor.xyz * materialColor.xyz  * max(dot(-g_LightPosition.xyz, vertexNormal), 0.0) + g_AmbientLightColor.xyz;
+    lightingColor = g_LightColor.xyz * materialColor.xyz  + g_AmbientLightColor.xyz;
 
     projPosition = worldViewProjectionMatrix * vec4(vertexPosition, 1.0);
 }

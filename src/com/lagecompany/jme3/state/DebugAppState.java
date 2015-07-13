@@ -41,6 +41,7 @@ import com.lagecompany.jme3.manager.CameraMan;
 import com.lagecompany.nifty.gui.DebugScreen;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.Chunk;
+import static com.lagecompany.storage.Chunk.SIZE;
 import com.lagecompany.storage.Vec3;
 import com.lagecompany.storage.voxel.Voxel;
 
@@ -311,13 +312,13 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	if (remove) {
 	    point = collision
 		    .getContactPoint()
-		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.HEIGHT), (Are.DATA_LENGHT / 2))
+		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.SIZE), (Are.DATA_LENGHT / 2))
 		    .subtractLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
 	    type = Voxel.VT_NONE;
 	} else {
 	    point = collision
 		    .getContactPoint()
-		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.HEIGHT), (Are.DATA_LENGHT / 2))
+		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.SIZE), (Are.DATA_LENGHT / 2))
 		    .addLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
 	    type = Voxel.VT_DIRT;
 

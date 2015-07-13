@@ -49,7 +49,7 @@ public class MemoryTest {
     private static long simpleObject() {
 	Runtime.getRuntime().gc();
 	long a = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-	Voxel v = new Voxel();
+	Voxel v = new Voxel((short)0);
 
 	Runtime.getRuntime().gc();
 	long b = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();

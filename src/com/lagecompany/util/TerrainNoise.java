@@ -1,7 +1,7 @@
 package com.lagecompany.util;
 
-import com.jme3.math.FastMath;
 import com.lagecompany.storage.Chunk;
+import static com.lagecompany.storage.Chunk.SIZE;
 
 /**
  *
@@ -46,8 +46,8 @@ public class TerrainNoise {
     }
 
     public static double getHeight(int x, int z) {
-	double result = TerrainNoise.eval(x, z, 0, 0.004, 3, 0.75) * Chunk.HEIGHT * 5;
-	result += 5 * Chunk.HEIGHT;
+	double result = TerrainNoise.eval(x, z, 0, 0.004, 3, 0.75) * Chunk.SIZE * 5;
+	result += 5 * Chunk.SIZE;
 	return result;
     }
 }

@@ -6,6 +6,7 @@ public class AreMessage {
 
 	ARE_MOVE,
 	CHUNK_SETUP,
+	CHUNK_LIGHT,
 	CHUNK_LOAD,
 	CHUNK_UPDATE,
 	CHUNK_UNLOAD,

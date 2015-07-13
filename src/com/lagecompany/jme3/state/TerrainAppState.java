@@ -12,7 +12,6 @@ import com.jme3.bullet.control.RigidBodyControl;
 import com.jme3.bullet.util.CollisionShapeFactory;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
-import com.jme3.material.TechniqueDef;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Mesh;
@@ -79,7 +78,6 @@ public class TerrainAppState extends AbstractAppState {
 	node.setLocalTranslation(playerPosition);
 	rootNode.attachChild(node);
 
-
 	are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
 	are.init();
 	are.start();
@@ -116,11 +114,11 @@ public class TerrainAppState extends AbstractAppState {
 //	atlas.setColor("Color", ColorRGBA.Blue);
 	atlas.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/atlas.png"));
 	atlas.setFloat("TileSize", 1f/2f);
-	atlas.setFloat("MaxTileSize", 1f/Chunk.WIDTH);
+	atlas.setFloat("MaxTileSize", 1f/Chunk.SIZE);
 //	atlas.setBoolean("UseMaterialColors", true);
 	atlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
-//	atlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
-	atlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestNearestMipMap);
+	atlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
+	atlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestLinearMipMap);
 //	atlas.setColor("Ambient", ColorRGBA.White);
 //	atlas.setColor("Diffuse", ColorRGBA.White);
 //	atlas.setColor("Specular", ColorRGBA.White);

@@ -21,9 +21,9 @@ public class Are extends Thread {
     public static final int WIDTH = 16;
     public static final int HEIGHT = 32;
     public static final int LENGTH = 16;
-    public static final int DATA_WIDTH = WIDTH * Chunk.WIDTH;
-    public static final int DATA_HEIGHT = HEIGHT * Chunk.HEIGHT;
-    public static final int DATA_LENGHT = LENGTH * Chunk.LENGTH;
+    public static final int DATA_WIDTH = WIDTH * Chunk.SIZE;
+    public static final int DATA_HEIGHT = HEIGHT * Chunk.SIZE;
+    public static final int DATA_LENGHT = LENGTH * Chunk.SIZE;
     private static Are instance;
     private final HashMap<Vec3, Chunk> chunkMap;
     private final BlockingQueue<AreMessage> actionQueue;
@@ -114,6 +114,15 @@ public class Are extends Thread {
 		    areQueue.finishBatch(AreMessageType.CHUNK_SETUP, currentBatch);
 		}
 
+//		queue = areQueue.getQueue(AreMessageType.CHUNK_LIGHT, currentBatch);
+//		if (queue != null) {
+//		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+//			lightChunk(msg);
+//			worked = true;
+//		    }
+//		    areQueue.finishBatch(AreMessageType.CHUNK_LIGHT, currentBatch);
+//		}
+
 		queue = areQueue.getQueue(AreMessageType.CHUNK_LOAD, currentBatch);
 		if (queue != null) {
 		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
@@ -145,7 +154,7 @@ public class Are extends Thread {
 
     private void unloadChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
-	set(c.getPosition(), null);
+//	set(c.getPosition(), null);
 
 	try {
 	    c.lock();
@@ -168,15 +177,23 @@ public class Are extends Thread {
 		message.setType(AreMessageType.CHUNK_UNLOAD);
 	    }
 	    message.setBatch(currentBatch);
+//	    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, currentBatch));
 	    postMessage(message);
 	} catch (Exception ex) {
 	    ex.printStackTrace();
 	} finally {
 	    c.unlock();
 	}
-
     }
 
+//    private void lightChunk(AreMessage message) {
+//	Chunk c = (Chunk) message.getData();
+//	try {
+//	    c.propagateSunLight();
+//	} catch (Exception ex) {
+//	    ex.printStackTrace();
+//	}
+//    }
     private void loadChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 	try {
@@ -212,9 +229,10 @@ public class Are extends Thread {
 
     public void init() {
 	int batch = areQueue.nextBatch();
-	for (int x = 0; x < WIDTH; x++) {
-	    for (int y = 0; y < HEIGHT; y++) {
-		for (int z = 0; z < LENGTH; z++) {
+	for (int z = 0; z < LENGTH; z++) {
+	    //Due to sun light, we need to always load chunks from top-down.
+	    for (int x = 0; x < WIDTH; x++) {
+		for (int y = HEIGHT - 1; y >= 0; y--) {
 		    Vec3 v = new Vec3(x, y, z);
 		    Chunk c = new Chunk(this, v);
 		    set(v, c);
@@ -226,6 +244,75 @@ public class Are extends Thread {
 	process(batch);
     }
 
+//    private void propagateLight(AreMessage msg) {
+//	final Vec3 v = (Vec3) msg.getData();
+//	executorService.submit(new Runnable() {
+//	    @Override
+//	    public void run() {
+//		propagateChunkLight(v.getX(), HEIGHT - 1, v.getY());
+//	    }
+//	});
+//    }
+//
+//    //TODO: Add light direction, light length and type.
+//    public void propagateChunkLight(final int x, final int y, final int z) {
+//	final Chunk c = get(x, y, z);
+//	if (c != null) {
+//	    if (c.isEmpty()) {
+//		c.setLight(Voxel.LIGHT_SUN);
+//		executorService.submit(new Runnable() {
+//		    @Override
+//		    public void run() {
+//			propagateChunkLight(x, y - 1, z);
+//		    }
+//		});
+//	    } else {
+//		for (int cx = 0; cx < WIDTH; cx++) {
+//		    for (int cz = 0; cz < LENGTH; cz++) {
+//			executorService.submit(new Runnable() {
+//			    private int a;
+//			    private int b;
+//			    
+//			    Runnable setParam(int a, int b) {
+//				this.a = a;
+//				this.b = b;
+//				return this;
+//			    }
+//			    
+//			    @Override
+//			    public void run() {
+//				propagateVoxelLight(c, a, HEIGHT - 1, b);
+//			    }
+//			}.setParam(cx, cz));
+//			
+//		    }
+//		}
+//	    }
+//	}
+//    }
+//    
+//    public void propagateVoxelLight(final Chunk c, final int x, final int y, final int z) {
+//	if (y < 0) {
+//	    final Vec3 v = c.getPosition();
+//	    executorService.submit(new Runnable() {
+//		@Override
+//		public void run() {
+//		    propagateChunkLight(v.getX(), v.getY() - 1, v.getZ());
+//		}
+//	    });
+//	} else {
+//	    Voxel v = c.get(x, y, z);
+//	    if (v != null && v.getType() == Voxel.VT_NONE) {
+//		v.setLightPower(Voxel.LIGHT_SUN);
+//		executorService.submit(new Runnable() {
+//		    @Override
+//		    public void run() {
+//			propagateVoxelLight(c, x, y - 1, z);
+//		    }
+//		});
+//	    }
+//	}
+//    }
     public boolean isMoving() {
 	return moving;
     }
@@ -252,20 +339,30 @@ public class Are extends Thread {
 	return c.get(x, y, z);
     }
 
-    protected void updateVoxel(int x, int y, int z, Voxel v) {
-	int chunkX = MathUtils.floorDiv(x, Chunk.WIDTH);
-	int chunkY = MathUtils.floorDiv(y, Chunk.HEIGHT);
-	int chunkZ = MathUtils.floorDiv(z, Chunk.LENGTH);
-
-	Chunk c = get(chunkX, chunkY, chunkZ);
+    protected int getLight(Vec3 chunkPos, int x, int y, int z) {
+	Chunk c = get(chunkPos);
 
 	if (c == null) {
-	    c = new Chunk(this, new Vec3(chunkX, chunkY, chunkZ));
+	    return -1;
 	}
 
-	int voxelX = MathUtils.absMod(x, Chunk.WIDTH);
-	int voxelY = MathUtils.absMod(y, Chunk.WIDTH);
-	int voxelZ = MathUtils.absMod(z, Chunk.WIDTH);
+	return c.getLight(x, y, z);
+    }
+
+    protected void updateVoxel(int x, int y, int z, Voxel v) {
+	int chunkX = MathUtils.floorDiv(x, Chunk.SIZE);
+	int chunkY = MathUtils.floorDiv(y, Chunk.SIZE);
+	int chunkZ = MathUtils.floorDiv(z, Chunk.SIZE);
+
+
+	Chunk c = get(chunkX, chunkY, chunkZ);
+	if (c == null) {
+	    return;
+	}
+
+	int voxelX = MathUtils.absMod(x, Chunk.SIZE);
+	int voxelY = MathUtils.absMod(y, Chunk.SIZE);
+	int voxelZ = MathUtils.absMod(z, Chunk.SIZE);
 
 	c.lock();
 	c.set(voxelX, voxelY, voxelZ, v);
@@ -277,10 +374,6 @@ public class Are extends Thread {
 	updateNeighborhood(chunkX, chunkY, chunkZ, batch);
 
 	process(batch);
-    }
-
-    public void updateNeighborhood(Vec3 v, int batch) {
-	updateNeighborhood(v.getX(), v.getY(), v.getZ(), batch);
     }
 
     public void updateNeighborhood(int x, int y, int z, int batch) {
@@ -587,9 +680,9 @@ public class Are extends Thread {
     }
 
     public Vec3 getAbsoluteChunkPosition(Vec3 chunkPosition) {
-	return new Vec3((chunkPosition.getX() * Chunk.WIDTH) - (DATA_WIDTH / 2),
-		(chunkPosition.getY() - 8) * Chunk.HEIGHT, //TODO: Add "- (DATA_HEIGHT / 2)"
-		chunkPosition.getZ() * Chunk.LENGTH - (DATA_LENGHT / 2));
+	return new Vec3((chunkPosition.getX() * Chunk.SIZE) - (DATA_WIDTH / 2),
+		(chunkPosition.getY() - 8) * Chunk.SIZE, //TODO: Add "- (DATA_HEIGHT / 2)"
+		chunkPosition.getZ() * Chunk.SIZE - (DATA_LENGHT / 2));
     }
 
     public Vec3 getRelativePosition(Vec3 chunkPosition) {
@@ -598,7 +691,7 @@ public class Are extends Thread {
 
     public Vec3 getRelativePosition(int x, int y, int z) {
 	//TODO: Add "y + (DATA_HEIGHT / 2)"
-	return new Vec3(x + (DATA_WIDTH / 2), y + (8 * Chunk.HEIGHT), (z + (DATA_LENGHT / 2)));
+	return new Vec3(x + (DATA_WIDTH / 2), y + (8 * Chunk.SIZE), (z + (DATA_LENGHT / 2)));
     }
 
     public void postMessage(AreMessage message) {
@@ -662,10 +755,6 @@ public class Are extends Thread {
     }
 
     public void setVoxel(Vec3 v, short type) {
-	if (type == Voxel.VT_NONE) {
-	    updateVoxel(v.getX(), v.getY(), v.getZ(), null);
-	} else {
-	    updateVoxel(v.getX(), v.getY(), v.getZ(), new Voxel(type));
-	}
+	updateVoxel(v.getX(), v.getY(), v.getZ(), new Voxel(type));
     }
 }

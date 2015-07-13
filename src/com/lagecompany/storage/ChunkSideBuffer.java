@@ -14,11 +14,13 @@ public class ChunkSideBuffer {
 
 	private byte side;
 	private short type;
+	private int light;
 	private float[] buffer;
 
-	private ChunkData(short type, byte side) {
+	private ChunkData(short type, int light, byte side) {
 	    this.side = side;
 	    this.type = type;
+	    this.light = light;
 	    this.buffer = new float[0];
 	}
     }
@@ -92,33 +94,33 @@ public class ChunkSideBuffer {
 	return result;
     }
 
-    private ChunkData getData(short type, byte side) {
+    private ChunkData getData(short type, int light, byte side) {
 	for (ChunkData data : dataList) {
-	    if (type == data.type && side == data.side) {
+	    if (type == data.type && light == data.light && side == data.side) {
 		return data;
 	    }
 	}
 	return null;
     }
 
-    private ChunkData safeGetData(short type, byte side) {
-	ChunkData result = getData(type, side);
+    private ChunkData safeGetData(short type, int light, byte side) {
+	ChunkData result = getData(type, light, side);
 
 	if (result == null) {
-	    result = new ChunkData(type, side);
+	    result = new ChunkData(type, light, side);
 	    dataList.add(result);
 	}
 
 	return result;
     }
 
-    public void add(short type, byte side, float[] buffer) {
-	ChunkData data = safeGetData(type, side);
+    public void add(short type, int light, byte side, float[] buffer) {
+	ChunkData data = safeGetData(type, light, side);
 	data.buffer = ArrayUtils.append(buffer, data.buffer);
     }
 
-    public float[] get(short type, byte side) {
-	ChunkData data = getData(type, side);
+    public float[] get(short type, int light, byte side) {
+	ChunkData data = getData(type, light, side);
 	return (data == null) ? null : data.buffer;
     }
 
@@ -229,10 +231,14 @@ public class ChunkSideBuffer {
 	//Since each vertex, which has 3 floats, needs a color, we need 4 floats per vertex.
 	float[] r = new float[(int) (size() * 1.33333333333f)];
 	int offset = 0;
-
+	float lightFactor;
 	for (ChunkData data : dataList) {
 	    for (int i = 0, size = data.buffer.length; i < size;) {
 		System.arraycopy(Voxel.getColor(data.type, data.side), 0, r, offset, 4);
+		lightFactor = 0.10f * data.light;
+		r[offset] *= lightFactor;
+		r[offset + 1] *= lightFactor;
+		r[offset + 2] *= lightFactor;
 		i += 3;
 		offset += 4;
 	    }

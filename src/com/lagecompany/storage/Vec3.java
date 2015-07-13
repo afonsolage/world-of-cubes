@@ -44,6 +44,14 @@ public class Vec3 {
 	return x;
     }
 
+    public void set(float x, float y, float z) {
+	this.x = (int) x;
+	this.x = (int) y;
+	this.x = (int) z;
+	
+	updateHashCode();
+    }
+
     public void setX(int x) {
 	this.x = x;
 	updateHashCode();

@@ -8,6 +8,7 @@ import com.jme3.scene.control.AbstractControl;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
 import com.lagecompany.storage.Chunk;
+import static com.lagecompany.storage.Chunk.SIZE;
 import com.lagecompany.storage.Vec3;
 
 /**
@@ -80,9 +81,9 @@ public class AreFollowControl extends AbstractControl {
      * @return A Vec3 position converted.
      */
     private Vec3 toArePosition(Vector3f position) {
-	return new Vec3((int) (position.getX() / Chunk.WIDTH),
-		(int) (position.getY() / Chunk.HEIGHT),
-		(int) (position.getZ() / Chunk.LENGTH));
+	return new Vec3((int) (position.getX() / Chunk.SIZE),
+		(int) (position.getY() / Chunk.SIZE),
+		(int) (position.getZ() / Chunk.SIZE));
     }
 
     /**

@@ -19,6 +19,7 @@ public class AreQueue {
     private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> detachQueue;
     private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> unloadQueue;
     private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> setupQueue;
+    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> lightQueue;
     private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> loadQueue;
     private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> updateQueue;
     private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> attachQueue;
@@ -28,6 +29,7 @@ public class AreQueue {
 	detachQueue = new HashMap<>();
 	unloadQueue = new HashMap<>();
 	setupQueue = new HashMap<>();
+	lightQueue = new HashMap<>();
 	loadQueue = new HashMap<>();
 	updateQueue = new HashMap<>();
 	attachQueue = new HashMap<>();
@@ -64,6 +66,10 @@ public class AreQueue {
 		offer(setupQueue, message, b);
 		break;
 	    }
+	    case CHUNK_LIGHT: {
+		offer(lightQueue, message, b);
+		break;
+	    }
 	    case CHUNK_LOAD: {
 		offer(loadQueue, message, b);
 		break;
@@ -96,6 +102,10 @@ public class AreQueue {
 	    }
 	    case CHUNK_SETUP: {
 		result = setupQueue.get(batch);
+		break;
+	    }
+	    case CHUNK_LIGHT: {
+		result = lightQueue.get(batch);
 		break;
 	    }
 	    case CHUNK_LOAD: {
@@ -133,6 +143,10 @@ public class AreQueue {
 		setupQueue.remove(batch);
 		break;
 	    }
+	    case CHUNK_LIGHT: {
+		lightQueue.remove(batch);
+		break;
+	    }
 	    case CHUNK_LOAD: {
 		loadQueue.remove(batch);
 		break;
@@ -162,6 +176,9 @@ public class AreQueue {
 	    }
 	    case CHUNK_SETUP: {
 		return setupQueue;
+	    }
+	    case CHUNK_LIGHT: {
+		return lightQueue;
 	    }
 	    case CHUNK_LOAD: {
 		return loadQueue;
@@ -193,7 +210,7 @@ public class AreQueue {
 		}
 	    }
 	}
-	
+
 	return result;
     }
 }

@@ -26,7 +26,7 @@ public class AreWorker extends Thread {
 		
 		switch(msg.getType()) {
 		    case ARE_MOVE: {
-			are.move(msg);
+//			are.move(msg);
 			break;
 		    }
 		}
