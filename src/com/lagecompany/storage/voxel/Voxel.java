@@ -52,6 +52,17 @@ public class Voxel {
 	this.type = type;
     }
 
+    public void reset() {
+	visibleSides = VS_NONE;
+	mergedSides = VS_NONE;
+//	frontLight = 0;
+//	rightLight = 0;
+//	backLight = 0;
+//	leftLight = 0;
+//	topLight = 0;
+//	downLight = 0;
+    }
+
     public byte getVisibleSides() {
 	return visibleSides;
     }

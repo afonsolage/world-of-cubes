@@ -30,6 +30,10 @@ public class ChunkSideBuffer {
 	dataList = new ArrayList<>();
     }
 
+    public void reset() {
+	dataList.clear();
+    }
+    
     boolean isEmpty() {
 	return dataList.isEmpty();
     }

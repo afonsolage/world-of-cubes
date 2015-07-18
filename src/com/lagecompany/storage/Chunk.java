@@ -4,9 +4,8 @@ import com.lagecompany.storage.voxel.VoxelNode;
 import com.lagecompany.storage.voxel.Voxel;
 import static com.lagecompany.storage.voxel.Voxel.*;
 import com.lagecompany.util.TerrainNoise;
-import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Deque;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -27,8 +26,11 @@ public class Chunk {
     private final Voxel[] voxels;
     private final int[] lightMap;
     private ChunkSideBuffer buffer;
-    private final Deque<VoxelNode> lightQueue;
+    private final Queue<VoxelNode> lightQueue;
+    private final Queue<VoxelNode> sunLightQueue;
     private boolean loaded;
+    private boolean updateFlag;
+    private int visibleVoxels;
     private final Are are;
     private final Vec3 position;
     private String name;
@@ -46,7 +48,9 @@ public class Chunk {
 	this.voxels = new Voxel[DATA_LENGTH];
 	this.lightMap = new int[DATA_LENGTH];
 	this.buffer = new ChunkSideBuffer();
-	lightQueue = new ArrayDeque();
+	this.updateFlag = false;
+	lightQueue = new LinkedList();
+	sunLightQueue = new LinkedList();
     }
 
     public boolean isLoaded() {
@@ -55,6 +59,14 @@ public class Chunk {
 
     public void setLoaded(boolean loaded) {
 	this.loaded = loaded;
+    }
+
+    public boolean isFlaggedToUpdate() {
+	return updateFlag;
+    }
+
+    public void flagToUpdate() {
+	this.updateFlag = true;
     }
 
     public String getName() {
@@ -69,6 +81,10 @@ public class Chunk {
 	return get(z + SIZE * (y + SIZE * x));
     }
 
+    public int getLight(Vec3 pos) {
+	return getLight(pos.getX(), pos.getY(), pos.getZ());
+    }
+
     public int getLight(int x, int y, int z) {
 	return getLight(z + SIZE * (y + SIZE * x));
     }
@@ -79,6 +95,10 @@ public class Chunk {
 
     public int getLight(int i) {
 	return (lightMap != null && i < lightMap.length && i >= 0) ? lightMap[i] : -1;
+    }
+
+    public void set(Vec3 pos, Voxel v) {
+	set(pos.getX(), pos.getY(), pos.getZ(), v);
     }
 
     public void set(int x, int y, int z, Voxel v) {
@@ -203,191 +223,27 @@ public class Chunk {
 	return result;
     }
 
+    public void reset() {
+	for (Voxel v : voxels) {
+	    if (v == null) {
+		continue;
+	    }
+	    v.setVisibleSides(VS_NONE);
+	    v.setMergedSides(VS_NONE);
+	}
+	buffer = new ChunkSideBuffer();
+	loaded = false;
+    }
+
     public boolean load() {
+	if (isLoaded() && voxels != null) {
+	    reset();
+	}
 	checkVisibleFaces();
 	mergeVisibleFaces();
 	loaded = true;
-
+	updateFlag = false;
 	return (hasVertext());
-    }
-
-    public void propagateSunLight() {
-	//Get top chunk to check the light.
-	Arrays.fill(lightMap, 0);
-	Chunk top = are.get(Vec3.copyAdd(position, 0, 1, 0));
-	Voxel v;
-
-	//If top chunk is null, this means we are directly receiving sun light.
-	if (top == null) {
-	    //Propagate this light for all voxel at top of this chunk (SIZE - 1).
-	    for (int x = 0; x < SIZE; x++) {
-		for (int z = 0; z < SIZE; z++) {
-		    lightQueue.add(new VoxelNode(x, SIZE - 1, z, Voxel.LIGHT_SUN, VS_NONE));
-		}
-	    }
-	} else {
-	    //There is another chunk above us, so let's check if there is any transparent chunk and with SUN LIGHT.
-	    for (int x = 0; x < SIZE; x++) {
-		for (int z = 0; z < SIZE; z++) {
-		    v = top.get(x, 0, z);
-		    if (v.getType() == VT_NONE && top.getLight(x, 0, z) == Voxel.LIGHT_SUN) {
-			lightQueue.add(new VoxelNode(x, SIZE - 1, z, Voxel.LIGHT_SUN, VS_NONE));
-		    }
-		}
-	    }
-	}
-
-	//Let's propagate light on voxels.
-	VoxelNode node;
-	while (!lightQueue.isEmpty()) {
-	    node = lightQueue.pop();
-	    v = get(node.x, node.y, node.z);
-
-	    if (v.getType() == VT_NONE) {
-		setLight(node.x, node.y, node.z, node.light);
-		node = new VoxelNode(node.x, node.y - 1, node.z, node.light, VS_NONE);
-		if (node.y > -1) {
-		    lightQueue.add(node);
-		}
-	    }
-	}
-
-	int currentLight;
-	//Now let's reflect light on voxels non directly affected by sun light.
-	//Each voxel which direct receive sun light will act as a area light.
-	for (int x = 0; x < SIZE; x++) {
-	    for (int z = 0; z < SIZE; z++) {
-		for (int y = 0; y < SIZE; y++) {
-		    currentLight = getLight(x, y, z);
-		    v = get(x, y, z);
-		    if (v.getType() != VT_NONE || currentLight < 1) {
-			continue;
-		    }
-		    propagateAreaLightNeighborhood(x, y, z, currentLight, VS_NONE);
-		}
-	    }
-	}
-	propagateAreaLight();
-    }
-
-    private void propagateAreaLight() {
-	int light;
-	Voxel v;
-	VoxelNode node;
-	while (!lightQueue.isEmpty()) {
-	    node = lightQueue.pop();
-
-	    v = get(node.x, node.y, node.z);
-	    light = getLight(node.x, node.y, node.z);
-
-	    if (v.getType() == VT_NONE && light < node.light) {
-		setLight(node.x, node.y, node.z, node.light);
-		if (node.light > 1) {
-		    propagateAreaLightNeighborhood(node.x, node.y, node.z, node.light, node.skipDir);
-		}
-	    }
-	}
-    }
-
-    private void propagateAreaLightNeighborhood(int x, int y, int z, int currentLight, byte skipDir) {
-	Voxel v;
-	int light;
-	if (skipDir != VS_FRONT) {
-	    v = getAreVoxel(x, y, z, VS_FRONT);
-	    light = getAreLight(x, y, z, VS_FRONT);
-	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
-		if (z == SIZE - 1) {
-		    Vec3 vec = Vec3.copyAdd(position, 0, 0, 1);
-		    Chunk c = are.get(vec);
-		    if (c != null) {
-			c.lightQueue.push(new VoxelNode(x, y, 0, currentLight - 1, VS_NONE));
-//			c.propagateAreaLight();
-		    }
-		} else {
-		    lightQueue.push(new VoxelNode(x, y, z + 1, currentLight - 1, VS_NONE));
-		}
-	    }
-	}
-	if (skipDir != VS_RIGHT) {
-	    v = getAreVoxel(x, y, z, VS_RIGHT);
-	    light = getAreLight(x, y, z, VS_RIGHT);
-	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
-		if (x == SIZE - 1) {
-		    Vec3 vec = Vec3.copyAdd(position, 1, 0, 0);
-		    Chunk c = are.get(vec);
-		    if (c != null) {
-			c.lightQueue.push(new VoxelNode(0, y, z, currentLight - 1, VS_NONE));
-//			c.propagateAreaLight();
-		    }
-		} else {
-		    lightQueue.push(new VoxelNode(x + 1, y, z, currentLight - 1, VS_NONE));
-		}
-	    }
-	}
-	if (skipDir != VS_BACK) {
-	    v = getAreVoxel(x, y, z, VS_BACK);
-	    light = getAreLight(x, y, z, VS_BACK);
-	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
-		if (z == 0) {
-		    Vec3 vec = Vec3.copyAdd(position, 0, 0, -1);
-		    Chunk c = are.get(vec);
-		    if (c != null) {
-			c.lightQueue.push(new VoxelNode(x, y, SIZE - 1, currentLight - 1, VS_NONE));
-//			c.propagateAreaLight();
-		    }
-		} else {
-		    lightQueue.push(new VoxelNode(x, y, z - 1, currentLight - 1, VS_NONE));
-		}
-	    }
-	}
-	if (skipDir != VS_LEFT) {
-	    v = getAreVoxel(x, y, z, VS_LEFT);
-	    light = getAreLight(x, y, z, VS_LEFT);
-	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
-		if (x == 0) {
-		    Vec3 vec = Vec3.copyAdd(position, -1, 0, 0);
-		    Chunk c = are.get(vec);
-		    if (c != null) {
-			c.lightQueue.push(new VoxelNode(SIZE - 1, y, z, currentLight - 1, VS_NONE));
-//			c.propagateAreaLight();
-		    }
-		} else {
-		    lightQueue.push(new VoxelNode(x - 1, y, z, currentLight - 1, VS_NONE));
-		}
-	    }
-	}
-	if (skipDir != VS_TOP) {
-	    v = getAreVoxel(x, y, z, VS_TOP);
-	    light = getAreLight(x, y, z, VS_TOP);
-	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
-		if (y == SIZE - 1) {
-		    Vec3 vec = Vec3.copyAdd(position, 0, 1, 0);
-		    Chunk c = are.get(vec);
-		    if (c != null) {
-			c.lightQueue.push(new VoxelNode(x, 0, z, currentLight - 1, VS_NONE));
-//			c.propagateAreaLight();
-		    }
-		} else {
-		    lightQueue.push(new VoxelNode(x, y + 1, z, currentLight - 1, VS_NONE));
-		}
-	    }
-	}
-	if (skipDir != VS_DOWN) {
-	    v = getAreVoxel(x, y, z, VS_DOWN);
-	    light = getAreLight(x, y, z, VS_DOWN);
-	    if (v != null && v.getType() == VT_NONE && light < currentLight - 1) {
-		if (y == 0) {
-		    Vec3 vec = Vec3.copyAdd(position, 0, -1, 0);
-		    Chunk c = are.get(vec);
-		    if (c != null) {
-			c.lightQueue.push(new VoxelNode(x, SIZE - 1, z, currentLight - 1, VS_NONE));
-//			c.propagateAreaLight();
-		    }
-		} else {
-		    lightQueue.push(new VoxelNode(x, y - 1, z, currentLight - 1, VS_NONE));
-		}
-	    }
-	}
     }
 
     public boolean update() {
@@ -402,12 +258,10 @@ public class Chunk {
 	    loaded = false;
 	    buffer = new ChunkSideBuffer();
 	}
-	propagateSunLight();
 	return load();
     }
 
-    public boolean setup() {
-	int setupCount = 0;
+    public void setup() {
 	int px = position.getX();
 	int py = position.getY();
 	int pz = position.getZ();
@@ -415,10 +269,10 @@ public class Chunk {
 	for (int z = 0; z < SIZE; z++) {
 	    for (int x = 0; x < SIZE; x++) {
 		double noiseHeight = TerrainNoise.getHeight(x + px * SIZE, z + pz * SIZE);
-		for (int y = 0; y < SIZE; y++) {
+		for (int y = SIZE - 1; y >= 0; y--) {
 		    if (y + py * SIZE < noiseHeight) {
 			type = VT_STONE;
-			setupCount++;
+			visibleVoxels++;
 		    } else {
 			type = VT_NONE;
 		    }
@@ -426,12 +280,14 @@ public class Chunk {
 		}
 	    }
 	}
-	propagateSunLight();
-	return setupCount > 0;
     }
 
     void unload() {
 	buffer = null;
+    }
+
+    boolean hasVisibleVoxel() {
+	return visibleVoxels > 0;
     }
 
     public float[] getNormalList() {
@@ -1176,8 +1032,5 @@ public class Chunk {
 
     public Vec3 getPosition() {
 	return this.position;
-    }
-
-    void updateNeightborhood(int voxelX, int voxelY, int voxelZ, Voxel v) {
     }
 }

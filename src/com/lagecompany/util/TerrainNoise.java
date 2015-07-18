@@ -1,7 +1,6 @@
 package com.lagecompany.util;
 
 import com.lagecompany.storage.Chunk;
-import static com.lagecompany.storage.Chunk.SIZE;
 
 /**
  *

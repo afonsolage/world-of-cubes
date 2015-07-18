@@ -18,7 +18,12 @@ import de.lessvoid.nifty.screen.DefaultScreenController;
 public class LoadingScreen extends SimpleScreen {
 
     public static final String ID = "loading-gui";
-    private TextRenderer textRenderer;
+    private TextRenderer setupTextRenderer;
+    private TextRenderer lightTextRenderer;
+    private TextRenderer loadTextRenderer;
+    private TextRenderer attachTextRenderer;
+    private TextRenderer detachTextRenderer;
+    private TextRenderer unloadTextRenderer;
 
     public LoadingScreen() {
 	super();
@@ -38,15 +43,48 @@ public class LoadingScreen extends SimpleScreen {
 
 			panel(new PanelBuilder("main_panel") {
 			    {
-				childLayoutCenter();
-				alignCenter();
+				childLayoutVertical();
+				alignLeft();
 				backgroundColor("#000000FF");
-				height("100%");
-				width("100%");
 
-				text(new TextBuilder("text_renderer") {
+				text(new TextBuilder("text_setup_queue") {
 				    {
-					text("Loading...0%");
+					text("Setup queue...0");
+					font("Interface/Fonts/sz_16.fnt");
+				    }
+				});
+
+				text(new TextBuilder("text_light_queue") {
+				    {
+					text("Light queue...0");
+					font("Interface/Fonts/sz_16.fnt");
+				    }
+				});
+
+				text(new TextBuilder("text_load_queue") {
+				    {
+					text("Load queue....0");
+					font("Interface/Fonts/sz_16.fnt");
+				    }
+				});
+
+				text(new TextBuilder("text_attach_queue") {
+				    {
+					text("Attach queue..0");
+					font("Interface/Fonts/sz_16.fnt");
+				    }
+				});
+
+				text(new TextBuilder("text_detach_queue") {
+				    {
+					text("Detach queue..0");
+					font("Interface/Fonts/sz_16.fnt");
+				    }
+				});
+
+				text(new TextBuilder("text_unload_queue") {
+				    {
+					text("Unload queue..0");
 					font("Interface/Fonts/sz_16.fnt");
 				    }
 				});
@@ -57,7 +95,12 @@ public class LoadingScreen extends SimpleScreen {
 	    }
 	}.build(nifty);
 
-	textRenderer = getElement("foreground", "main_panel", "text_renderer").getRenderer(TextRenderer.class);
+	setupTextRenderer = getElement("foreground", "main_panel", "text_setup_queue").getRenderer(TextRenderer.class);
+	lightTextRenderer = getElement("foreground", "main_panel", "text_light_queue").getRenderer(TextRenderer.class);
+	loadTextRenderer = getElement("foreground", "main_panel", "text_load_queue").getRenderer(TextRenderer.class);
+	attachTextRenderer = getElement("foreground", "main_panel", "text_attach_queue").getRenderer(TextRenderer.class);
+	detachTextRenderer = getElement("foreground", "main_panel", "text_detach_queue").getRenderer(TextRenderer.class);
+	unloadTextRenderer = getElement("foreground", "main_panel", "text_unload_queue").getRenderer(TextRenderer.class);
 
 	nifty.addScreen(ID, screen);
     }
@@ -67,7 +110,26 @@ public class LoadingScreen extends SimpleScreen {
 	nifty.gotoScreen(ID);
     }
 
-    public void setMessage(String message) {
-	textRenderer.setText(message);
+    public void setMessageCount(String type, int count) {
+	String message = " " + count;
+	if (type.equalsIgnoreCase("setup")) {
+	    message = "Setup queue..." + message;
+	    setupTextRenderer.setText(message);
+	} else if (type.equalsIgnoreCase("light")) {
+	    message = "Light queue..." + message;
+	    lightTextRenderer.setText(message);
+	} else if (type.equalsIgnoreCase("load")) {
+	    message = "Load queue...." + message;
+	    loadTextRenderer.setText(message);
+	} else if (type.equalsIgnoreCase("attach")) {
+	    message = "Attach queue.." + message;
+	    attachTextRenderer.setText(message);
+	} else if (type.equalsIgnoreCase("detach")) {
+	    message = "Detach queue.." + message;
+	    detachTextRenderer.setText(message);
+	} else {
+	    message = "Unload queue.." + message;
+	    unloadTextRenderer.setText(message);
+	}
     }
 }

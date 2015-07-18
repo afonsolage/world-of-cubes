@@ -6,6 +6,7 @@ import com.jme3.app.state.AppStateManager;
 import com.jme3.bullet.BulletAppState;
 import com.lagecompany.nifty.gui.LoadingScreen;
 import com.lagecompany.storage.Are;
+import com.lagecompany.storage.AreMessage;
 
 /**
  * The loading app state of game. On this state, Are will be initiated and chunks being loaded, while a loading message
@@ -19,9 +20,6 @@ public class LoadingStage extends AbstractAppState {
     private WorldAppState worldState;
     private AppStateManager stateManager;
     private LoadingScreen loadingScreen;
-    private float total = -1;
-    private float lastVal = 0f;
-    private int state = 0;
     private Are are;
 
     /**
@@ -50,21 +48,25 @@ public class LoadingStage extends AbstractAppState {
      */
     @Override
     public void update(float tpf) {
-	// The loading has tree stages: 0 - Loading Chunks, 1 - Rendering Chunks and 2 - Go to next screen.
-	if (are.isInited()) {
-	    switch (state) {
-		case 0: {
-		    showLoadingChunk();
-		    break;
-		}
-		case 1: {
-		    showRenderingChunk();
-		    break;
-		}
-		case 2: {
-		    stateManager.detach(this);
-		}
-	    }
+	if (!are.isInited()) {
+	    return;
+	}
+	int setupCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_SETUP);
+	int loadCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_LOAD);
+	int lightCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_LIGHT);
+	int attachCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_ATTACH);
+	int detachCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_DETACH);
+	int unloadCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_UNLOAD);
+
+	loadingScreen.setMessageCount("setup", setupCount);
+	loadingScreen.setMessageCount("load", loadCount);
+	loadingScreen.setMessageCount("light", lightCount);
+	loadingScreen.setMessageCount("attach", attachCount);
+	loadingScreen.setMessageCount("detach", detachCount);
+	loadingScreen.setMessageCount("unload", unloadCount);
+
+	if (setupCount + loadCount + lightCount + attachCount + detachCount + unloadCount == 0) {
+	    stateManager.detach(this);
 	}
     }
 
@@ -77,49 +79,10 @@ public class LoadingStage extends AbstractAppState {
 	terrainState = new TerrainAppState();
 	terrainState.setShouldRender(false);
 	stateManager.attach(terrainState);
-	
+
+
+
 	this.worldState = stateManager.getState(WorldAppState.class);
-    }
-
-    /**
-     * Show the loading chunks message.
-     */
-    private void showLoadingChunk() {
-	if (total < 0) {
-	    total = are.getChunkQueueSize();
-	} else {
-	    float val = (((float) are.getChunkQueueSize() / total)) * 100f;
-	    val = 100f - val;
-	    if (val > lastVal) {
-		loadingScreen.setMessage(String.format("Loading chunks...%.2f%%", val));
-		lastVal = val;
-	    }
-	    if (lastVal >= 100f) {
-		state++;
-		total = -1;
-		lastVal = 0;
-	    }
-	}
-    }
-
-    /**
-     * Show the rendering chunks message.
-     */
-    private void showRenderingChunk() {
-	if (total < 0) {
-	    total = are.getAttachQueueSize();
-	    terrainState.setShouldRender(true);
-	} else {
-	    float val = (((float) are.getAttachQueueSize() / total)) * 100f;
-	    val = 100f - val;
-	    if (val > lastVal) {
-		loadingScreen.setMessage(String.format("Rendering chunks...%.2f%%", val));
-		lastVal = val;
-	    }
-	    if (lastVal >= 100f) {
-		state++;
-	    }
-	}
     }
 
     /**

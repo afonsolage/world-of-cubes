@@ -91,9 +91,7 @@ public class TerrainAppState extends AbstractAppState {
     @Override
     public void update(float tpf) {
 	are.tick(tpf);
-	if (shouldRender) {
-	    processChunks(tpf);
-	}
+	processChunks(tpf);
     }
 
     /**
@@ -113,8 +111,8 @@ public class TerrainAppState extends AbstractAppState {
 
 //	atlas.setColor("Color", ColorRGBA.Blue);
 	atlas.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/atlas.png"));
-	atlas.setFloat("TileSize", 1f/2f);
-	atlas.setFloat("MaxTileSize", 1f/Chunk.SIZE);
+	atlas.setFloat("TileSize", 1f / 2f);
+	atlas.setFloat("MaxTileSize", 1f / Chunk.SIZE);
 //	atlas.setBoolean("UseMaterialColors", true);
 	atlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
 	atlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);

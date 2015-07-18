@@ -5,8 +5,9 @@ import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_DETACH;
 import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_LOAD;
 import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_SETUP;
 import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_UNLOAD;
-import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_UPDATE;
+//import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_UPDATE;
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -16,30 +17,30 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 public class AreQueue {
 
     public static final int BEGIN_BATCH = 1;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> detachQueue;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> unloadQueue;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> setupQueue;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> lightQueue;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> loadQueue;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> updateQueue;
-    private final HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> attachQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> detachQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> unloadQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> setupQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> lightQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> loadQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> updateQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> attachQueue;
     private int batch = BEGIN_BATCH;
 
     public AreQueue() {
-	detachQueue = new HashMap<>();
-	unloadQueue = new HashMap<>();
-	setupQueue = new HashMap<>();
-	lightQueue = new HashMap<>();
-	loadQueue = new HashMap<>();
-	updateQueue = new HashMap<>();
-	attachQueue = new HashMap<>();
+	detachQueue = new ConcurrentHashMap<>();
+	unloadQueue = new ConcurrentHashMap<>();
+	setupQueue = new ConcurrentHashMap<>();
+	lightQueue = new ConcurrentHashMap<>();
+	loadQueue = new ConcurrentHashMap<>();
+	updateQueue = new ConcurrentHashMap<>();
+	attachQueue = new ConcurrentHashMap<>();
     }
 
     public synchronized int nextBatch() {
 	return batch++;
     }
 
-    private void offer(HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map, AreMessage message, int batch) {
+    private void offer(ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map, AreMessage message, int batch) {
 	ConcurrentLinkedQueue<AreMessage> queue = map.get(batch);
 
 	if (queue == null) {
@@ -78,10 +79,10 @@ public class AreQueue {
 		offer(unloadQueue, message, b);
 		break;
 	    }
-	    case CHUNK_UPDATE: {
-		offer(updateQueue, message, b);
-		break;
-	    }
+//	    case CHUNK_UPDATE: {
+//		offer(updateQueue, message, b);
+//		break;
+//	    }
 	    case CHUNK_ATTACH: {
 		offer(attachQueue, message, b);
 		break;
@@ -116,10 +117,10 @@ public class AreQueue {
 		result = unloadQueue.get(batch);
 		break;
 	    }
-	    case CHUNK_UPDATE: {
-		result = updateQueue.get(batch);
-		break;
-	    }
+//	    case CHUNK_UPDATE: {
+//		result = updateQueue.get(batch);
+//		break;
+//	    }
 	    case CHUNK_ATTACH: {
 		result = attachQueue.get(batch);
 		break;
@@ -155,10 +156,10 @@ public class AreQueue {
 		unloadQueue.remove(batch);
 		break;
 	    }
-	    case CHUNK_UPDATE: {
-		updateQueue.remove(batch);
-		break;
-	    }
+//	    case CHUNK_UPDATE: {
+//		updateQueue.remove(batch);
+//		break;
+//	    }
 	    case CHUNK_ATTACH: {
 		attachQueue.remove(batch);
 		break;
@@ -169,7 +170,7 @@ public class AreQueue {
 	}
     }
 
-    private HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> getMap(AreMessage.AreMessageType type) {
+    private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> getMap(AreMessage.AreMessageType type) {
 	switch (type) {
 	    case CHUNK_DETACH: {
 		return detachQueue;
@@ -186,9 +187,9 @@ public class AreQueue {
 	    case CHUNK_UNLOAD: {
 		return unloadQueue;
 	    }
-	    case CHUNK_UPDATE: {
-		return updateQueue;
-	    }
+//	    case CHUNK_UPDATE: {
+//		return updateQueue;
+//	    }
 	    case CHUNK_ATTACH: {
 		return attachQueue;
 	    }
@@ -201,7 +202,7 @@ public class AreQueue {
 
     public int getQueueSize(AreMessage.AreMessageType type) {
 	int result = 0;
-	HashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map = getMap(type);
+	ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map = getMap(type);
 
 	if (map != null) {
 	    for (ConcurrentLinkedQueue queue : map.values()) {

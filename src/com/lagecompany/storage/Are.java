@@ -2,8 +2,10 @@ package com.lagecompany.storage;
 
 import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.storage.AreMessage.AreMessageType;
+import com.lagecompany.storage.voxel.VoxelNode;
 import com.lagecompany.util.MathUtils;
 import java.util.HashMap;
+import java.util.Queue;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -29,6 +31,8 @@ public class Are extends Thread {
     private final BlockingQueue<AreMessage> actionQueue;
     private final BlockingDeque<Integer> processBatchQueue;
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
+    private final Queue<VoxelNode> propagateSunLightQueue;
+    private final Queue<VoxelNode> removeSunLightQueue;
     private final AreQueue areQueue;
     private Vec3 position;
     private boolean moving;
@@ -60,6 +64,8 @@ public class Are extends Thread {
 	actionQueue = new LinkedBlockingQueue<>();
 	processBatchQueue = new LinkedBlockingDeque<>();
 	renderBatchQueue = new ConcurrentLinkedQueue<>();
+	propagateSunLightQueue = new LinkedBlockingQueue<>();
+	removeSunLightQueue = new LinkedBlockingQueue<>();
 	areQueue = new AreQueue();
 	worker = new AreWorker(actionQueue, this);
 	worker.setName("Are Worker");
@@ -114,14 +120,17 @@ public class Are extends Thread {
 		    areQueue.finishBatch(AreMessageType.CHUNK_SETUP, currentBatch);
 		}
 
-//		queue = areQueue.getQueue(AreMessageType.CHUNK_LIGHT, currentBatch);
-//		if (queue != null) {
-//		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
-//			lightChunk(msg);
-//			worked = true;
-//		    }
-//		    areQueue.finishBatch(AreMessageType.CHUNK_LIGHT, currentBatch);
-//		}
+		propagateSunLight(currentBatch);
+		removeSunLight(currentBatch);
+
+		queue = areQueue.getQueue(AreMessageType.CHUNK_LIGHT, currentBatch);
+		if (queue != null) {
+		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+			lightChunk(msg);
+			worked = true;
+		    }
+		    areQueue.finishBatch(AreMessageType.CHUNK_LIGHT, currentBatch);
+		}
 
 		queue = areQueue.getQueue(AreMessageType.CHUNK_LOAD, currentBatch);
 		if (queue != null) {
@@ -131,13 +140,13 @@ public class Are extends Thread {
 		    areQueue.finishBatch(AreMessageType.CHUNK_LOAD, currentBatch);
 		}
 
-		queue = areQueue.getQueue(AreMessageType.CHUNK_UPDATE, currentBatch);
-		if (queue != null) {
-		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
-			updateChunk(msg);
-		    }
-		    areQueue.finishBatch(AreMessageType.CHUNK_UPDATE, currentBatch);
-		}
+//		queue = areQueue.getQueue(AreMessageType.CHUNK_UPDATE, currentBatch);
+//		if (queue != null) {
+//		    for (AreMessage msg = queue.poll(); msg != null; msg = queue.poll()) {
+//			updateChunk(msg);
+//		    }
+//		    areQueue.finishBatch(AreMessageType.CHUNK_UPDATE, currentBatch);
+//		}
 
 		if (worked) {
 		    processNow(currentBatch);
@@ -171,12 +180,22 @@ public class Are extends Thread {
 
 	try {
 	    c.lock();
-	    if (c.setup()) {
-		message.setType(AreMessageType.CHUNK_LOAD);
-	    } else {
-		message.setType(AreMessageType.CHUNK_UNLOAD);
+	    c.setup();
+
+	    //Check for sunLight;
+	    if (c.getPosition().getY() == HEIGHT - 1) {
+		Voxel v;
+		for (int cx = 0; cx < Chunk.SIZE; cx++) {
+		    for (int cz = 0; cz < Chunk.SIZE; cz++) {
+			v = c.get(cx, Chunk.SIZE - 1, cz);
+			if (v.getType() == Voxel.VT_NONE) {
+			    propagateSunLightQueue.add(new VoxelNode(c, new Vec3(cx, 0, cz), Voxel.LIGHT_SUN));
+			}
+		    }
+		}
 	    }
-	    message.setBatch(currentBatch);
+
+	    message.setType(AreMessageType.CHUNK_LIGHT);
 //	    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, currentBatch));
 	    postMessage(message);
 	} catch (Exception ex) {
@@ -186,14 +205,76 @@ public class Are extends Thread {
 	}
     }
 
-//    private void lightChunk(AreMessage message) {
-//	Chunk c = (Chunk) message.getData();
-//	try {
+    private void changeLight(Queue<VoxelNode> queue, byte light, int batch) {
+	VoxelNode node;
+	Voxel v;
+	while (!queue.isEmpty()) {
+	    node = queue.poll();
+	    Chunk c = node.chunk;
+	    c.setLight(node.x, node.y, node.z, light);
+	    node.y--;
+	    if (node.y < 0) {
+		c = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
+		if (c == null) {
+		    continue;
+		} else {
+		    requestChunkUpdate(c, batch);
+		    node.chunk = c;
+		    node.y = Chunk.SIZE - 1;
+
+		    if (node.x == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), -1, 0, 0)), batch);
+		    } else if (node.x == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 1, 0, 0)), batch);
+		    }
+
+		    if (node.z == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, -1)), batch);
+		    } else if (node.z == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, 1)), batch);
+		    }
+		}
+	    }
+	    v = c.get(node.x, node.y, node.z);
+	    if (v.getType() == Voxel.VT_NONE) {
+		queue.add(node);
+	    }
+	}
+    }
+
+    private void removeSunLight(int batch) {
+	changeLight(removeSunLightQueue, (byte) 0, batch);
+    }
+
+    private void propagateSunLight(int batch) {
+	changeLight(propagateSunLightQueue, (byte) Voxel.LIGHT_SUN, batch);
+    }
+
+    private void requestChunkUpdate(Chunk c, int batch) {
+	if (c != null && c.isLoaded()) {
+	    c.lock();
+	    c.reset();
+	    c.unlock();
+	    postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
+	}
+    }
+
+    private void lightChunk(AreMessage message) {
+	Chunk c = (Chunk) message.getData();
+	try {
 //	    c.propagateSunLight();
-//	} catch (Exception ex) {
-//	    ex.printStackTrace();
-//	}
-//    }
+//	    c.propagateAreaLight();
+	    if (c.hasVisibleVoxel()) {
+		message.setType(AreMessageType.CHUNK_LOAD);
+	    } else {
+		message.setType(AreMessageType.CHUNK_UNLOAD);
+	    }
+	    postMessage(message);
+	} catch (Exception ex) {
+	    ex.printStackTrace();
+	}
+    }
+
     private void loadChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 	try {
@@ -228,19 +309,22 @@ public class Are extends Thread {
     }
 
     public void init() {
+	Vec3 v;
+	Chunk c;
 	int batch = areQueue.nextBatch();
 	for (int z = 0; z < LENGTH; z++) {
 	    //Due to sun light, we need to always load chunks from top-down.
 	    for (int x = 0; x < WIDTH; x++) {
 		for (int y = HEIGHT - 1; y >= 0; y--) {
-		    Vec3 v = new Vec3(x, y, z);
-		    Chunk c = new Chunk(this, v);
+		    v = new Vec3(x, y, z);
+		    c = new Chunk(this, v);
 		    set(v, c);
 		    postMessage(new AreMessage(AreMessageType.CHUNK_SETUP, c, batch));
 		}
 	    }
 	}
 	inited = true;
+
 	process(batch);
     }
 
@@ -349,73 +433,93 @@ public class Are extends Thread {
 	return c.getLight(x, y, z);
     }
 
+    protected Vec3 toChunkPosition(int x, int y, int z) {
+	return new Vec3(MathUtils.floorDiv(x, Chunk.SIZE),
+		MathUtils.floorDiv(y, Chunk.SIZE),
+		MathUtils.floorDiv(z, Chunk.SIZE));
+    }
+
+    protected Vec3 toVoxelPosition(int x, int y, int z) {
+	return new Vec3(MathUtils.absMod(x, Chunk.SIZE),
+		MathUtils.absMod(y, Chunk.SIZE),
+		MathUtils.absMod(z, Chunk.SIZE));
+    }
+
     protected void updateVoxel(int x, int y, int z, Voxel v) {
-	int chunkX = MathUtils.floorDiv(x, Chunk.SIZE);
-	int chunkY = MathUtils.floorDiv(y, Chunk.SIZE);
-	int chunkZ = MathUtils.floorDiv(z, Chunk.SIZE);
-
-
-	Chunk c = get(chunkX, chunkY, chunkZ);
+	Vec3 pos = toChunkPosition(x, y, z);
+	Chunk c = get(pos);
 	if (c == null) {
 	    return;
 	}
 
-	int voxelX = MathUtils.absMod(x, Chunk.SIZE);
-	int voxelY = MathUtils.absMod(y, Chunk.SIZE);
-	int voxelZ = MathUtils.absMod(z, Chunk.SIZE);
-
+	Vec3 voxelPos = toVoxelPosition(x, y, z);
 	c.lock();
-	c.set(voxelX, voxelY, voxelZ, v);
+	c.set(voxelPos, v);
 	c.unlock();
 
-	int batch = areQueue.nextBatch();
-	postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+	if (v.getType() == Voxel.VT_NONE) {
+	    if (c.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_TOP) == Voxel.LIGHT_SUN) {
+		propagateSunLightQueue.add(new VoxelNode(c, voxelPos, Voxel.LIGHT_SUN));
+	    } else {
+		removeSunLightQueue.add(new VoxelNode(c, voxelPos, 0));
+	    }
+	} else {
+	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 0);
+	    if (voxelPos.getY() == 0) {
+		Chunk c2 = get(pos.getX(), pos.getY() - 1, pos.getZ());
+		if (c2 != null) {
+		    Vec3 v2 = voxelPos.copy();
+		    v2.setY(Chunk.SIZE - 1);
+		    removeSunLightQueue.add(new VoxelNode(c2, v2, 0));
+		}
+	    } else {
+		removeSunLightQueue.add(new VoxelNode(c, Vec3.copyAdd(voxelPos, 0, -1, 0), 0));
+	    }
+	}
 
-	updateNeighborhood(chunkX, chunkY, chunkZ, batch);
+	int batch = areQueue.nextBatch();
+	postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
+
+	updateNeighborhood(pos, voxelPos, batch);
 
 	process(batch);
     }
 
-    public void updateNeighborhood(int x, int y, int z, int batch) {
-	Chunk c = get(x - 1, y, z);
-	{
+    public void updateNeighborhood(Vec3 chunkPos, Vec3 voxelPos, int batch) {
+	Chunk c;
+	if (voxelPos.getX() == 0) {
+	    c = get(Vec3.copyAdd(chunkPos, -1, 0, 0));
 	    if (c != null) {
-		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
+	    }
+	} else if (voxelPos.getX() == Chunk.SIZE - 1) {
+	    c = get(Vec3.copyAdd(chunkPos, 1, 0, 0));
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
 	    }
 	}
 
-	c = get(x + 1, y, z);
-	{
+	if (voxelPos.getY() == 0) {
+	    c = get(Vec3.copyAdd(chunkPos, 0, -1, 0));
 	    if (c != null) {
-		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
+	    }
+	} else if (voxelPos.getY() == Chunk.SIZE - 1) {
+	    c = get(Vec3.copyAdd(chunkPos, 0, 1, 0));
+	    if (c != null) {
+		postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
 	    }
 	}
 
-	c = get(x, y - 1, z);
-	{
+	if (voxelPos.getZ() == 0) {
+	    c = get(Vec3.copyAdd(chunkPos, 0, 0, -1));
 	    if (c != null) {
-		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
 	    }
-	}
-
-	c = get(x, y + 1, z);
-	{
+	} else if (voxelPos.getZ() == Chunk.SIZE - 1) {
+	    c = get(Vec3.copyAdd(chunkPos, 0, 0, 1));
 	    if (c != null) {
-		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
-	    }
-	}
-
-	c = get(x, y, z - 1);
-	{
-	    if (c != null) {
-		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
-	    }
-	}
-
-	c = get(x, y, z + 1);
-	{
-	    if (c != null) {
-		postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
 	    }
 	}
     }
@@ -496,7 +600,7 @@ public class Are extends Thread {
 		//Reload chunk at new left border.
 		c = get(position.copy().add(boundBegin, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 
 		//Add new chunks at right most of Are.
@@ -508,7 +612,7 @@ public class Are extends Thread {
 		//Reload the previous right border.
 		c = get(position.copy().add(boundEnd - 1, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 	    }
 	}
@@ -529,7 +633,7 @@ public class Are extends Thread {
 		//Reload chunk at new left border.
 		c = get(position.copy().add(boundBegin, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 
 		//Add new chunks at right most of Are.
@@ -541,7 +645,7 @@ public class Are extends Thread {
 		//Reload the previous right border.
 		c = get(position.copy().add(boundEnd + 1, y, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 	    }
 	}
@@ -562,7 +666,7 @@ public class Are extends Thread {
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, y, boundBegin));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
@@ -574,7 +678,7 @@ public class Are extends Thread {
 		//Reload the previous front border.
 		c = get(position.copy().add(x, y, boundEnd - 1));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 	    }
 	}
@@ -595,7 +699,7 @@ public class Are extends Thread {
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, y, boundBegin));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
@@ -607,7 +711,7 @@ public class Are extends Thread {
 		//Reload the previous front border.
 		c = get(position.copy().add(x, y, boundEnd + 1));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 	    }
 	}
@@ -628,7 +732,7 @@ public class Are extends Thread {
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, boundBegin, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
@@ -640,7 +744,7 @@ public class Are extends Thread {
 		//Reload the previous front border.
 		c = get(position.copy().add(x, boundEnd - 1, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 	    }
 	}
@@ -661,7 +765,7 @@ public class Are extends Thread {
 		//Reload chunk at new back border.
 		c = get(position.copy().add(x, boundBegin, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 
 		//Add new chunks at front most of Are.
@@ -673,7 +777,7 @@ public class Are extends Thread {
 		//Reload the previous front border.
 		c = get(position.copy().add(x, boundEnd + 1, z));
 		if (c != null) {
-		    postMessage(new AreMessage(AreMessageType.CHUNK_UPDATE, c, batch));
+		    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, batch));
 		}
 	    }
 	}
@@ -704,7 +808,7 @@ public class Are extends Thread {
 	    }
 	    case CHUNK_UNLOAD: {
 	    }
-	    case CHUNK_UPDATE: {
+	    case CHUNK_LIGHT: {
 	    }
 	    case CHUNK_ATTACH: {
 		areQueue.queue(message);
@@ -744,14 +848,8 @@ public class Are extends Thread {
 	areQueue.finishBatch(type, batch);
     }
 
-    public float getChunkQueueSize() {
-	int size = areQueue.getQueueSize(AreMessageType.CHUNK_SETUP);
-	size += areQueue.getQueueSize(AreMessageType.CHUNK_LOAD);
-	return size;
-    }
-
-    public float getAttachQueueSize() {
-	return areQueue.getQueueSize(AreMessageType.CHUNK_ATTACH);
+    public float getChunkQueueSize(AreMessageType type) {
+	return areQueue.getQueueSize(type);
     }
 
     public void setVoxel(Vec3 v, short type) {

@@ -14,10 +14,10 @@ import com.lagecompany.nifty.gui.NiftyJmeHelper;
  * @author Afonso Lage
  */
 public class Main extends SimpleApplication {
-
+    
     public static void main(String[] args) {
 	Main app = new Main();
-
+	
 	BufferUtils.setTrackDirectMemoryEnabled(true);
 
 	// Disable settings screen before launching the game.
@@ -34,7 +34,9 @@ public class Main extends SimpleApplication {
     @Override
     public void start(JmeContext.Type contextType) {
 	AppSettings sett = new AppSettings(true);
-	sett.setResolution(1024, 768);
+	sett.setResolution(800, 600);
+	sett.setVSync(false);
+	sett.setFrameRate(-1);
 	setSettings(sett);
 	super.start(contextType);
     }
