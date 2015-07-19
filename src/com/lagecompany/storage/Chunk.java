@@ -94,7 +94,11 @@ public class Chunk {
     }
 
     public int getLight(int i) {
-	return (lightMap != null && i < lightMap.length && i >= 0) ? lightMap[i] : -1;
+	if (lightMap == null || i >= lightMap.length || i < 0) {
+	    return -1;
+	} else {
+	    return lightMap[i] & 0x0F;
+	}
     }
 
     public void set(Vec3 pos, Voxel v) {
@@ -106,7 +110,52 @@ public class Chunk {
     }
 
     public void setLight(int x, int y, int z, int v) {
-	lightMap[z + SIZE * (y + SIZE * x)] = v;
+	int idx = z + SIZE * (y + SIZE * x);
+
+	//We are using only one byte of lightMap at moment.
+	//First set v to 0000 FFFF, to ensure only a light less then 15 will be get (0x0F = 15);
+	//Then clear the bits on lightMap also, by using and AND 0xF0. So we'll have XXXX 0000.
+	//At least, just OR both XXXX 0000 OR 0000 XXXX, this will ensure that we change only desired bits.
+	lightMap[idx] = lightMap[idx] & 0xF0 | v & 0x0F;
+    }
+
+    public void flagSkyLight(int x, int y, int z, boolean skyLight) {
+	int idx = z + SIZE * (y + SIZE * x);
+
+	//Set the flag on light to identify if this is a sky light or no. The flag is placed at 8 most bit: 
+	//FXXX XXXX. So let's clear or set flag.
+	if (skyLight) {
+	    lightMap[idx] |= 0x80; //0x80 = 1000 0000
+	} else {
+	    lightMap[idx] &= 0x7F; //0x7F = 0111 1111
+	}
+
+    }
+
+    public boolean isFlaggedSkyLight(int x, int y, int z) {
+	int idx = z + SIZE * (y + SIZE * x);
+
+	//0x80 = 1000 0000, so if they remain the same after AND operation, this means it is flagged.
+	return (lightMap[idx] & 0x80) == 0x80;
+    }
+
+    public void flagReflectedLight(int x, int y, int z, boolean skyLight) {
+	int idx = z + SIZE * (y + SIZE * x);
+
+	//Set the flag on light to identify if it was reflected: 
+	//XFXX XXXX. So let's clear or set flag.
+	if (skyLight) {
+	    lightMap[idx] |= 0x40; //0x40 = 0100 0000
+	} else {
+	    lightMap[idx] &= 0xBF; //0xBF = 1011 1111
+	}
+    }
+
+    public boolean isFlaggedReflectedLight(int x, int y, int z) {
+	int idx = z + SIZE * (y + SIZE * x);
+
+	//0x40 = 0100 0000, so if they remain the same after AND operation, this means it is flagged.
+	return (lightMap[idx] & 0x40) == 0x40;
     }
 
     public Voxel getAreVoxel(int x, int y, int z, byte direction) {
@@ -164,6 +213,59 @@ public class Chunk {
 	}
 
 	return result;
+    }
+
+    public void setAreLight(int x, int y, int z, byte direction, byte light) {
+	switch (direction) {
+	    case VS_LEFT: {
+		if (x == 0) {
+		    are.setLight(Vec3.copyAdd(position, -1, 0, 0), SIZE - 1, y, z, light);
+		} else {
+		    setLight(x - 1, y, z, light);
+		}
+		break;
+	    }
+	    case VS_RIGHT: {
+		if (x == SIZE - 1) {
+		    are.setLight(Vec3.copyAdd(position, 1, 0, 0), 0, y, z, light);
+		} else {
+		    setLight(x + 1, y, z, light);
+		}
+		break;
+	    }
+	    case VS_DOWN: {
+		if (y == 0) {
+		    are.setLight(Vec3.copyAdd(position, 0, -1, 0), x, SIZE - 1, z, light);
+		} else {
+		    setLight(x, y - 1, z, light);
+		}
+		break;
+	    }
+	    case VS_TOP: {
+		if (y == SIZE - 1) {
+		    are.setLight(Vec3.copyAdd(position, 0, 1, 0), x, 0, z, light);
+		} else {
+		    setLight(x, y + 1, z, light);
+		}
+		break;
+	    }
+	    case VS_BACK: {
+		if (z == 0) {
+		    are.setLight(Vec3.copyAdd(position, 0, 0, -1), x, y, SIZE - 1, light);
+		} else {
+		    setLight(x, y, z - 1, light);
+		}
+		break;
+	    }
+	    case VS_FRONT: {
+		if (z == SIZE - 1) {
+		    are.setLight(Vec3.copyAdd(position, 0, 0, 1), x, y, 0, light);
+		} else {
+		    setLight(x, y, z + 1, light);
+		}
+		break;
+	    }
+	}
     }
 
     public int getAreLight(int x, int y, int z, byte direction) {

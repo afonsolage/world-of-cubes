@@ -16,10 +16,18 @@ public class VoxelNode {
     public Chunk chunk;
 
     public VoxelNode(Chunk chunk, Vec3 position, int light) {
-	this.x = (byte) position.getX();
-	this.y = (byte) position.getY();
-	this.z = (byte) position.getZ();
+	this(chunk, position.getX(), position.getY(), position.getZ(), light);
+    }
+
+    public VoxelNode(Chunk chunk, int x, int y, int z, int light) {
+	this.x = (byte) x;
+	this.y = (byte) y;
+	this.z = (byte) z;
 	this.chunk = chunk;
 	this.light = (byte) light;
+    }
+
+    public VoxelNode copy() {
+	return new VoxelNode(chunk, x, y, z, light);
     }
 }

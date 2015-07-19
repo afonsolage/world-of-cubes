@@ -11,6 +11,7 @@ public class Vec3 {
     public static final Vec3 FRONT = new Vec3(0, 0, 1);
     public static final Vec3 BACK = new Vec3(0, 0, 1);
     public static final Vec3 ZERO = new Vec3(0, 0, 0);
+    public static final Vec3[] ALL_DIRECTIONS = {UP, RIGHT, DOWN, LEFT, FRONT, BACK};
     private int x;
     private int y;
     private int z;
@@ -48,7 +49,7 @@ public class Vec3 {
 	this.x = (int) x;
 	this.x = (int) y;
 	this.x = (int) z;
-	
+
 	updateHashCode();
     }
 

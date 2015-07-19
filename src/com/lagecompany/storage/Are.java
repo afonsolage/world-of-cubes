@@ -33,6 +33,8 @@ public class Are extends Thread {
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
     private final Queue<VoxelNode> propagateSunLightQueue;
     private final Queue<VoxelNode> removeSunLightQueue;
+    private final Queue<VoxelNode> reflectSunLightQueue;
+    private final Queue<VoxelNode> removeReflectSunLightQueue;
     private final AreQueue areQueue;
     private Vec3 position;
     private boolean moving;
@@ -66,6 +68,8 @@ public class Are extends Thread {
 	renderBatchQueue = new ConcurrentLinkedQueue<>();
 	propagateSunLightQueue = new LinkedBlockingQueue<>();
 	removeSunLightQueue = new LinkedBlockingQueue<>();
+	reflectSunLightQueue = new LinkedBlockingQueue<>();
+	removeReflectSunLightQueue = new LinkedBlockingQueue<>();
 	areQueue = new AreQueue();
 	worker = new AreWorker(actionQueue, this);
 	worker.setName("Are Worker");
@@ -122,6 +126,7 @@ public class Are extends Thread {
 
 		propagateSunLight(currentBatch);
 		removeSunLight(currentBatch);
+		reflectSunLight(currentBatch);
 
 		queue = areQueue.getQueue(AreMessageType.CHUNK_LIGHT, currentBatch);
 		if (queue != null) {
@@ -205,13 +210,38 @@ public class Are extends Thread {
 	}
     }
 
-    private void changeLight(Queue<VoxelNode> queue, byte light, int batch) {
+    private void removeReflectedSunLight(int batch) {
+//	VoxelNode node;
+//	while (!reflectSunLightQueue.isEmpty()) {
+//	    node = reflectSunLightQueue.poll();
+//
+//	    if (reflectSunLightUp(node, batch)
+//		    | reflectSunLightDown(node, batch)
+//		    | reflectSunLightRight(node, batch)
+//		    | reflectSunLightLeft(node, batch)
+//		    | reflectSunLightFront(node, batch)
+//		    | reflectSunLightBack(node, batch)) {
+//		node.chunk.flagReflectedLight(node.x, node.y, node.z, true);
+//	    } else {
+//		node.chunk.flagReflectedLight(node.x, node.y, node.z, false);
+//	    }
+//	}
+    }
+
+    private void removeSunLight(int batch) {
 	VoxelNode node;
 	Voxel v;
-	while (!queue.isEmpty()) {
-	    node = queue.poll();
+	while (!removeSunLightQueue.isEmpty()) {
+	    node = removeSunLightQueue.poll();
 	    Chunk c = node.chunk;
-	    c.setLight(node.x, node.y, node.z, light);
+
+	    if (c.isFlaggedReflectedLight(node.x, node.y, node.z)) {
+		removeReflectSunLightQueue.add(new VoxelNode(c, node.x, node.y, node.z, c.getLight(node.x, node.y, node.x)));
+	    }
+
+	    c.flagSkyLight(node.x, node.y, node.z, false);
+	    c.setLight(node.x, node.y, node.z, 0);
+
 	    node.y--;
 	    if (node.y < 0) {
 		c = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
@@ -237,17 +267,205 @@ public class Are extends Thread {
 	    }
 	    v = c.get(node.x, node.y, node.z);
 	    if (v.getType() == Voxel.VT_NONE) {
-		queue.add(node);
+		removeSunLightQueue.add(node);
 	    }
 	}
     }
 
-    private void removeSunLight(int batch) {
-	changeLight(removeSunLightQueue, (byte) 0, batch);
+    private void propagateSunLight(int batch) {
+	VoxelNode node;
+	Voxel v;
+	while (!propagateSunLightQueue.isEmpty()) {
+	    node = propagateSunLightQueue.poll();
+	    Chunk c = node.chunk;
+	    c.setLight(node.x, node.y, node.z, Voxel.LIGHT_SUN);
+	    c.flagSkyLight(node.x, node.y, node.z, true);
+	    node.y--;
+	    if (node.y < 0) {
+		c = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
+		if (c == null) {
+		    continue;
+		} else {
+		    requestChunkUpdate(c, batch);
+		    node.chunk = c;
+		    node.y = Chunk.SIZE - 1;
+
+		    if (node.x == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), -1, 0, 0)), batch);
+		    } else if (node.x == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 1, 0, 0)), batch);
+		    }
+
+		    if (node.z == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, -1)), batch);
+		    } else if (node.z == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, 1)), batch);
+		    }
+		}
+	    }
+	    v = c.get(node.x, node.y, node.z);
+	    if (v.getType() == Voxel.VT_NONE) {
+		propagateSunLightQueue.add(node);
+	    }
+	}
     }
 
-    private void propagateSunLight(int batch) {
-	changeLight(propagateSunLightQueue, (byte) Voxel.LIGHT_SUN, batch);
+    private void reflectSunLight(int batch) {
+	for (Chunk c : chunkMap.values()) {
+	    if (c.isFlaggedToUpdate()) {
+		for (int x = 0; x < Chunk.SIZE; x++) {
+		    for (int y = 0; y < Chunk.SIZE; y++) {
+			for (int z = 0; z < Chunk.SIZE; z++) {
+			    if (c.get(x, y, z).getType() == Voxel.VT_NONE && c.getLight(x, y, z) == Voxel.LIGHT_SUN) {
+				if (c.getAreLight(x, y, z, Voxel.VS_TOP) < Voxel.LIGHT_SUN) {
+				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
+				} else if (c.getAreLight(x, y, z, Voxel.VS_DOWN) < Voxel.LIGHT_SUN) {
+				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
+				} else if (c.getAreLight(x, y, z, Voxel.VS_RIGHT) < Voxel.LIGHT_SUN) {
+				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
+				} else if (c.getAreLight(x, y, z, Voxel.VS_LEFT) < Voxel.LIGHT_SUN) {
+				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
+				} else if (c.getAreLight(x, y, z, Voxel.VS_FRONT) < Voxel.LIGHT_SUN) {
+				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
+				} else if (c.getAreLight(x, y, z, Voxel.VS_BACK) < Voxel.LIGHT_SUN) {
+				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
+				}
+			    }
+			}
+		    }
+		}
+	    }
+	}
+
+	VoxelNode node;
+	while (!reflectSunLightQueue.isEmpty()) {
+	    node = reflectSunLightQueue.poll();
+
+	    if (reflectSunLightUp(node, batch)
+		    | reflectSunLightDown(node, batch)
+		    | reflectSunLightRight(node, batch)
+		    | reflectSunLightLeft(node, batch)
+		    | reflectSunLightFront(node, batch)
+		    | reflectSunLightBack(node, batch)) {
+		node.chunk.flagReflectedLight(node.x, node.y, node.z, true);
+	    } else {
+		node.chunk.flagReflectedLight(node.x, node.y, node.z, false);
+	    }
+	}
+    }
+
+    private boolean reflectSunLightUp(VoxelNode node, int batch) {
+	Chunk c;
+	Vec3 v = new Vec3(node.x, node.y + 1, node.z);
+	if (v.getY() > Chunk.SIZE - 1) {
+	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, 1, 0));
+	    v.setY(0);
+	} else {
+	    c = node.chunk;
+	}
+
+	return reflectLight(c, v, node.light, batch);
+    }
+
+    private boolean reflectSunLightDown(VoxelNode node, int batch) {
+	Chunk c;
+	Vec3 v = new Vec3(node.x, node.y - 1, node.z);
+	if (v.getY() < 0) {
+	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, -1, 0));
+	    v.setY(Chunk.SIZE - 1);
+	} else {
+	    c = node.chunk;
+	}
+
+	return reflectLight(c, v, node.light, batch);
+    }
+
+    private boolean reflectSunLightRight(VoxelNode node, int batch) {
+	Chunk c;
+	Vec3 v = new Vec3(node.x + 1, node.y, node.z);
+	if (v.getX() > Chunk.SIZE - 1) {
+	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 1, 0, 0));
+	    v.setX(0);
+	} else {
+	    c = node.chunk;
+	}
+
+	return reflectLight(c, v, node.light, batch);
+    }
+
+    private boolean reflectSunLightLeft(VoxelNode node, int batch) {
+	Chunk c;
+	Vec3 v = new Vec3(node.x - 1, node.y, node.z);
+	if (v.getX() < 0) {
+	    c = get(Vec3.copyAdd(node.chunk.getPosition(), -1, 0, 0));
+	    v.setX(Chunk.SIZE - 1);
+	} else {
+	    c = node.chunk;
+	}
+
+	return reflectLight(c, v, node.light, batch);
+    }
+
+    private boolean reflectSunLightFront(VoxelNode node, int batch) {
+	Chunk c;
+	Vec3 v = new Vec3(node.x, node.y, node.z + 1);
+	if (v.getZ() > Chunk.SIZE - 1) {
+	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, 0, 1));
+	    v.setZ(0);
+	} else {
+	    c = node.chunk;
+	}
+
+	return reflectLight(c, v, node.light, batch);
+    }
+
+    private boolean reflectSunLightBack(VoxelNode node, int batch) {
+	Chunk c;
+	Vec3 v = new Vec3(node.x, node.y, node.z - 1);
+	if (v.getZ() < 0) {
+	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, 0, -1));
+	    v.setZ(Chunk.SIZE - 1);
+	} else {
+	    c = node.chunk;
+	}
+
+	return reflectLight(c, v, node.light, batch);
+    }
+
+    private boolean reflectLight(Chunk c, Vec3 voxPos, int light, int batch) {
+	if (c != null) {
+	    Voxel v = c.get(voxPos.getX(), voxPos.getY(), voxPos.getZ());
+	    if (v.getType() == Voxel.VT_NONE) {
+		int l = c.getLight(voxPos.getX(), voxPos.getY(), voxPos.getZ());
+		if (l < light - 1) {
+		    c.setLight(voxPos.getX(), voxPos.getY(), voxPos.getZ(), light - 1);
+		    requestChunkUpdate(c, batch);
+
+		    if (voxPos.getX() == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), -1, 0, 0)), batch);
+		    } else if (voxPos.getX() == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 1, 0, 0)), batch);
+		    }
+
+		    if (voxPos.getY() == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, -1, 0)), batch);
+		    } else if (voxPos.getY() == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 1, 0)), batch);
+		    }
+
+		    if (voxPos.getZ() == 0) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, -1)), batch);
+		    } else if (voxPos.getZ() == Chunk.SIZE - 1) {
+			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, 1)), batch);
+		    }
+		    if (light - 1 > 1) {
+			reflectSunLightQueue.add(new VoxelNode(c, voxPos.getX(), voxPos.getY(), voxPos.getZ(), light - 1));
+		    }
+		    return true;
+		}
+	    }
+	}
+	return false;
     }
 
     private void requestChunkUpdate(Chunk c, int batch) {
@@ -255,6 +473,7 @@ public class Are extends Thread {
 	    c.lock();
 	    c.reset();
 	    c.unlock();
+	    c.flagToUpdate();
 	    postMessage(new AreMessage(AreMessageType.CHUNK_LOAD, c, batch));
 	}
     }
@@ -328,75 +547,6 @@ public class Are extends Thread {
 	process(batch);
     }
 
-//    private void propagateLight(AreMessage msg) {
-//	final Vec3 v = (Vec3) msg.getData();
-//	executorService.submit(new Runnable() {
-//	    @Override
-//	    public void run() {
-//		propagateChunkLight(v.getX(), HEIGHT - 1, v.getY());
-//	    }
-//	});
-//    }
-//
-//    //TODO: Add light direction, light length and type.
-//    public void propagateChunkLight(final int x, final int y, final int z) {
-//	final Chunk c = get(x, y, z);
-//	if (c != null) {
-//	    if (c.isEmpty()) {
-//		c.setLight(Voxel.LIGHT_SUN);
-//		executorService.submit(new Runnable() {
-//		    @Override
-//		    public void run() {
-//			propagateChunkLight(x, y - 1, z);
-//		    }
-//		});
-//	    } else {
-//		for (int cx = 0; cx < WIDTH; cx++) {
-//		    for (int cz = 0; cz < LENGTH; cz++) {
-//			executorService.submit(new Runnable() {
-//			    private int a;
-//			    private int b;
-//			    
-//			    Runnable setParam(int a, int b) {
-//				this.a = a;
-//				this.b = b;
-//				return this;
-//			    }
-//			    
-//			    @Override
-//			    public void run() {
-//				propagateVoxelLight(c, a, HEIGHT - 1, b);
-//			    }
-//			}.setParam(cx, cz));
-//			
-//		    }
-//		}
-//	    }
-//	}
-//    }
-//    
-//    public void propagateVoxelLight(final Chunk c, final int x, final int y, final int z) {
-//	if (y < 0) {
-//	    final Vec3 v = c.getPosition();
-//	    executorService.submit(new Runnable() {
-//		@Override
-//		public void run() {
-//		    propagateChunkLight(v.getX(), v.getY() - 1, v.getZ());
-//		}
-//	    });
-//	} else {
-//	    Voxel v = c.get(x, y, z);
-//	    if (v != null && v.getType() == Voxel.VT_NONE) {
-//		v.setLightPower(Voxel.LIGHT_SUN);
-//		executorService.submit(new Runnable() {
-//		    @Override
-//		    public void run() {
-//			propagateVoxelLight(c, x, y - 1, z);
-//		    }
-//		});
-//	    }
-//	}
-//    }
     public boolean isMoving() {
 	return moving;
     }
@@ -421,6 +571,16 @@ public class Are extends Thread {
 	}
 
 	return c.get(x, y, z);
+    }
+
+    protected void setLight(Vec3 chunkPos, int x, int y, int z, byte light) {
+	Chunk c = get(chunkPos);
+
+	if (c == null) {
+	    return;
+	}
+
+	c.setLight(x, y, z, light);
     }
 
     protected int getLight(Vec3 chunkPos, int x, int y, int z) {
@@ -457,23 +617,130 @@ public class Are extends Thread {
 	c.set(voxelPos, v);
 	c.unlock();
 
+	Chunk tmpC;
+	Vec3 topV = voxelPos.copy();
+	//If we are removing a Voxel, let's check for light propagation.
 	if (v.getType() == Voxel.VT_NONE) {
-	    if (c.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_TOP) == Voxel.LIGHT_SUN) {
-		propagateSunLightQueue.add(new VoxelNode(c, voxelPos, Voxel.LIGHT_SUN));
+	    //If we are o top bound, let's check top chunk
+	    if (voxelPos.getY() == Chunk.SIZE - 1) {
+		tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 1, 0));
+		topV.setY(0);
 	    } else {
-		removeSunLightQueue.add(new VoxelNode(c, voxelPos, 0));
+		tmpC = c;
+		topV.add(0, 1, 0);
 	    }
-	} else {
-	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 0);
-	    if (voxelPos.getY() == 0) {
-		Chunk c2 = get(pos.getX(), pos.getY() - 1, pos.getZ());
-		if (c2 != null) {
-		    Vec3 v2 = voxelPos.copy();
-		    v2.setY(Chunk.SIZE - 1);
-		    removeSunLightQueue.add(new VoxelNode(c2, v2, 0));
+
+	    if (tmpC != null) {
+		//Get top light.
+		int tmpLight = tmpC.getLight(topV.getX(), topV.getY(), topV.getZ());
+		//If top light is a direct sun light, propagate it.
+		if (tmpLight == Voxel.LIGHT_SUN) {
+		    propagateSunLightQueue.add(new VoxelNode(c, voxelPos, Voxel.LIGHT_SUN));
+		} else {
+		    //Else, reflect light from all sides to it.
+
+		    //Top
+		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_TOP);
+		    if (tmpLight > 0) {
+			if (voxelPos.getY() == Chunk.SIZE - 1) {
+			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 1, 0));
+			    if (tmpC != null) {
+				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), 0, voxelPos.getZ(), tmpLight));
+			    } else {
+				tmpC = c;
+			    }
+			} else {
+			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY() + 1, voxelPos.getZ(), tmpLight));
+			}
+		    }
+
+		    //Down
+		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_DOWN);
+		    if (tmpLight > 0) {
+			if (voxelPos.getY() == 0) {
+			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
+			    if (tmpC != null) {
+				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), Chunk.SIZE - 1, voxelPos.getZ(), tmpLight));
+			    } else {
+				tmpC = c;
+			    }
+			} else {
+			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY() - 1, voxelPos.getZ(), tmpLight));
+			}
+		    }
+
+		    //Right
+		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_RIGHT);
+		    if (tmpLight > 0) {
+			if (voxelPos.getX() == Chunk.SIZE - 1) {
+			    tmpC = get(Vec3.copyAdd(c.getPosition(), 1, 0, 0));
+			    if (tmpC != null) {
+				reflectSunLightQueue.add(new VoxelNode(tmpC, 0, voxelPos.getY(), voxelPos.getZ(), tmpLight));
+			    } else {
+				tmpC = c;
+			    }
+			} else {
+			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX() + 1, voxelPos.getY(), voxelPos.getZ(), tmpLight));
+			}
+		    }
+
+		    //Left
+		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_LEFT);
+		    if (tmpLight > 0) {
+			if (voxelPos.getX() == 0) {
+			    tmpC = get(Vec3.copyAdd(c.getPosition(), -1, 0, 0));
+			    if (tmpC != null) {
+				reflectSunLightQueue.add(new VoxelNode(tmpC, Chunk.SIZE - 1, voxelPos.getY(), voxelPos.getZ(), tmpLight));
+			    } else {
+				tmpC = c;
+			    }
+			} else {
+			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX() - 1, voxelPos.getY(), voxelPos.getZ(), tmpLight));
+			}
+		    }
+
+		    //Front
+		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_FRONT);
+		    if (tmpLight > 0) {
+			if (voxelPos.getZ() == Chunk.SIZE - 1) {
+			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 0, 1));
+			    if (tmpC != null) {
+				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), 0, tmpLight));
+			    } else {
+				tmpC = c;
+			    }
+			} else {
+			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), voxelPos.getZ() + 1, tmpLight));
+			}
+		    }
+
+		    //Back
+		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_BACK);
+		    if (tmpLight > 0) {
+			if (voxelPos.getZ() == 0) {
+			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 0, -1));
+			    if (tmpC != null) {
+				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), Chunk.SIZE - 1, tmpLight));
+			    }
+			} else {
+			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), voxelPos.getZ() - 1, tmpLight));
+			}
+		    }
 		}
 	    } else {
-		removeSunLightQueue.add(new VoxelNode(c, Vec3.copyAdd(voxelPos, 0, -1, 0), 0));
+		//3462-9000
+		//If top chunk is null, this means we are on world top edge.
+		propagateSunLightQueue.add(new VoxelNode(c, voxelPos, Voxel.LIGHT_SUN));
+	    }
+	} else {
+	    //Else, we have to check for light blocking.
+	    int previousLight = c.getLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ());
+	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 0);
+
+	    if (previousLight == Voxel.LIGHT_SUN) {
+		removeSunLightQueue.add(new VoxelNode(c, voxelPos, 0));
+	    } else if (previousLight > 0) {
+		removeReflectSunLightQueue.add(new VoxelNode(c, voxelPos, previousLight));
 	    }
 	}
 
