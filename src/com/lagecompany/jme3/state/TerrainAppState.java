@@ -66,7 +66,6 @@ public class TerrainAppState extends AbstractAppState {
 	this.rootNode = app.getRootNode();
 	this.bulletState = stateManager.getState(BulletAppState.class);
 	this.physicsSpace = bulletState.getPhysicsSpace();
-
 	initMaterials();
 
 	node = new Node("Chunks Node");
@@ -108,10 +107,10 @@ public class TerrainAppState extends AbstractAppState {
      */
     private void initMaterials() {
 	atlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
-
+	Texture texture = assetManager.loadTexture("Textures/Elements/atlas.png");
 //	atlas.setColor("Color", ColorRGBA.Blue);
-	atlas.setTexture("DiffuseMap", assetManager.loadTexture("Textures/Elements/atlas.png"));
-	atlas.setFloat("TileSize", 1f / 2f);
+	atlas.setTexture("DiffuseMap", texture);
+	atlas.setFloat("TileSize", 1f / (float) (texture.getImage().getWidth() / 128));
 	atlas.setFloat("MaxTileSize", 1f / Chunk.SIZE);
 //	atlas.setBoolean("UseMaterialColors", true);
 	atlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
@@ -158,7 +157,7 @@ public class TerrainAppState extends AbstractAppState {
 	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
 		attachChunk(message);
 	    }
-	    are.finishBatch(AreMessage.AreMessageType.CHUNK_ATTACH, batch);
+	    are.finishBatch(AreMessage.Type.CHUNK_ATTACH, batch);
 	}
 
 	queue = are.getDetachQueue(batch);
@@ -166,7 +165,7 @@ public class TerrainAppState extends AbstractAppState {
 	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
 		detachChunk(message);
 	    }
-	    are.finishBatch(AreMessage.AreMessageType.CHUNK_DETACH, batch);
+	    are.finishBatch(AreMessage.Type.CHUNK_DETACH, batch);
 	}
 
     }
@@ -180,7 +179,7 @@ public class TerrainAppState extends AbstractAppState {
 	Chunk c = (Chunk) message.getData();
 
 	if (!c.hasVertext()) {
-	    message.setType(AreMessage.AreMessageType.CHUNK_DETACH);
+	    message.setType(AreMessage.Type.CHUNK_DETACH);
 	    are.postMessage(message);
 	    return;
 	}

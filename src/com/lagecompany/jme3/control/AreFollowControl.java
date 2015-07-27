@@ -68,7 +68,7 @@ public class AreFollowControl extends AbstractControl {
 	//Send a message to Are move it self.
 	System.out.println("Moving Are chunk to: " + moved + " - " + are.getPosition());
 	are.setMoving(true);
-	are.postMessage(new AreMessage(AreMessage.AreMessageType.ARE_MOVE, moved));
+	are.postMessage(new AreMessage(AreMessage.Type.ARE_MOVE, moved));
     }
 
     @Override

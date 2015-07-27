@@ -51,12 +51,12 @@ public class LoadingStage extends AbstractAppState {
 	if (!are.isInited()) {
 	    return;
 	}
-	int setupCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_SETUP);
-	int loadCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_LOAD);
-	int lightCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_LIGHT);
-	int attachCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_ATTACH);
-	int detachCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_DETACH);
-	int unloadCount = (int) are.getChunkQueueSize(AreMessage.AreMessageType.CHUNK_UNLOAD);
+	int setupCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_SETUP);
+	int loadCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_LOAD);
+	int lightCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_LIGHT);
+	int attachCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_ATTACH);
+	int detachCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_DETACH);
+	int unloadCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_UNLOAD);
 
 	loadingScreen.setMessageCount("setup", setupCount);
 	loadingScreen.setMessageCount("load", loadCount);

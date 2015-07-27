@@ -9,6 +9,8 @@ import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
 import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
+import com.jme3.font.BitmapFont;
+import com.jme3.font.BitmapText;
 import com.jme3.input.FlyByCamera;
 import com.jme3.input.InputManager;
 import com.jme3.input.KeyInput;
@@ -28,6 +30,7 @@ import com.jme3.renderer.Camera;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
+import com.jme3.scene.control.BillboardControl;
 import com.jme3.scene.debug.Arrow;
 import com.jme3.scene.debug.Grid;
 import com.jme3.scene.shape.Box;
@@ -36,12 +39,10 @@ import com.jme3.system.AppSettings;
 import com.jme3.ui.Picture;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.AreFollowControl;
-import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
 import com.lagecompany.nifty.gui.DebugScreen;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.Chunk;
-import static com.lagecompany.storage.Chunk.SIZE;
 import com.lagecompany.storage.Vec3;
 import com.lagecompany.storage.voxel.Voxel;
 
@@ -64,11 +65,13 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private PhysicsSpace physicsSpace;
     private AppSettings settings;
     private Node compass;
+    private Node lightNode;
     public static boolean wireframe;
     public static boolean backfaceCulled;
     public static boolean axisArrowsEnabled;
     public static boolean playerFollow;
     public static DebugAppState instance;
+    private static BitmapFont defaultFont;
 
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -89,6 +92,8 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 //	stateManager.attach(new BulletDebugAppState(physicsSpace));
 	followControl = playerNode.getControl(CameraFollowControl.class);
 	translateControl = playerNode.getControl(AreFollowControl.class);
+
+	defaultFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
 
 	are = Are.getInstance();
 
@@ -151,7 +156,8 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	} else if ("TOGGLE_CAM_VIEW".equals(name) && !isPressed) {
 	    toggleCamView();
 	} else if ("CUSTOM_FUNCTION".equals(name) && !isPressed) {
-	    playerNode.getControl(PlayerControl.class).setEnabled(true);
+//	    playerNode.getControl(PlayerControl.class).setEnabled(true);
+	    showLights();
 	    //customFunction();
 	} else if ("REMOVE_VOXEL".equals(name) && !isPressed) {
 	    cursorPicking(true);
@@ -197,11 +203,15 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void toggleBackfaceCulling(Node node) {
+	toggleBackfaceCulling(node, backfaceCulled);
+    }
+
+    private void toggleBackfaceCulling(Node node, boolean cull) {
 	for (Spatial spatial : node.getChildren()) {
 	    if (spatial instanceof Geometry) {
 		Geometry geometry = (Geometry) spatial;
 
-		if (backfaceCulled) {
+		if (cull) {
 		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
 		} else {
 		    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
@@ -312,15 +322,13 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	if (remove) {
 	    point = collision
 		    .getContactPoint()
-		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.SIZE), (Are.DATA_LENGHT / 2))
 		    .subtractLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
 	    type = Voxel.VT_NONE;
 	} else {
 	    point = collision
 		    .getContactPoint()
-		    .add((Are.DATA_WIDTH / 2), (8 * Chunk.SIZE), (Are.DATA_LENGHT / 2))
 		    .addLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
-	    type = Voxel.VT_DIRT;
+	    type = Voxel.VT_TORCH;
 
 	}
 	Vec3 v = new Vec3(point.x, point.y, point.z);
@@ -401,5 +409,70 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	compass.scale(40);
 	compass.setLocalTranslation(settings.getWidth() - 60, settings.getHeight() - 60, 0f);
 	guiNode.attachChild(compass);
+    }
+
+    public void showLights() {
+	if (lightNode == null) {
+	    lightNode = new Node("LightingNode");
+	    Vector3f playerPosition = playerNode.getLocalTranslation();
+	    playerPosition.addLocal((Are.DATA_WIDTH / 2), (8 * Chunk.SIZE), (Are.DATA_LENGHT / 2));
+	    Vec3 playerChunkPos = are.toChunkPosition((int) playerPosition.x, (int) playerPosition.y, (int) playerPosition.z);
+
+	    Chunk c;
+
+	    for (int x = -2; x <= 2; x++) {
+		for (int y = -2; y <= 2; y++) {
+		    for (int z = -2; z <= 2; z++) {
+			c = are.get(Vec3.copyAdd(playerChunkPos, x, y, z));
+			showChunkLight(c, lightNode);
+			toggleBackfaceCulling(lightNode, true);
+		    }
+		}
+	    }
+
+	    rootNode.attachChild(lightNode);
+	} else {
+	    lightNode.removeFromParent();
+	    lightNode = null;
+	}
+    }
+
+    public void showChunkLight(Chunk chunk, Node node) {
+	BitmapText text;
+
+	if (chunk == null) {
+	    return;
+	}
+
+	Vec3 cPos = are.getAbsoluteChunkPosition(chunk.getPosition());
+	for (int x = 0; x < Chunk.SIZE; x++) {
+	    for (int y = 0; y < Chunk.SIZE; y++) {
+		for (int z = 0; z < Chunk.SIZE; z++) {
+		    int light = chunk.getLight(x, y, z);
+		    if (light == 0 || light == 15) {
+			continue;
+		    }
+		    text = getText(chunk.getName() + " - light " + x + "," + y + "," + z, "" + light, 0.1f, ColorRGBA.Red);
+		    text.setLocalTranslation(cPos.getX() + x + 0.5f, cPos.getY() + y + 0.5f, cPos.getZ() + z + 0.5f);
+		    node.attachChild(text);
+		}
+	    }
+	}
+    }
+
+    public void removeChunkLight(Chunk chunk, Node node) {
+	for (int i = 0; i < Chunk.DATA_LENGTH; i++) {
+	    node.detachChildNamed(chunk.getName() + " - light " + i);
+	}
+    }
+
+    private BitmapText getText(String name, String text, float size, ColorRGBA color) {
+	BitmapText result = new BitmapText(defaultFont);
+	result.setName(name);
+	result.setText(text);
+	result.setSize(size);
+	result.setColor(color);
+	result.addControl(new BillboardControl());
+	return result;
     }
 }

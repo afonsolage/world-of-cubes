@@ -9,7 +9,7 @@ public class Vec3 {
     public static final Vec3 UP = new Vec3(0, 1, 0);
     public static final Vec3 DOWN = new Vec3(0, -1, 0);
     public static final Vec3 FRONT = new Vec3(0, 0, 1);
-    public static final Vec3 BACK = new Vec3(0, 0, 1);
+    public static final Vec3 BACK = new Vec3(0, 0, -1);
     public static final Vec3 ZERO = new Vec3(0, 0, 0);
     public static final Vec3[] ALL_DIRECTIONS = {UP, RIGHT, DOWN, LEFT, FRONT, BACK};
     private int x;
@@ -47,8 +47,8 @@ public class Vec3 {
 
     public void set(float x, float y, float z) {
 	this.x = (int) x;
-	this.x = (int) y;
-	this.x = (int) z;
+	this.y = (int) y;
+	this.z = (int) z;
 
 	updateHashCode();
     }
@@ -151,6 +151,10 @@ public class Vec3 {
 
     public static Vec3 copyAdd(Vec3 position, int x, int y, int z) {
 	return new Vec3(position.getX() + x, position.getY() + y, position.getZ() + z);
+    }
+
+    public static Vec3 copyAdd(Vec3 a, Vec3 b) {
+	return new Vec3(a.getX() + b.getX(), a.getY() + b.getY(), a.getZ() + b.getZ());
     }
 
     public Vec3 addNew(Vec3 v) {

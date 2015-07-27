@@ -1,12 +1,12 @@
 package com.lagecompany.storage;
 
-import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_ATTACH;
-import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_DETACH;
-import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_LOAD;
-import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_SETUP;
-import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_UNLOAD;
+import static com.lagecompany.storage.AreMessage.Type.CHUNK_ATTACH;
+import static com.lagecompany.storage.AreMessage.Type.CHUNK_DETACH;
+import static com.lagecompany.storage.AreMessage.Type.CHUNK_LOAD;
+import static com.lagecompany.storage.AreMessage.Type.CHUNK_SETUP;
+import static com.lagecompany.storage.AreMessage.Type.CHUNK_UNLOAD;
+import java.util.Iterator;
 //import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_UPDATE;
-import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -24,6 +24,7 @@ public class AreQueue {
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> loadQueue;
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> updateQueue;
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> attachQueue;
+    private final ConcurrentHashMap<AreQueueListener.Type, ConcurrentLinkedQueue<AreQueueListener>> listeners;
     private int batch = BEGIN_BATCH;
 
     public AreQueue() {
@@ -34,49 +35,75 @@ public class AreQueue {
 	loadQueue = new ConcurrentHashMap<>();
 	updateQueue = new ConcurrentHashMap<>();
 	attachQueue = new ConcurrentHashMap<>();
+	listeners = new ConcurrentHashMap<>();
     }
 
     public synchronized int nextBatch() {
 	return batch++;
     }
 
-    private void offer(ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map, AreMessage message, int batch) {
-	ConcurrentLinkedQueue<AreMessage> queue = map.get(batch);
+    public void addListener(AreQueueListener.Type type, AreQueueListener listener) {
+	ConcurrentLinkedQueue<AreQueueListener> queue = listeners.get(type);
+	if (queue == null) {
+	    queue = new ConcurrentLinkedQueue<>();
+	    listeners.put(type, queue);
+	}
+	queue.add(listener);
+    }
+
+    private void offer(ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map, AreMessage message) {
+	ConcurrentLinkedQueue<AreMessage> queue = map.get(message.getBatch());
 
 	if (queue == null) {
 	    queue = new ConcurrentLinkedQueue<>();
-	    map.put(batch, queue);
+	    map.put(message.getBatch(), queue);
 	}
 
 	queue.offer(message);
     }
 
-    public void queue(AreMessage message) {
-	int b = message.getBatch();
+    private void offerUnique(ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map, AreMessage message) {
+	ConcurrentLinkedQueue<AreMessage> queue = map.get(message.getBatch());
 
-	if (b < 0) {
-	    b = nextBatch();
+	if (queue == null) {
+	    queue = new ConcurrentLinkedQueue<>();
+	    map.put(message.getBatch(), queue);
 	}
+
+	for (AreMessage msg : queue) {
+	    if (msg.equals(message)) {
+		return;
+	    }
+	}
+	queue.offer(message);
+    }
+
+    public void queue(AreMessage message, boolean unique) {
+	if (message.getBatch() < 0) {
+	    message.setBatch(nextBatch());
+	}
+
+	ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> queue;
 
 	switch (message.getType()) {
 	    case CHUNK_DETACH: {
-		offer(detachQueue, message, b);
+		queue = detachQueue;
 		break;
 	    }
 	    case CHUNK_SETUP: {
-		offer(setupQueue, message, b);
+		queue = setupQueue;
 		break;
 	    }
 	    case CHUNK_LIGHT: {
-		offer(lightQueue, message, b);
+		queue = lightQueue;
 		break;
 	    }
 	    case CHUNK_LOAD: {
-		offer(loadQueue, message, b);
+		queue = loadQueue;
 		break;
 	    }
 	    case CHUNK_UNLOAD: {
-		offer(unloadQueue, message, b);
+		queue = unloadQueue;
 		break;
 	    }
 //	    case CHUNK_UPDATE: {
@@ -84,16 +111,23 @@ public class AreQueue {
 //		break;
 //	    }
 	    case CHUNK_ATTACH: {
-		offer(attachQueue, message, b);
+		queue = attachQueue;
 		break;
 	    }
 	    default: {
 		System.out.println("Invalid message type received: " + message.getType().name());
+		return;
 	    }
+	}
+
+	if (unique) {
+	    offerUnique(queue, message);
+	} else {
+	    offer(queue, message);
 	}
     }
 
-    public ConcurrentLinkedQueue<AreMessage> getQueue(AreMessage.AreMessageType type, int batch) {
+    public ConcurrentLinkedQueue<AreMessage> getQueue(AreMessage.Type type, int batch) {
 	ConcurrentLinkedQueue<AreMessage> result;
 
 	switch (type) {
@@ -134,7 +168,7 @@ public class AreQueue {
 	return result;
     }
 
-    public void finishBatch(AreMessage.AreMessageType type, int batch) {
+    public void finishBatch(AreMessage.Type type, int batch) {
 	switch (type) {
 	    case CHUNK_DETACH: {
 		detachQueue.remove(batch);
@@ -168,9 +202,20 @@ public class AreQueue {
 		System.out.println("Invalid message type received: " + type.name());
 	    }
 	}
+
+	ConcurrentLinkedQueue<AreQueueListener> queue = listeners.get(AreQueueListener.Type.FINISH);
+	if (queue != null) {
+	    for (Iterator<AreQueueListener> it = queue.iterator(); it.hasNext();) {
+		AreQueueListener listener = it.next();
+		listener.checkDoAction(type, batch);
+		if (listener.shouldRemove()) {
+		    it.remove();
+		}
+	    }
+	}
     }
 
-    private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> getMap(AreMessage.AreMessageType type) {
+    private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> getMap(AreMessage.Type type) {
 	switch (type) {
 	    case CHUNK_DETACH: {
 		return detachQueue;
@@ -200,7 +245,7 @@ public class AreQueue {
 	}
     }
 
-    public int getQueueSize(AreMessage.AreMessageType type) {
+    public int getQueueSize(AreMessage.Type type) {
 	int result = 0;
 	ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> map = getMap(type);
 

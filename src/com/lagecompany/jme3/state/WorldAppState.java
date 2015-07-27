@@ -55,7 +55,7 @@ public class WorldAppState extends AbstractAppState {
 
 	//Create some lights.
 	AmbientLight ambient = new AmbientLight();
-	ambient.setColor(ColorRGBA.DarkGray.mult(0.25f));
+	ambient.setColor(ColorRGBA.DarkGray.mult(.25f));
 	rootNode.addLight(ambient);
 
 	DirectionalLight sun = new DirectionalLight();

@@ -18,11 +18,16 @@ public class Voxel {
     public static final byte VS_DOWN = 0x20;
     public static final byte VS_ALL = 0x3F;
     public static final byte VS_NONE = 0x00;
+    //VF = Voxel Flag
+    public static final short VF_TRANSPARENT = 0x4000; //0 100 0000 0000 0000
+    public static final short VF_SPECIAL = 0x2000; //0 010 0000 0000 0000
     //VT = Voxel Type
-    public static final short VT_NONE = 0x0000;
+    @SuppressWarnings("PointlessBitwiseExpression")
+    public static final short VT_NONE = 0x0000 | VF_TRANSPARENT;
     public static final short VT_DIRT = 0x0001;
     public static final short VT_GRASS = 0x0002;
     public static final short VT_STONE = 0x0003;
+    public static final short VT_TORCH = 0x0004 | VF_TRANSPARENT | VF_SPECIAL;
     public static final byte LIGHT_SUN = 0x0F;
     private static final List<VoxelInfo> infoList;
     private byte visibleSides;
@@ -43,6 +48,7 @@ public class Voxel {
     private static void loadInfo() {
 	infoList.add(new DirtVoxelInfo());
 	infoList.add(new StoneVoxelInfo());
+	infoList.add(new TorchInfo());
     }
 
     public Voxel() {
@@ -55,12 +61,6 @@ public class Voxel {
     public void reset() {
 	visibleSides = VS_NONE;
 	mergedSides = VS_NONE;
-//	frontLight = 0;
-//	rightLight = 0;
-//	backLight = 0;
-//	leftLight = 0;
-//	topLight = 0;
-//	downLight = 0;
     }
 
     public byte getVisibleSides() {
@@ -135,6 +135,15 @@ public class Voxel {
 	this.downLight = downLight;
     }
 
+    public void setAllSidesLight(byte light) {
+	frontLight = light;
+	rightLight = light;
+	backLight = light;
+	leftLight = light;
+	topLight = light;
+	downLight = light;
+    }
+
     public void toggleVisibleSide(byte side) {
 	this.visibleSides |= side;
     }
@@ -202,5 +211,22 @@ public class Voxel {
 
     public static float[] getTile(short type, short side) {
 	return getInfo(type).getTile(side);
+    }
+
+    public static float[] getVertices(short type, byte side, int x, int y, int z) {
+	for (VoxelInfo vi : infoList) {
+	    if (vi.getCode() == type && vi instanceof SpecialVoxelInfo) {
+		return ((SpecialVoxelInfo) vi).getVertices(side, x, y, z);
+	    }
+	}
+	return null;
+    }
+
+    public static boolean isOpaque(Voxel voxel) {
+	return (voxel.getType() >>> 14 & 0x01) == 0;
+    }
+
+    public static boolean isSpecial(Voxel voxel) {
+	return (voxel.getType() >>> 13 & 0x01) == 1;
     }
 }

@@ -33,7 +33,7 @@ public class ChunkSideBuffer {
     public void reset() {
 	dataList.clear();
     }
-    
+
     boolean isEmpty() {
 	return dataList.isEmpty();
     }
@@ -225,6 +225,59 @@ public class ChunkSideBuffer {
 	}
 
 	return result;
+    }
+
+    public float[] getTextCoord() {
+	if (isEmpty()) {
+	    return ChunkSideBuffer.EMPTY_FLOAT_BUFFER;
+	}
+
+	//A vertex is made of 3 floats.
+	int vertexCount = size() / 3;
+	float[] r = new float[vertexCount * 2]; //Each vertex needs a UV text coord;
+
+	float x1, y1, z1;
+	float x2, y2, z2;
+	float x4, y4, z4;
+
+
+	float xTile;
+	float yTile;
+	float minXTile = 0.35f;
+	float minYTile = 0.35f;
+	int j = 0;
+	for (ChunkData data : dataList) {
+	    for (int i = 0, size = data.buffer.length; i < size;) {
+		x1 = data.buffer[i++];
+		y1 = data.buffer[i++];
+		z1 = data.buffer[i++];
+
+		x2 = data.buffer[i++];
+		y2 = data.buffer[i++];
+		z2 = data.buffer[i++];
+
+		//skip v3
+		i += 3;
+
+		x4 = data.buffer[i++];
+		y4 = data.buffer[i++];
+		z4 = data.buffer[i++];
+
+		xTile = Math.abs(x1 - x2) + Math.abs(y1 - y2) + Math.abs(z1 - z2);
+		yTile = Math.abs(x1 - x4) + Math.abs(y1 - y4) + Math.abs(z1 - z4);
+
+		r[j++] = xTile;
+		r[j++] = 0f;
+		r[j++] = 0f;
+		r[j++] = 0f;
+		r[j++] = 0f;
+		r[j++] = yTile;
+		r[j++] = xTile;
+		r[j++] = yTile;
+	    }
+	}
+
+	return r;
     }
 
     public float[] getTexColor() {
