@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Chunk {
 
-    public static final int SIZE = 16;
+    public static final int SIZE = 32;
     public static final int DATA_LENGTH = SIZE * SIZE * SIZE;
     public static final int X_UNIT = SIZE * SIZE;
     public static final int Y_UNIT = SIZE;
@@ -529,11 +529,7 @@ public class Chunk {
 		    currentLight = v.getFrontLight();
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_FRONT) != VS_FRONT || (v.getMergedSides() & VS_FRONT) == VS_FRONT) {
-			continue;
-		    } else if (Voxel.isSpecial(v)) {
-			buffer.add(currentType, currentLight, VS_FRONT, Voxel.getVertices(currentType, VS_FRONT, x, y, z));
-			v.toggleMergedSide(VS_FRONT);
+		    if (v.getType() == VT_NONE || Voxel.isSpecial(v) || (v.getVisibleSides() & VS_FRONT) != VS_FRONT || (v.getMergedSides() & VS_FRONT) == VS_FRONT) {
 			continue;
 		    }
 
@@ -667,11 +663,7 @@ public class Chunk {
 		    currentLight = v.getBackLight();
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_BACK) != VS_BACK || (v.getMergedSides() & VS_BACK) == VS_BACK) {
-			continue;
-		    } else if (Voxel.isSpecial(v)) {
-			buffer.add(currentType, currentLight, VS_BACK, Voxel.getVertices(currentType, VS_BACK, x, y, z));
-			v.toggleMergedSide(VS_BACK);
+		    if (v.getType() == VT_NONE || Voxel.isSpecial(v) || (v.getVisibleSides() & VS_BACK) != VS_BACK || (v.getMergedSides() & VS_BACK) == VS_BACK) {
 			continue;
 		    }
 
@@ -759,11 +751,7 @@ public class Chunk {
 		    currentLight = v.getTopLight();
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_TOP) != VS_TOP || (v.getMergedSides() & VS_TOP) == VS_TOP) {
-			continue;
-		    } else if (Voxel.isSpecial(v)) {
-			buffer.add(currentType, currentLight, VS_TOP, Voxel.getVertices(currentType, VS_TOP, x, y, z));
-			v.toggleMergedSide(VS_TOP);
+		    if (v.getType() == VT_NONE || Voxel.isSpecial(v) || (v.getVisibleSides() & VS_TOP) != VS_TOP || (v.getMergedSides() & VS_TOP) == VS_TOP) {
 			continue;
 		    }
 
@@ -851,11 +839,7 @@ public class Chunk {
 		    currentLight = v.getDownLight();
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_DOWN) != VS_DOWN || (v.getMergedSides() & VS_DOWN) == VS_DOWN) {
-			continue;
-		    } else if (Voxel.isSpecial(v)) {
-			buffer.add(currentType, currentLight, VS_DOWN, Voxel.getVertices(currentType, VS_DOWN, x, y, z));
-			v.toggleMergedSide(VS_DOWN);
+		    if (v.getType() == VT_NONE || Voxel.isSpecial(v) || (v.getVisibleSides() & VS_DOWN) != VS_DOWN || (v.getMergedSides() & VS_DOWN) == VS_DOWN) {
 			continue;
 		    }
 
@@ -943,11 +927,7 @@ public class Chunk {
 		    currentLight = v.getRightLight();
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_RIGHT) != VS_RIGHT || (v.getMergedSides() & VS_RIGHT) == VS_RIGHT) {
-			continue;
-		    } else if (Voxel.isSpecial(v)) {
-			buffer.add(currentType, currentLight, VS_RIGHT, Voxel.getVertices(currentType, VS_RIGHT, x, y, z));
-			v.toggleMergedSide(VS_RIGHT);
+		    if (v.getType() == VT_NONE || Voxel.isSpecial(v) || (v.getVisibleSides() & VS_RIGHT) != VS_RIGHT || (v.getMergedSides() & VS_RIGHT) == VS_RIGHT) {
 			continue;
 		    }
 
@@ -1035,11 +1015,7 @@ public class Chunk {
 		    currentLight = v.getLeftLight();
 
 		    //If vox is invalid or is merged already, skip it;
-		    if (v.getType() == VT_NONE || (v.getVisibleSides() & VS_LEFT) != VS_LEFT || (v.getMergedSides() & VS_LEFT) == VS_LEFT) {
-			continue;
-		    } else if (Voxel.isSpecial(v)) {
-			buffer.add(currentType, currentLight, VS_LEFT, Voxel.getVertices(currentType, VS_LEFT, x, y, z));
-			v.toggleMergedSide(VS_LEFT);
+		    if (v.getType() == VT_NONE || Voxel.isSpecial(v) || (v.getVisibleSides() & VS_LEFT) != VS_LEFT || (v.getMergedSides() & VS_LEFT) == VS_LEFT) {
 			continue;
 		    }
 

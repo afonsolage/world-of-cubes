@@ -2,8 +2,10 @@ package com.lagecompany.storage;
 
 import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.storage.AreMessage.Type;
+import static com.lagecompany.storage.AreMessage.Type.SPECIAL_VOXEL_ATTACH;
 import com.lagecompany.storage.light.LightNode;
 import com.lagecompany.storage.light.LightRemoveNode;
+import com.lagecompany.storage.voxel.SpecialVoxelData;
 import com.lagecompany.util.MathUtils;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,6 +42,7 @@ public class Are extends Thread {
     private final Queue<LightNode> lightQueue;
     private final Queue<LightRemoveNode> lightRemovalQueue;
     private final AreQueue areQueue;
+    private final ConcurrentLinkedQueue<SpecialVoxelData> specialVoxelList;
     private Vec3 position;
     private boolean moving;
     private boolean inited = false;
@@ -72,9 +75,12 @@ public class Are extends Thread {
 	renderBatchQueue = new ConcurrentLinkedQueue<>();
 	lightQueue = new LinkedList<>();
 	lightRemovalQueue = new LinkedList<>();
+	specialVoxelList = new ConcurrentLinkedQueue<>();
+
 	areQueue = new AreQueue();
 	worker = new AreWorker(actionQueue, this);
 	worker.setName("Are Worker");
+
     }
 
     public ConcurrentLinkedQueue<Integer> getRenderBatchQueue() {
@@ -984,6 +990,7 @@ public class Are extends Thread {
 
 	Vec3 voxelPos = toVoxelPosition(x, y, z);
 	c.lock();
+	short removedType = c.get(voxelPos).getType();
 	c.set(voxelPos, v);
 	c.unlock();
 
@@ -994,13 +1001,17 @@ public class Are extends Thread {
 	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 10);
 	    lightQueue.add(new LightNode(c, voxelPos));
 	    propagateLight(batch);
-	} else {
+	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_ATTACH, new SpecialVoxelData(c, voxelPos), batch));
+	} else if (v.getType() == Voxel.VT_NONE) {
 	    int lightLevel = c.getLight(voxelPos);
 	    if (lightLevel > 0) {
 		c.setLight(voxelPos, 0);
 	    }
 	    lightRemovalQueue.add(new LightRemoveNode(c, voxelPos, lightLevel));
 	    removeLight(batch);
+	    if (Voxel.isSpecial(removedType)) {
+		postMessage(new AreMessage(Type.SPECIAL_VOXEL_DETACH, new SpecialVoxelData(c, voxelPos), batch));
+	    }
 	}
 
 //	Chunk tmpC;
@@ -1454,16 +1465,13 @@ public class Are extends Thread {
 
     public void postMessage(AreMessage message, boolean unique) {
 	switch (message.getType()) {
-	    case CHUNK_DETACH: {
-	    }
-	    case CHUNK_SETUP: {
-	    }
-	    case CHUNK_LOAD: {
-	    }
-	    case CHUNK_UNLOAD: {
-	    }
-	    case CHUNK_LIGHT: {
-	    }
+	    case CHUNK_DETACH: 
+	    case CHUNK_SETUP:
+	    case CHUNK_LOAD:
+	    case CHUNK_UNLOAD:
+	    case CHUNK_LIGHT:
+	    case SPECIAL_VOXEL_ATTACH:
+	    case SPECIAL_VOXEL_DETACH:
 	    case CHUNK_ATTACH: {
 		areQueue.queue(message, unique);
 		break;
@@ -1490,12 +1498,8 @@ public class Are extends Thread {
 	return position = new Vec3(x, y, z);
     }
 
-    public ConcurrentLinkedQueue<AreMessage> getAttachQueue(Integer batch) {
-	return areQueue.getQueue(Type.CHUNK_ATTACH, batch);
-    }
-
-    public ConcurrentLinkedQueue<AreMessage> getDetachQueue(Integer batch) {
-	return areQueue.getQueue(Type.CHUNK_DETACH, batch);
+    public ConcurrentLinkedQueue<AreMessage> getQueue(Integer batch, AreMessage.Type type) {
+	return areQueue.getQueue(type, batch);
     }
 
     public void finishBatch(AreMessage.Type type, Integer batch) {
@@ -1548,6 +1552,25 @@ public class Are extends Thread {
 	    }
 
 	    return get(Vec3.copyAdd(chunk.getPosition(), cx, cy, cz));
+	}
+    }
+
+    public void addSpecialVoxel(Chunk chunk, int x, int y, int z) {
+	for (SpecialVoxelData data : specialVoxelList) {
+	    if (data.x == x && data.y == y && data.z == z && data.chunk == chunk && data.chunk.equals(chunk)) {
+		data.active = true;
+		return;
+	    }
+	}
+	this.specialVoxelList.add(new SpecialVoxelData(chunk, x, y, z));
+    }
+
+    public void removeSpecialVoxel(Chunk chunk, int x, int y, int z) {
+	for (SpecialVoxelData data : specialVoxelList) {
+	    if (data.x == x && data.y == y && data.z == z && data.chunk == chunk && data.chunk.equals(chunk)) {
+		data.active = false;
+		return;
+	    }
 	}
     }
 }

@@ -6,42 +6,91 @@ package com.lagecompany.storage.voxel;
  */
 public class TorchInfo extends SpecialVoxelInfo {
 
-    private final float[] TILE_TEXTURE_TOP;
-    private final float[] TILE_TEXTURE_SIDE;
-    private final float[] TILE_TEXTURE_DOWN;
-    private final float x1 = .45f;
-    private final float x2 = .55f;
+    //TODO: Add as static final.
+    private final float x1 = .4376f;
+    private final float x2 = x1 + 0.095f;
     private final float y1 = .0f;
-    private final float y2 = .5f;
-    private final float z1 = .45f;
-    private final float z2 = .55f;
+    private final float y2 = .625f;
+    private final float z1 = x1;
+    private final float z2 = x2;
+    private final float unit = 1f / 128f;
 
     protected TorchInfo() {
-	TILE_TEXTURE_SIDE = new float[]{1f, 0f};
-	TILE_TEXTURE_DOWN = new float[]{1f, 0f};
-	TILE_TEXTURE_TOP = new float[]{1f, 0f};
     }
 
     @Override
     public short getCode() {
 	return Voxel.VT_TORCH;
-
     }
 
     @Override
     public float[] getTile(short side) {
-	if (side == Voxel.VS_TOP) {
-	    return TILE_TEXTURE_TOP;
-	} else if (side == Voxel.VS_DOWN) {
-	    return TILE_TEXTURE_DOWN;
-	} else {
-	    return TILE_TEXTURE_SIDE;
-	}
+	return new float[]{
+	    //Front
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    //Right
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    //Back
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    //Left
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    2, 0,
+	    //Top
+	    2, 2,
+	    2, 2,
+	    2, 2,
+	    2, 2,
+	    //Down
+	    2, 1,
+	    2, 1,
+	    2, 1,
+	    2, 1,};
     }
 
     @Override
     public float[] getColor(short side) {
-	return VoxelInfo.COLOR_NONE;
+	return new float[]{
+	    //Front
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    //Right
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    //Back
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    //Left
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    //Top
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    3, 3, 3, 3,
+	    //Down
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,
+	    0.1f, 0.1f, 0.1f, 0.1f,};
     }
 
     //The front face is composed of v0, v1, v2 and v3.
@@ -51,59 +100,137 @@ public class TorchInfo extends SpecialVoxelInfo {
     //The right face is composed of v1, v5, v6 and v2.
     //The left face is composed of v4, v0, v3 and v7.
     @Override
-    public float[] getVertices(byte side, int x, int y, int z) {
-	switch (side) {
-	    case Voxel.VS_FRONT: {
-		return new float[]{
-		    x + x1, y + y2, z + z1, //v3
-		    x + x2, y + y2, z + z1, //v2
-		    x + x2, y + y1, z + z1, //v1
-		    x + x1, y + y1, z + z1, //v0
-		};
-	    }
-	    case Voxel.VS_BACK: {
-		return new float[]{
-		    x + x2, y + y2, z + z2, //v6
-		    x + x1, y + y2, z + z2, //v7
-		    x + x1, y + y1, z + z2, //v4
-		    x + x2, y + y1, z + z2, //v5
-		};
-	    }
-	    case Voxel.VS_TOP: {
-		return new float[]{
-		    x + x1, y + y2, z + z2, //v7
-		    x + x2, y + y2, z + z2, //v6
-		    x + x2, y + y2, z + z1, //v2
-		    x + x1, y + y2, z + z1, //v3
-		};
-	    }
-	    case Voxel.VS_DOWN: {
-		return new float[]{
-		    x + x1, y + y1, z + z1, //v0
-		    x + x2, y + y1, z + z1, //v1
-		    x + x2, y + y1, z + z2, //v5
-		    x + x1, y + y1, z + z2, //v4
-		};
-	    }
-	    case Voxel.VS_RIGHT: {
-		return new float[]{
-		    x + x2, y + y2, z + z1, //v2
-		    x + x2, y + y2, z + z2, //v6
-		    x + x2, y + y1, z + z2, //v5
-		    x + x2, y + y1, z + z1, //v1
-		};
-	    }
-	    case Voxel.VS_LEFT: {
-		return new float[]{
-		    x + x1, y + y2, z + z2, //v7
-		    x + x1, y + y2, z + z1, //v3
-		    x + x1, y + y1, z + z1, //v0
-		    x + x1, y + y1, z + z2, //v4
-		};
-	    }
-	    default: {
-		return new float[]{};
-	    }
-	}
+    public float[] getVertices() {
+	return new float[]{
+	    //Front
+	    x1, y2, z1, //v3
+	    x2, y2, z1, //v2
+	    x2, y1, z1, //v1
+	    x1, y1, z1, //v0
+
+	    //Right
+	    x2, y2, z1, //v2
+	    x2, y2, z2, //v6
+	    x2, y1, z2, //v5
+	    x2, y1, z1, //v1
+
+	    //Back
+	    x2, y2, z2, //v6
+	    x1, y2, z2, //v7
+	    x1, y1, z2, //v4
+	    x2, y1, z2, //v5
+
+	    //Left
+	    x1, y2, z2, //v7
+	    x1, y2, z1, //v3
+	    x1, y1, z1, //v0
+	    x1, y1, z2, //v4
+
+	    //Top
+	    x1, y2, z2, //v7
+	    x2, y2, z2, //v6
+	    x2, y2, z1, //v2
+	    x1, y2, z1, //v3
+
+	    //Down
+	    x1, y1, z1, //v0
+	    x2, y1, z1, //v1
+	    x2, y1, z2, //v5
+	    x1, y1, z2, //v4
+	};
+    }
+
+    @Override
+    public int[] getIndexes() {
+	return new int[]{
+	    //Front
+	    0, 1, 2,
+	    2, 3, 0,
+	    //Right
+	    4, 5, 6,
+	    6, 7, 4,
+	    //Back
+	    8, 9, 10,
+	    10, 11, 8,
+	    //Left
+	    12, 13, 14,
+	    14, 15, 12,
+	    //Top
+	    16, 17, 18,
+	    18, 19, 16,
+	    //Down
+	    20, 21, 22,
+	    22, 23, 20,};
+    }
+
+    @Override
+    public float[] getTextCoord() {
+	return new float[]{
+	    //Front
+	    57 * unit, 80 * unit,
+	    72 * unit, 80 * unit,
+	    72 * unit, 0,
+	    57 * unit, 0,
+	    //Right
+	    57 * unit, 80 * unit,
+	    72 * unit, 80 * unit,
+	    72 * unit, 0,
+	    57 * unit, 0,
+	    //Back
+	    57 * unit, 80 * unit,
+	    72 * unit, 80 * unit,
+	    72 * unit, 0,
+	    57 * unit, 0,
+	    //Left
+	    57 * unit, 80 * unit,
+	    72 * unit, 80 * unit,
+	    72 * unit, 0,
+	    57 * unit, 0,
+	    //Top
+	    57 * unit, 72 * unit,
+	    72 * unit, 72 * unit,
+	    72 * unit, 57 * unit,
+	    57 * unit, 57 * unit,
+	    //Down
+	    57 * unit, 72 * unit,
+	    72 * unit, 72 * unit,
+	    72 * unit, 57 * unit,
+	    57 * unit, 57 * unit,};
+    }
+
+    @Override
+    public float[] getNormals() {
+	return new float[]{
+	    //Front
+	    0, 0, 1,
+	    0, 0, 1,
+	    0, 0, 1,
+	    0, 0, 1,
+	    //Right
+	    1, 0, 0,
+	    1, 0, 0,
+	    1, 0, 0,
+	    1, 0, 0,
+	    //Back
+	    0, 0, -1,
+	    0, 0, -1,
+	    0, 0, -1,
+	    0, 0, -1,
+	    //Left
+	    -1, 0, 0,
+	    -1, 0, 0,
+	    -1, 0, 0,
+	    -1, 0, 0,
+	    //Top
+	    0, 1, 0,
+	    0, 1, 0,
+	    0, 1, 0,
+	    0, 1, 0,
+	    //Down
+	    0, -1, 0,
+	    0, -1, 0,
+	    0, -1, 0,
+	    0, -1, 0
+	};
     }
 }

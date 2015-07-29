@@ -13,7 +13,9 @@ public class AreMessage {
 	//	CHUNK_UPDATE,
 	CHUNK_UNLOAD,
 	CHUNK_ATTACH,
-	CHUNK_DETACH;
+	CHUNK_DETACH,
+	SPECIAL_VOXEL_ATTACH,
+	SPECIAL_VOXEL_DETACH,
     }
     private Type type;
     private Object data;

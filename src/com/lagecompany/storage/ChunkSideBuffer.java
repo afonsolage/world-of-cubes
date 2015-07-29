@@ -243,8 +243,6 @@ public class ChunkSideBuffer {
 
 	float xTile;
 	float yTile;
-	float minXTile = 0.35f;
-	float minYTile = 0.35f;
 	int j = 0;
 	for (ChunkData data : dataList) {
 	    for (int i = 0, size = data.buffer.length; i < size;) {

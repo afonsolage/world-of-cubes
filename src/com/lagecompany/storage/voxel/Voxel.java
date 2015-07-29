@@ -29,7 +29,7 @@ public class Voxel {
     public static final short VT_STONE = 0x0003;
     public static final short VT_TORCH = 0x0004 | VF_TRANSPARENT | VF_SPECIAL;
     public static final byte LIGHT_SUN = 0x0F;
-    private static final List<VoxelInfo> infoList;
+    protected static final List<VoxelInfo> infoList;
     private byte visibleSides;
     private byte mergedSides;
     private byte frontLight;
@@ -213,20 +213,15 @@ public class Voxel {
 	return getInfo(type).getTile(side);
     }
 
-    public static float[] getVertices(short type, byte side, int x, int y, int z) {
-	for (VoxelInfo vi : infoList) {
-	    if (vi.getCode() == type && vi instanceof SpecialVoxelInfo) {
-		return ((SpecialVoxelInfo) vi).getVertices(side, x, y, z);
-	    }
-	}
-	return null;
-    }
-
     public static boolean isOpaque(Voxel voxel) {
 	return (voxel.getType() >>> 14 & 0x01) == 0;
     }
 
     public static boolean isSpecial(Voxel voxel) {
-	return (voxel.getType() >>> 13 & 0x01) == 1;
+	return isSpecial(voxel.getType());
+    }
+
+    public static boolean isSpecial(short type) {
+	return (type >>> 13 & 0x01) == 1;
     }
 }

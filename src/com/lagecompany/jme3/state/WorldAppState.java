@@ -16,6 +16,7 @@ import com.jme3.scene.Node;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
+import com.lagecompany.storage.Are;
 
 /**
  * On this stage, the world will be processed. By world we mean all content relative to world except Terrain.
@@ -32,6 +33,7 @@ public class WorldAppState extends AbstractAppState {
     private CameraMan cameraMan;
     private Node playerNode;
     private BulletAppState bulletState;
+    private Are are;
 
     /**
      * Initialize this stage. Is called intenally by JME3.
@@ -48,6 +50,7 @@ public class WorldAppState extends AbstractAppState {
 	this.flyCam = app.getFlyByCamera();
 	this.cam = app.getCamera();
 	this.bulletState = stateManager.getState(BulletAppState.class);
+	this.are = Are.getInstance();
 	app.getViewPort().setBackgroundColor(new ColorRGBA(0.5294f, 0.8078f, 0.9215f, 1f));
 
 	inputManager.setCursorVisible(true);
@@ -96,6 +99,8 @@ public class WorldAppState extends AbstractAppState {
     @Override
     public void update(float tpf) {
 	super.update(tpf); //To change body of generated methods, choose Tools | Templates.
+	
+	renderSpecialVoxels();
     }
 
     /**
@@ -118,5 +123,9 @@ public class WorldAppState extends AbstractAppState {
 
     void startEnvironment() {
 	this.playerNode.getControl(PlayerControl.class).setEnabled(true);
+    }
+
+    private void renderSpecialVoxels() {
+	
     }
 }

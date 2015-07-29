@@ -5,6 +5,8 @@ import static com.lagecompany.storage.AreMessage.Type.CHUNK_DETACH;
 import static com.lagecompany.storage.AreMessage.Type.CHUNK_LOAD;
 import static com.lagecompany.storage.AreMessage.Type.CHUNK_SETUP;
 import static com.lagecompany.storage.AreMessage.Type.CHUNK_UNLOAD;
+import static com.lagecompany.storage.AreMessage.Type.SPECIAL_VOXEL_ATTACH;
+import static com.lagecompany.storage.AreMessage.Type.SPECIAL_VOXEL_DETACH;
 import java.util.Iterator;
 //import static com.lagecompany.storage.AreMessage.AreMessageType.CHUNK_UPDATE;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +26,8 @@ public class AreQueue {
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> loadQueue;
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> updateQueue;
     private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> attachQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> specialVoxelAttachQueue;
+    private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> specialVoxelDetachQueue;
     private final ConcurrentHashMap<AreQueueListener.Type, ConcurrentLinkedQueue<AreQueueListener>> listeners;
     private int batch = BEGIN_BATCH;
 
@@ -36,6 +40,8 @@ public class AreQueue {
 	updateQueue = new ConcurrentHashMap<>();
 	attachQueue = new ConcurrentHashMap<>();
 	listeners = new ConcurrentHashMap<>();
+	specialVoxelAttachQueue = new ConcurrentHashMap<>();
+	specialVoxelDetachQueue = new ConcurrentHashMap<>();
     }
 
     public synchronized int nextBatch() {
@@ -114,6 +120,14 @@ public class AreQueue {
 		queue = attachQueue;
 		break;
 	    }
+	    case SPECIAL_VOXEL_ATTACH: {
+		queue = specialVoxelAttachQueue;
+		break;
+	    }
+	    case SPECIAL_VOXEL_DETACH: {
+		queue = specialVoxelDetachQueue;
+		break;
+	    }
 	    default: {
 		System.out.println("Invalid message type received: " + message.getType().name());
 		return;
@@ -159,6 +173,14 @@ public class AreQueue {
 		result = attachQueue.get(batch);
 		break;
 	    }
+	    case SPECIAL_VOXEL_ATTACH: {
+		result = specialVoxelAttachQueue.get(batch);
+		break;
+	    }
+	    case SPECIAL_VOXEL_DETACH: {
+		result = specialVoxelDetachQueue.get(batch);
+		break;
+	    }
 	    default: {
 		System.out.println("Invalid message type received: " + type.name());
 		result = null;
@@ -196,6 +218,14 @@ public class AreQueue {
 //	    }
 	    case CHUNK_ATTACH: {
 		attachQueue.remove(batch);
+		break;
+	    }
+	    case SPECIAL_VOXEL_ATTACH: {
+		specialVoxelAttachQueue.remove(batch);
+		break;
+	    }
+	    case SPECIAL_VOXEL_DETACH: {
+		specialVoxelDetachQueue.remove(batch);
 		break;
 	    }
 	    default: {
@@ -237,6 +267,12 @@ public class AreQueue {
 //	    }
 	    case CHUNK_ATTACH: {
 		return attachQueue;
+	    }
+	    case SPECIAL_VOXEL_ATTACH: {
+		return specialVoxelAttachQueue;
+	    }
+	    case SPECIAL_VOXEL_DETACH: {
+		return specialVoxelDetachQueue;
 	    }
 	    default: {
 		System.out.println("Invalid message type received: " + type.name());
