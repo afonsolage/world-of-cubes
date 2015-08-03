@@ -5,7 +5,7 @@ import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
 import com.jme3.util.BufferUtils;
 import com.lagecompany.jme3.state.LoadingStage;
-import com.lagecompany.nifty.gui.NiftyJmeHelper;
+import com.simsilica.lemur.GuiGlobals;
 
 /**
  * Main class of the game, it attach needed stages and basic settings. This class extends SimpleApplication, which is a
@@ -14,10 +14,10 @@ import com.lagecompany.nifty.gui.NiftyJmeHelper;
  * @author Afonso Lage
  */
 public class Main extends SimpleApplication {
-    
+
     public static void main(String[] args) {
 	Main app = new Main();
-	
+
 	BufferUtils.setTrackDirectMemoryEnabled(true);
 
 	// Disable settings screen before launching the game.
@@ -47,7 +47,7 @@ public class Main extends SimpleApplication {
      */
     @Override
     public void simpleInitApp() {
-	NiftyJmeHelper.init(assetManager, inputManager, audioRenderer, guiViewPort);
+	GuiGlobals.initialize(this);
 	stateManager.attach(new LoadingStage());
     }
 }

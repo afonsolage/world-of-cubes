@@ -40,7 +40,9 @@ public class Are extends Thread {
     private final BlockingDeque<Integer> processBatchQueue;
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
     private final Queue<LightNode> lightQueue;
+    private final Queue<LightNode> sunLightQueue;
     private final Queue<LightRemoveNode> lightRemovalQueue;
+    private final Queue<LightRemoveNode> sunLightRemovalQueue;
     private final AreQueue areQueue;
     private final ConcurrentLinkedQueue<SpecialVoxelData> specialVoxelList;
     private Vec3 position;
@@ -74,7 +76,9 @@ public class Are extends Thread {
 	processBatchQueue = new LinkedBlockingDeque<>();
 	renderBatchQueue = new ConcurrentLinkedQueue<>();
 	lightQueue = new LinkedList<>();
+	sunLightQueue = new LinkedList<>();
 	lightRemovalQueue = new LinkedList<>();
+	sunLightRemovalQueue = new LinkedList<>();
 	specialVoxelList = new ConcurrentLinkedQueue<>();
 
 	areQueue = new AreQueue();
@@ -195,19 +199,6 @@ public class Are extends Thread {
 	try {
 	    c.lock();
 	    c.setup();
-	    //Check for sunLight;
-//	    if (c.getPosition().getY() == HEIGHT - 1) {
-//		Voxel v;
-//		for (int cx = 0; cx < Chunk.SIZE; cx++) {
-//		    for (int cz = 0; cz < Chunk.SIZE; cz++) {
-//			v = c.get(cx, Chunk.SIZE - 1, cz);
-//			if (v.getType() == Voxel.VT_NONE) {
-//			    propagateSunLightQueue.add(new VoxelNode(c, new Vec3(cx, 0, cz), Voxel.LIGHT_SUN));
-//			}
-//		    }
-//		}
-//	    }
-//	    postMessage(new AreMessage(AreMessageType.CHUNK_LIGHT, c, currentBatch));
 	    message.setType(Type.CHUNK_LIGHT);
 	    postMessage(message);
 	} catch (Exception ex) {
@@ -217,405 +208,6 @@ public class Are extends Thread {
 	}
     }
 
-//    private void removeReflectedSunLight(int batch) {
-//	VoxelNode node;
-//	while (!removeReflectSunLightQueue.isEmpty()) {
-//	    node = removeReflectSunLightQueue.poll();
-//
-//	    if (node.light == 0) {
-//		continue;
-//	    }
-//
-//	    Chunk c = node.chunk;
-//	    Chunk tmpC;
-//	    Vec3 tmpV = new Vec3();
-//
-//	    //Top
-//	    int light = c.getAreLight(node.x, node.y, node.z, Voxel.VS_TOP);
-//	    if (light < node.light) {
-//		if (node.y == Chunk.SIZE - 1) {
-//		    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 1, 0));
-//		    tmpV.setY(0);
-//		    requestChunkUpdate(tmpC, batch);
-//		} else {
-//		    tmpC = c;
-//		    tmpV.set(node.x, node.y + 1, node.z);
-//		}
-//		tmpC.setLight(tmpV.getX(), tmpV.getY(), tmpV.getZ(), 0);
-//		removeReflectSunLightQueue.add(new VoxelNode(tmpC, tmpV, light));
-//	    }
-//	    //Down
-//	    light = c.getAreLight(node.x, node.y, node.z, Voxel.VS_DOWN);
-//	    if (light < node.light) {
-//		if (node.y == 0) {
-//		    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
-//		    tmpV.setY(Chunk.SIZE - 1);
-//		    requestChunkUpdate(tmpC, batch);
-//		} else {
-//		    tmpC = c;
-//		    tmpV.set(node.x, node.y - 1, node.z);
-//		}
-//		tmpC.setLight(tmpV.getX(), tmpV.getY(), tmpV.getZ(), 0);
-//		removeReflectSunLightQueue.add(new VoxelNode(tmpC, tmpV, light));
-//	    }
-//	    //Right
-//	    light = c.getAreLight(node.x, node.y, node.z, Voxel.VS_RIGHT);
-//	    if (light < node.light) {
-//		if (node.x == Chunk.SIZE - 1) {
-//		    tmpC = get(Vec3.copyAdd(c.getPosition(), 1, 0, 0));
-//		    tmpV.setX(0);
-//		    requestChunkUpdate(tmpC, batch);
-//		} else {
-//		    tmpC = c;
-//		    tmpV.set(node.x + 1, node.y, node.z);
-//		}
-//		tmpC.setLight(tmpV.getX(), tmpV.getY(), tmpV.getZ(), 0);
-//		removeReflectSunLightQueue.add(new VoxelNode(tmpC, tmpV, light));
-//	    }
-//	    //Left
-//	    light = c.getAreLight(node.x, node.y, node.z, Voxel.VS_LEFT);
-//	    if (light < node.light) {
-//		if (node.x == 0) {
-//		    tmpC = get(Vec3.copyAdd(c.getPosition(), -1, 0, 0));
-//		    tmpV.setX(Chunk.SIZE - 1);
-//		    requestChunkUpdate(tmpC, batch);
-//		} else {
-//		    tmpC = c;
-//		    tmpV.set(node.x - 1, node.y, node.z);
-//		}
-//		tmpC.setLight(tmpV.getX(), tmpV.getY(), tmpV.getZ(), 0);
-//		removeReflectSunLightQueue.add(new VoxelNode(tmpC, tmpV, light));
-//	    }
-//	    //Front
-//	    light = c.getAreLight(node.x, node.y, node.z, Voxel.VS_FRONT);
-//	    if (light < node.light) {
-//		if (node.z == Chunk.SIZE - 1) {
-//		    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 0, 1));
-//		    tmpV.setZ(0);
-//		    requestChunkUpdate(tmpC, batch);
-//		} else {
-//		    tmpC = c;
-//		    tmpV.set(node.x, node.y, node.z + 1);
-//		}
-//		tmpC.setLight(tmpV.getX(), tmpV.getY(), tmpV.getZ(), 0);
-//		removeReflectSunLightQueue.add(new VoxelNode(tmpC, tmpV, light));
-//	    }
-//	    //Back
-//	    light = c.getAreLight(node.x, node.y, node.z, Voxel.VS_BACK);
-//	    if (light < node.light) {
-//		if (node.z == 0) {
-//		    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 0, -1));
-//		    tmpV.setZ(Chunk.SIZE - 1);
-//		    requestChunkUpdate(tmpC, batch);
-//		} else {
-//		    tmpC = c;
-//		    tmpV.set(node.x, node.y, node.z - 1);
-//		}
-//		tmpC.setLight(tmpV.getX(), tmpV.getY(), tmpV.getZ(), 0);
-//		removeReflectSunLightQueue.add(new VoxelNode(tmpC, tmpV, light));
-//	    }
-//	}
-//    }
-//
-//    /**
-//     * Propagate Sun lighting over chunks.
-//     *
-//     * @param batch The batch to process are messages.
-//     */
-//    private void propagateSunLight(int batch) {
-//	VoxelNode node;
-//	Voxel v;
-//	//This queue is used to have a BSF algorithm, so we can process lighting as needed, not iterate over
-//	//all chunks.
-//	while (!propagateSunLightQueue.isEmpty()) {
-//	    node = propagateSunLightQueue.poll();
-//	    Chunk c = node.chunk;
-//
-//	    //Since we are propagating sun light, set it on current Voxel and flag it as sky light.
-//	    c.setLight(node.x, node.y, node.z, Voxel.LIGHT_SUN);
-//	    c.flagSkyLight(node.x, node.y, node.z, true);
-//
-//	    //Decrease node by one, to propagate light down.
-//	    node.y--;
-//	    if (node.y < 0) {
-//		//We need to check bellow chunk, to propagate light to it.
-//		c = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
-//		if (c == null) {
-//		    continue;
-//		} else {
-//		    //This chunk will receive light, so it needs to be updated.
-//		    requestChunkUpdate(c, batch);
-//		    node.chunk = c;
-//		    node.y = Chunk.SIZE - 1;
-//
-//		    //If we are on bounds of current chunk, we need to update neigborhood.
-//		    if (node.x == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), -1, 0, 0)), batch);
-//		    } else if (node.x == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 1, 0, 0)), batch);
-//		    }
-//
-//		    if (node.z == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, -1)), batch);
-//		    } else if (node.z == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, 1)), batch);
-//		    }
-//		}
-//	    }
-//	    //Let's check for the next voxel, if it is air, propagate the light over it.
-//	    v = c.get(node.x, node.y, node.z);
-//	    if (v.getType() == Voxel.VT_NONE) {
-//		propagateSunLightQueue.add(node);
-//	    }
-//	}
-//    }
-//
-//    /**
-//     * Remove Sun lighting on chunks.
-//     *
-//     * @param batch The batch to process are messages.
-//     */
-//    private void removeSunLight(int batch) {
-//	VoxelNode node;
-//	Voxel v;
-//	//This queue is used to have a BSF algorithm, so we can process lighting as needed, not iterate over
-//	//all chunks. This queue is populated when a new block is added and it's blocking sun light.
-//	while (!removeSunLightQueue.isEmpty()) {
-//	    node = removeSunLightQueue.poll();
-//	    Chunk c = node.chunk;
-//
-//	    //If current voxel propagated light, we have to remove light propagation also.
-//	    if (c.isFlaggedReflectedLight(node.x, node.y, node.z)) {
-//		removeReflectSunLightQueue.add(new VoxelNode(c, node.x, node.y, node.z, c.getLight(node.x, node.y, node.x)));
-//	    }
-//
-//	    //This voxel isn't facing sky animore and it's light will be 0.
-//	    c.flagSkyLight(node.x, node.y, node.z, false);
-//	    c.setLight(node.x, node.y, node.z, 0);
-//
-//	    //Let's check the next bellow chunk.
-//	    node.y--;
-//	    if (node.y < 0) {
-//		//If we are on bounds of chunk, we have to check the bellow chunk.
-//		c = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
-//		if (c == null) {
-//		    continue;
-//		} else {
-//		    //This chunk will not receive light anymore, so it needs to be updated.
-//		    requestChunkUpdate(c, batch);
-//		    node.chunk = c;
-//		    node.y = Chunk.SIZE - 1;
-//
-//		    //If we are on bounds of current chunk, we need to update neigborhood.
-//		    if (node.x == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), -1, 0, 0)), batch);
-//		    } else if (node.x == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 1, 0, 0)), batch);
-//		    }
-//
-//		    if (node.z == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, -1)), batch);
-//		    } else if (node.z == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, 1)), batch);
-//		    }
-//		}
-//	    }
-//
-//	    //Let's check for the next voxel, if it is air, propagate the light over it.
-//	    v = c.get(node.x, node.y, node.z);
-//	    if (v.getType() == Voxel.VT_NONE) {
-//		removeSunLightQueue.add(node);
-//	    }
-//	}
-//    }
-//
-//    /**
-//     * Reflect the sun light to neigborhood. This function needs to be called after sun light propagation.
-//     *
-//     * @param batch The batch to process are messages.
-//     */
-//    private void reflectSunLight(int batch) {
-//	//TODO: Add another smart way to propagate light. At moment we check what chunks was modified (flagged to
-//	//update) and reflect light on it.
-//	for (Chunk c : chunkMap.values()) {
-//	    //If this chunk is flagged to be updated, this mean it was changed, so let's check for light propagation.
-//	    if (c.isFlaggedToUpdate()) {
-//		for (int x = 0; x < Chunk.SIZE; x++) {
-//		    for (int y = 0; y < Chunk.SIZE; y++) {
-//			for (int z = 0; z < Chunk.SIZE; z++) {
-//			    //If current voxel is air and have sun light, we reflect it on all directions
-//			    if (c.get(x, y, z).getType() == Voxel.VT_NONE && c.getLight(x, y, z) == Voxel.LIGHT_SUN) {
-//
-//				//We have to reflect only on directions that have no sun light.
-//				if (c.getAreLight(x, y, z, Voxel.VS_TOP) < Voxel.LIGHT_SUN) {
-//				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
-//				} else if (c.getAreLight(x, y, z, Voxel.VS_DOWN) < Voxel.LIGHT_SUN) {
-//				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
-//				} else if (c.getAreLight(x, y, z, Voxel.VS_RIGHT) < Voxel.LIGHT_SUN) {
-//				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
-//				} else if (c.getAreLight(x, y, z, Voxel.VS_LEFT) < Voxel.LIGHT_SUN) {
-//				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
-//				} else if (c.getAreLight(x, y, z, Voxel.VS_FRONT) < Voxel.LIGHT_SUN) {
-//				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
-//				} else if (c.getAreLight(x, y, z, Voxel.VS_BACK) < Voxel.LIGHT_SUN) {
-//				    reflectSunLightQueue.add(new VoxelNode(c, x, y, z, Voxel.LIGHT_SUN));
-//				}
-//			    }
-//			}
-//		    }
-//		}
-//	    }
-//	}
-//
-//	//Now that all reflectors voxels was added to queue, let's iterate over our BFS queue.
-//	VoxelNode node;
-//	while (!reflectSunLightQueue.isEmpty()) {
-//	    node = reflectSunLightQueue.poll();
-//
-//	    //Try to reflect on all directions.
-//	    if (reflectSunLightUp(node, batch)
-//		    | reflectSunLightDown(node, batch)
-//		    | reflectSunLightRight(node, batch)
-//		    | reflectSunLightLeft(node, batch)
-//		    | reflectSunLightFront(node, batch)
-//		    | reflectSunLightBack(node, batch)) {
-//		//If we succed in reflecting light, we have to mark this voxel to remove reflection when needed.
-//		node.chunk.flagReflectedLight(node.x, node.y, node.z, true);
-//	    } else {
-//		node.chunk.flagReflectedLight(node.x, node.y, node.z, false);
-//	    }
-//	}
-//    }
-//
-//    private boolean reflectSunLightUp(VoxelNode node, int batch) {
-//	Chunk c;
-//	Vec3 v = new Vec3(node.x, node.y + 1, node.z);
-//	if (v.getY() > Chunk.SIZE - 1) {
-//	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, 1, 0));
-//	    v.setY(0);
-//	} else {
-//	    c = node.chunk;
-//	}
-//
-//	return reflectLight(c, v, node.light, batch);
-//    }
-//
-//    private boolean reflectSunLightDown(VoxelNode node, int batch) {
-//	Chunk c;
-//	Vec3 v = new Vec3(node.x, node.y - 1, node.z);
-//	if (v.getY() < 0) {
-//	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, -1, 0));
-//	    v.setY(Chunk.SIZE - 1);
-//	} else {
-//	    c = node.chunk;
-//	}
-//
-//	return reflectLight(c, v, node.light, batch);
-//    }
-//
-//    private boolean reflectSunLightRight(VoxelNode node, int batch) {
-//	Chunk c;
-//	Vec3 v = new Vec3(node.x + 1, node.y, node.z);
-//	if (v.getX() > Chunk.SIZE - 1) {
-//	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 1, 0, 0));
-//	    v.setX(0);
-//	} else {
-//	    c = node.chunk;
-//	}
-//
-//	return reflectLight(c, v, node.light, batch);
-//    }
-//
-//    private boolean reflectSunLightLeft(VoxelNode node, int batch) {
-//	Chunk c;
-//	Vec3 v = new Vec3(node.x - 1, node.y, node.z);
-//	if (v.getX() < 0) {
-//	    c = get(Vec3.copyAdd(node.chunk.getPosition(), -1, 0, 0));
-//	    v.setX(Chunk.SIZE - 1);
-//	} else {
-//	    c = node.chunk;
-//	}
-//
-//	return reflectLight(c, v, node.light, batch);
-//    }
-//
-//    private boolean reflectSunLightFront(VoxelNode node, int batch) {
-//	Chunk c;
-//	Vec3 v = new Vec3(node.x, node.y, node.z + 1);
-//	if (v.getZ() > Chunk.SIZE - 1) {
-//	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, 0, 1));
-//	    v.setZ(0);
-//	} else {
-//	    c = node.chunk;
-//	}
-//
-//	return reflectLight(c, v, node.light, batch);
-//    }
-//
-//    private boolean reflectSunLightBack(VoxelNode node, int batch) {
-//	Chunk c;
-//	Vec3 v = new Vec3(node.x, node.y, node.z - 1);
-//	if (v.getZ() < 0) {
-//	    c = get(Vec3.copyAdd(node.chunk.getPosition(), 0, 0, -1));
-//	    v.setZ(Chunk.SIZE - 1);
-//	} else {
-//	    c = node.chunk;
-//	}
-//
-//	return reflectLight(c, v, node.light, batch);
-//    }
-//
-//    /**
-//     * Reflect the light on voxel.
-//     *
-//     * @param c The chunk where the voxel is placed in
-//     * @param voxPos The position of voxel
-//     * @param light The light value to reflect.
-//     * @param batch Current batch, to process are messages.
-//     * @return
-//     */
-//    private boolean reflectLight(Chunk c, Vec3 voxPos, int light, int batch) {
-//	light--;
-//	if (c != null) {
-//	    //If the specified voxel is air.
-//	    Voxel v = c.get(voxPos.getX(), voxPos.getY(), voxPos.getZ());
-//	    if (v.getType() == Voxel.VT_NONE) {
-//		//And it's light is bellow the reflected value minus one.
-//		int l = c.getLight(voxPos.getX(), voxPos.getY(), voxPos.getZ());
-//		if (l < light) {
-//		    //Set the light value and update the chunk.
-//		    c.setLight(voxPos.getX(), voxPos.getY(), voxPos.getZ(), light);
-//		    requestChunkUpdate(c, batch);
-//
-//		    //And update the neighborhood if needed.
-//		    if (voxPos.getX() == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), -1, 0, 0)), batch);
-//		    } else if (voxPos.getX() == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 1, 0, 0)), batch);
-//		    }
-//
-//		    if (voxPos.getY() == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, -1, 0)), batch);
-//		    } else if (voxPos.getY() == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 1, 0)), batch);
-//		    }
-//
-//		    if (voxPos.getZ() == 0) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, -1)), batch);
-//		    } else if (voxPos.getZ() == Chunk.SIZE - 1) {
-//			requestChunkUpdate(get(Vec3.copyAdd(c.getPosition(), 0, 0, 1)), batch);
-//		    }
-//
-//		    //If the currrent light is greater then 2, this means it can be reflected, so add it to queue.
-//		    if (light > 1) {
-//			reflectSunLightQueue.add(new VoxelNode(c, voxPos.getX(), voxPos.getY(), voxPos.getZ(), light));
-//		    }
-//		    return true;
-//		}
-//	    }
-//	}
-//	return false;
-//    }
     private void propagateLight(int batch) {
 	LightNode node;
 	Vec3 voxelPos = new Vec3();
@@ -628,7 +220,7 @@ public class Are extends Thread {
 	    lightLevel = node.chunk.getLight(node.x, node.y, node.z);
 	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 		voxelPos.set(node.x + dir.getX(), node.y + dir.getY(), node.z + dir.getZ());
-		c = checkChunkAndVoxelPostion(node.chunk, voxelPos);
+		c = validateChunkAndVoxel(node.chunk, voxelPos);
 
 		if (c == null) {
 		    continue;
@@ -650,6 +242,59 @@ public class Are extends Thread {
 	}
     }
 
+    /**
+     * Propagate sun light over chunks. This function uses a Flood Fill algorithm, so before calling it, a propagation
+     * base voxel should be added on sunLightQueue.
+     *
+     * @param batch The batch id used to reloaded touched chunks.
+     */
+    public void propagateSunLight(int batch) {
+	//Temp variables
+	LightNode node;
+	Vec3 voxelPos = new Vec3();
+	Chunk c;
+	int lightLevel, propagatedLightLevel;
+	List<Chunk> touchedList = new ArrayList<>();
+
+	while (!sunLightQueue.isEmpty()) {
+	    //Get next node on queue.
+	    node = sunLightQueue.remove();
+	    lightLevel = node.chunk.getSunLight(node.x, node.y, node.z);
+
+	    //Let's the neighborhood of current voxel and check if the light can be propagated.
+	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+		voxelPos.set(node.x + dir.getX(), node.y + dir.getY(), node.z + dir.getZ());
+		c = validateChunkAndVoxel(node.chunk, voxelPos);
+
+		if (c == null) {
+		    continue;
+		}
+
+		//Since this is a sun light, whenever we are propagating downwards and current node ligut power is sun light,
+		//it should not decrease light level.
+		propagatedLightLevel = (dir == Vec3.DOWN && lightLevel == Voxel.LIGHT_SUN) ? Voxel.LIGHT_SUN : lightLevel - 1;
+
+		//If current neighbor voxel isn't opaque and it has a sun light value lower then propagated one, let's do it.
+		if (!Voxel.isOpaque(c.get(voxelPos)) && c.getSunLight(voxelPos) < propagatedLightLevel) {
+		    //Set desired light level and add a new node to queue.
+		    c.setSunLight(voxelPos, propagatedLightLevel);
+		    sunLightQueue.add(new LightNode(c, voxelPos));
+
+		    //If this chunk isn't the same on node and it isn't already on touchedList, let's add it.
+		    if (c != node.chunk && !touchedList.contains(c)) {
+			touchedList.add(c);
+		    }
+		}
+	    }
+	}
+
+	//Send an update message to all chunks touched by this function. Also to avoid duplicating chunks, we add only
+	//chunks that isn't already on queue to load.
+	for (Chunk chunk : touchedList) {
+	    postMessage(new AreMessage(Type.CHUNK_LOAD, chunk, batch), true);
+	}
+    }
+
     private void removeLight(int batch) {
 	LightRemoveNode node;
 	Vec3 voxelPos = new Vec3();
@@ -663,7 +308,7 @@ public class Are extends Thread {
 	    previousLightLevel = node.light;
 	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 		voxelPos.set(node.x + dir.getX(), node.y + dir.getY(), node.z + dir.getZ());
-		c = checkChunkAndVoxelPostion(node.chunk, voxelPos);
+		c = validateChunkAndVoxel(node.chunk, voxelPos);
 
 		if (c == null) {
 		    continue;
@@ -694,6 +339,52 @@ public class Are extends Thread {
 	propagateLight(batch);
     }
 
+    private void removeSunLight(int batch) {
+	LightRemoveNode node;
+	Vec3 voxelPos = new Vec3();
+	Chunk c;
+	int previousLightLevel;
+	int neighborLightLevel;
+	List<Chunk> touchedList = new ArrayList<>();
+
+	while (!sunLightRemovalQueue.isEmpty()) {
+	    node = sunLightRemovalQueue.remove();
+	    previousLightLevel = node.light;
+	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+		voxelPos.set(node.x + dir.getX(), node.y + dir.getY(), node.z + dir.getZ());
+		c = validateChunkAndVoxel(node.chunk, voxelPos);
+
+		if (c == null) {
+		    continue;
+		}
+
+		neighborLightLevel = c.getSunLight(voxelPos);
+		if ((dir == Vec3.DOWN && previousLightLevel == Voxel.LIGHT_SUN)
+			|| (neighborLightLevel > 0 && neighborLightLevel < previousLightLevel)) {
+		    c.setSunLight(voxelPos, 0);
+
+		    if (c != node.chunk && !touchedList.contains(c)) {
+			touchedList.add(c);
+		    }
+
+		    sunLightRemovalQueue.add(new LightRemoveNode(c, voxelPos, neighborLightLevel));
+		} else if (neighborLightLevel >= previousLightLevel) {
+		    sunLightQueue.add(new LightNode(c, voxelPos));
+
+		    if (c != node.chunk && !touchedList.contains(c)) {
+			touchedList.add(c);
+		    }
+		}
+	    }
+	}
+
+	for (Chunk chunk : touchedList) {
+	    postMessage(new AreMessage(Type.CHUNK_LOAD, chunk, batch), true);
+	}
+
+	propagateSunLight(batch);
+    }
+
     private void requestChunkUpdate(Chunk c, int batch) {
 	if (c != null && c.isLoaded()) {
 	    c.lock();
@@ -707,8 +398,19 @@ public class Are extends Thread {
     private void lightChunk(AreMessage message) {
 	Chunk c = (Chunk) message.getData();
 	try {
-//	    c.propagateSunLight(message.getBatch());
-//	    c.propagateAreaLight();
+	    Voxel v;
+	    if (c.getPosition().getY() == HEIGHT - 1) {
+		for (int x = 0; x < Chunk.SIZE; x++) {
+		    for (int z = 0; z < Chunk.SIZE; z++) {
+			v = c.get(x, Chunk.SIZE - 1, z);
+			if (!Voxel.isOpaque(v)) {
+			    c.setSunLight(x, Chunk.SIZE - 1, z, Voxel.LIGHT_SUN);
+			    sunLightQueue.add(new LightNode(c, x, Chunk.SIZE - 1, z));
+			}
+		    }
+		}
+	    }
+
 	    if (c.hasVisibleVoxel()) {
 		message.setType(Type.CHUNK_LOAD);
 	    } else {
@@ -770,34 +472,16 @@ public class Are extends Thread {
 	}
 	inited = true;
 
-//	areQueue.addListener(AreQueueListener.Type.FINISH, new AreQueueListener(Type.CHUNK_SETUP, false) {
-//	    @Override
-//	    public void doAction(int batch) {
-//		castSunLight(batch);
-//	    }
-//	});
+	areQueue.addListener(AreQueueListener.Type.FINISH, new AreQueueListener(Type.CHUNK_LIGHT, false) {
+	    @Override
+	    public void doAction(int batch) {
+		propagateSunLight(batch);
+	    }
+	});
 
 	process(batch);
     }
 
-//    public void castSunLight(int batch) {
-//	Chunk c;
-//	Voxel v;
-//	for (int x = 0; x < WIDTH; x++) {
-//	    for (int z = 0; z < LENGTH; z++) {
-//		c = get(x, HEIGHT - 1, z);
-//		for (int cx = 0; cx < Chunk.SIZE; cx++) {
-//		    for (int cz = 0; cz < Chunk.SIZE; cz++) {
-//			v = c.get(cx, Chunk.SIZE - 1, cz);
-//			if (v.getType() == Voxel.VT_NONE) {
-//			    c.castLighting(cx, Chunk.SIZE - 1, cz, Voxel.LIGHT_SUN);
-//			}
-//		    }
-//		}
-//		postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
-//	    }
-//	}
-//    }
     public boolean isMoving() {
 	return moving;
     }
@@ -914,6 +598,66 @@ public class Are extends Thread {
 	c.setLight(x, y, z, light);
     }
 
+    protected int getSunLight(Vec3 chunkPos, int x, int y, int z) {
+	Chunk c = get(chunkPos);
+
+	if (c == null) {
+	    return -1;
+	}
+
+	return c.getSunLight(x, y, z);
+    }
+
+    protected int getSunLight(Chunk c, int x, int y, int z) {
+	if (x >= 0 && x < Chunk.SIZE && y >= 0 && y < Chunk.SIZE && z >= 0 && z < Chunk.SIZE) {
+	    return c.getLight(x, y, z);
+	} else {
+	    int cx, cy, cz;
+
+	    if (x < 0) {
+		cx = -1;
+		x = Chunk.SIZE - 1;
+	    } else if (x >= Chunk.SIZE) {
+		cx = 1;
+		x = 0;
+	    } else {
+		cx = 0;
+	    }
+
+	    if (y < 0) {
+		cy = -1;
+		y = Chunk.SIZE - 1;
+	    } else if (y >= Chunk.SIZE) {
+		cy = 1;
+		y = 0;
+	    } else {
+		cy = 0;
+	    }
+
+	    if (z < 0) {
+		cz = -1;
+		z = Chunk.SIZE - 1;
+	    } else if (z >= Chunk.SIZE) {
+		cz = 1;
+		z = 0;
+	    } else {
+		cz = 0;
+	    }
+
+	    return getSunLight(Vec3.copyAdd(c.getPosition(), cx, cy, cx), x, y, z);
+	}
+    }
+
+    protected int getLight(Vec3 chunkPos, int x, int y, int z) {
+	Chunk c = get(chunkPos);
+
+	if (c == null) {
+	    return -1;
+	}
+
+	return c.getLight(x, y, z);
+    }
+
     protected int getLight(Chunk c, int x, int y, int z) {
 	if (x >= 0 && x < Chunk.SIZE && y >= 0 && y < Chunk.SIZE && z >= 0 && z < Chunk.SIZE) {
 	    return c.getLight(x, y, z);
@@ -954,16 +698,6 @@ public class Are extends Thread {
 	}
     }
 
-    protected int getLight(Vec3 chunkPos, int x, int y, int z) {
-	Chunk c = get(chunkPos);
-
-	if (c == null) {
-	    return -1;
-	}
-
-	return c.getLight(x, y, z);
-    }
-
     //Convert given coordinates to Chunk index on Are.
     public Vec3 toChunkPosition(int x, int y, int z) {
 	return new Vec3(MathUtils.floorDiv(x + ARE_OFFSET.getX(), Chunk.SIZE),
@@ -981,164 +715,105 @@ public class Are extends Thread {
     /**
      * Update a Voxel in a given position. The position must be in World Coodinates.
      */
-    protected void updateVoxel(int x, int y, int z, Voxel v) {
+    protected void updateVoxel(int x, int y, int z, Voxel newVoxel) {
 	Vec3 pos = toChunkPosition(x, y, z);
 	Chunk c = get(pos);
 	if (c == null) {
 	    return;
 	}
 
+	Voxel oldVoxel;
+
 	Vec3 voxelPos = toVoxelPosition(x, y, z);
 	c.lock();
-	short removedType = c.get(voxelPos).getType();
-	c.set(voxelPos, v);
+	oldVoxel = c.get(voxelPos);
+	c.set(voxelPos, newVoxel);
 	c.unlock();
 
 	int batch = areQueue.nextBatch();
-	postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+	postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
 
-	if (v.getType() == Voxel.VT_TORCH) {
-	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 10);
+	if (newVoxel.getType() == Voxel.VT_TORCH) {
+	    c.setLight(voxelPos, 10);
 	    lightQueue.add(new LightNode(c, voxelPos));
+	    sunLightQueue.add(new LightNode(c, voxelPos));
 	    propagateLight(batch);
-	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_ATTACH, new SpecialVoxelData(c, voxelPos), batch));
-	} else if (v.getType() == Voxel.VT_NONE) {
-	    int lightLevel = c.getLight(voxelPos);
-	    if (lightLevel > 0) {
+	    propagateSunLight(batch);
+	} else if (!Voxel.isOpaque(oldVoxel) && Voxel.isOpaque(newVoxel)) {
+	    int oldLightPower = c.getLight(voxelPos);
+	    if (oldLightPower > 0) {
+		lightRemovalQueue.add(new LightRemoveNode(c, voxelPos, oldLightPower));
 		c.setLight(voxelPos, 0);
+		removeLight(batch);
 	    }
-	    lightRemovalQueue.add(new LightRemoveNode(c, voxelPos, lightLevel));
-	    removeLight(batch);
-	    if (Voxel.isSpecial(removedType)) {
-		postMessage(new AreMessage(Type.SPECIAL_VOXEL_DETACH, new SpecialVoxelData(c, voxelPos), batch));
+
+	    oldLightPower = c.getSunLight(voxelPos);
+	    if (oldLightPower > 0) {
+		sunLightRemovalQueue.add(new LightRemoveNode(c, voxelPos, oldLightPower));
+		c.setSunLight(voxelPos, 0);
+		removeSunLight(batch);
 	    }
+	} else if (Voxel.isOpaque(oldVoxel) && !Voxel.isOpaque(newVoxel)) {
+	    Chunk neighborChunk = c;
+	    Vec3 neigborVoxelPos;
+	    byte light;
+	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+		if (dir == Vec3.UP) {
+		    light = oldVoxel.getTopLight();
+		} else if (dir == Vec3.DOWN) {
+		    light = oldVoxel.getDownLight();
+		} else if (dir == Vec3.FRONT) {
+		    light = oldVoxel.getFrontLight();
+		} else if (dir == Vec3.BACK) {
+		    light = oldVoxel.getBackLight();
+		} else if (dir == Vec3.RIGHT) {
+		    light = oldVoxel.getRightLight();
+		} else {
+		    light = oldVoxel.getLeftLight();
+		}
+
+		if (light > 0) {
+		    neigborVoxelPos = Vec3.copyAdd(voxelPos, dir);
+		    neighborChunk = validateChunkAndVoxel(c, neigborVoxelPos);
+		    lightQueue.add(new LightNode(neighborChunk, neigborVoxelPos));
+		    sunLightQueue.add(new LightNode(neighborChunk, neigborVoxelPos));
+		    break;
+		}
+	    }
+	    propagateLight(batch);
+	    propagateSunLight(batch);
 	}
 
-//	Chunk tmpC;
-//	Vec3 topV = voxelPos.copy();
-//	//If we are removing a Voxel, let's check for light propagation.
-//	if (v.getType() == Voxel.VT_NONE) {
-//	    //If we are o top bound, let's check top chunk
-//	    if (voxelPos.getY() == Chunk.SIZE - 1) {
-//		tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 1, 0));
-//		topV.setY(0);
-//	    } else {
-//		tmpC = c;
-//		topV.add(0, 1, 0);
+	if (Voxel.isSpecial(oldVoxel)) {
+	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_DETACH, new SpecialVoxelData(c, voxelPos), batch));
+	}
+	if (Voxel.isSpecial(newVoxel)) {
+	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_ATTACH, new SpecialVoxelData(c, voxelPos), batch));
+	}
+
+//	if (newVoxel.getType() == Voxel.VT_TORCH) {
+//	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 10);
+//	    lightQueue.add(new LightNode(c, voxelPos));
+//	    propagateLight(batch);
+//	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_ATTACH, new SpecialVoxelData(c, voxelPos), batch));
+//	} else if (newVoxel.getType() == Voxel.VT_NONE) {
+//	    int lightLevel = c.getLight(voxelPos);
+//	    int sunLightLevel = c.getSunLight(voxelPos);
+//
+//	    if (lightLevel > 0) {
+//		c.setLight(voxelPos, 0);
 //	    }
 //
-//	    //tmpC and topV will contains the chunk and voxel position to check the current top voxel.
+//	    lightRemovalQueue.add(new LightRemoveNode(c, voxelPos, lightLevel));
 //
-//	    if (tmpC != null) {
-//		//Get top light.
-//		int tmpLight = tmpC.getLight(topV.getX(), topV.getY(), topV.getZ());
-//		//If top light is a direct sun light, propagate it.
-//		if (tmpLight == Voxel.LIGHT_SUN) {
-//		    propagateSunLightQueue.add(new VoxelNode(c, voxelPos, Voxel.LIGHT_SUN));
-//		} else {
-//		    //Else, we have to reflect lighting for all neighborhood to reflect current voxel.
-//		    tmpC = c;
-//
-//		    //Top
-//		    //Get top light. If it is greater then 0, let's reflect.
-//		    tmpLight = c.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_TOP);
-//		    if (tmpLight > 0) {
-//			//If we are on boundary, let's get chunk above and it's down most chunk (y = 0).
-//			if (voxelPos.getY() == Chunk.SIZE - 1) {
-//			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 1, 0));
-//			    if (tmpC != null) {
-//				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), 0, voxelPos.getZ(), tmpLight));
-//			    }
-//			} else {
-//			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY() + 1, voxelPos.getZ(), tmpLight));
-//			}
-//		    }
-//
-//		    //Down
-//		    tmpC = c;
-//		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_DOWN);
-//		    if (tmpLight > 0) {
-//			if (voxelPos.getY() == 0) {
-//			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, -1, 0));
-//			    if (tmpC != null) {
-//				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), Chunk.SIZE - 1, voxelPos.getZ(), tmpLight));
-//			    }
-//			} else {
-//			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY() - 1, voxelPos.getZ(), tmpLight));
-//			}
-//		    }
-//
-//		    //Right
-//		    tmpC = c;
-//		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_RIGHT);
-//		    if (tmpLight > 0) {
-//			if (voxelPos.getX() == Chunk.SIZE - 1) {
-//			    tmpC = get(Vec3.copyAdd(c.getPosition(), 1, 0, 0));
-//			    if (tmpC != null) {
-//				reflectSunLightQueue.add(new VoxelNode(tmpC, 0, voxelPos.getY(), voxelPos.getZ(), tmpLight));
-//			    } else {
-//				tmpC = c;
-//			    }
-//			} else {
-//			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX() + 1, voxelPos.getY(), voxelPos.getZ(), tmpLight));
-//			}
-//		    }
-//
-//		    //Left
-//		    tmpC = c;
-//		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_LEFT);
-//		    if (tmpLight > 0) {
-//			if (voxelPos.getX() == 0) {
-//			    tmpC = get(Vec3.copyAdd(c.getPosition(), -1, 0, 0));
-//			    if (tmpC != null) {
-//				reflectSunLightQueue.add(new VoxelNode(tmpC, Chunk.SIZE - 1, voxelPos.getY(), voxelPos.getZ(), tmpLight));
-//			    }
-//			} else {
-//			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX() - 1, voxelPos.getY(), voxelPos.getZ(), tmpLight));
-//			}
-//		    }
-//
-//		    //Front
-//		    tmpC = c;
-//		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_FRONT);
-//		    if (tmpLight > 0) {
-//			if (voxelPos.getZ() == Chunk.SIZE - 1) {
-//			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 0, 1));
-//			    if (tmpC != null) {
-//				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), 0, tmpLight));
-//			    }
-//			} else {
-//			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), voxelPos.getZ() + 1, tmpLight));
-//			}
-//		    }
-//
-//		    //Back
-//		    tmpC = c;
-//		    tmpLight = tmpC.getAreLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), Voxel.VS_BACK);
-//		    if (tmpLight > 0) {
-//			if (voxelPos.getZ() == 0) {
-//			    tmpC = get(Vec3.copyAdd(c.getPosition(), 0, 0, -1));
-//			    if (tmpC != null) {
-//				reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), Chunk.SIZE - 1, tmpLight));
-//			    }
-//			} else {
-//			    reflectSunLightQueue.add(new VoxelNode(tmpC, voxelPos.getX(), voxelPos.getY(), voxelPos.getZ() - 1, tmpLight));
-//			}
-//		    }
-//		}
-//	    } else {
-//		//If top chunk is null, this means we are on world top edge.
-//		propagateSunLightQueue.add(new VoxelNode(c, voxelPos, Voxel.LIGHT_SUN));
+//	    if (sunLightLevel > 0) {
+//		c.setSunLight(voxelPos, 0);
 //	    }
-//	} else {
-//	    //Else, we have to check for light blocking.
-//	    int previousLight = c.getLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ());
 //
-//	    if (previousLight == Voxel.LIGHT_SUN) {
-//		removeSunLightQueue.add(new VoxelNode(c, voxelPos, 0));
-//	    } else if (previousLight > 0) {
-//		removeReflectSunLightQueue.add(new VoxelNode(c, voxelPos, previousLight));
-//	    }
+//	    sunLightRemovalQueue.add(new LightRemoveNode(c, voxelPos, lightLevel));
+//
+//	    removeSunLight(batch);
+//	    removeLight(batch);
 //	}
 
 	updateNeighborhood(pos, voxelPos, batch);
@@ -1465,7 +1140,7 @@ public class Are extends Thread {
 
     public void postMessage(AreMessage message, boolean unique) {
 	switch (message.getType()) {
-	    case CHUNK_DETACH: 
+	    case CHUNK_DETACH:
 	    case CHUNK_SETUP:
 	    case CHUNK_LOAD:
 	    case CHUNK_UNLOAD:
@@ -1514,7 +1189,15 @@ public class Are extends Thread {
 	updateVoxel(v.getX(), v.getY(), v.getZ(), new Voxel(type));
     }
 
-    private Chunk checkChunkAndVoxelPostion(Chunk chunk, Vec3 voxelPos) {
+    /**
+     * Validade if given voxel position returns a valid voxel. It checks for chunk boundary and return the chunk and
+     * voxel based on it.
+     *
+     * @param chunk The current Chunk to be validated.
+     * @param voxelPos Desired voxel position. This will be updated if given one extrapolates chunk boundary.
+     * @return A valid chunk to access the voxel position.
+     */
+    private Chunk validateChunkAndVoxel(Chunk chunk, Vec3 voxelPos) {
 	if (voxelPos.getX() >= 0 && voxelPos.getX() < Chunk.SIZE
 		&& voxelPos.getY() >= 0 && voxelPos.getY() < Chunk.SIZE
 		&& voxelPos.getZ() >= 0 && voxelPos.getZ() < Chunk.SIZE) {

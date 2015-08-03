@@ -40,11 +40,12 @@ import com.jme3.ui.Picture;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.AreFollowControl;
 import com.lagecompany.jme3.manager.CameraMan;
-import com.lagecompany.nifty.gui.DebugScreen;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
 import com.lagecompany.storage.voxel.Voxel;
+import com.lagecompany.ui.DebugWindow;
+import com.lagecompany.ui.ToolbarWindow;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {
 
@@ -58,7 +59,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private FlyByCamera flyCam;
     private CameraMan cameraMan;
     private Camera cam;
-    private DebugScreen debugScreen;
+    private DebugWindow debugScreen;
     private CameraFollowControl followControl;
     private AreFollowControl translateControl;
     private BulletAppState bulletState;
@@ -264,14 +265,16 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void initGUI() {
-	debugScreen = new DebugScreen();
-	debugScreen.create();
-	debugScreen.display();
+	debugScreen = new DebugWindow(cam.getWidth(), cam.getHeight());
+	debugScreen.show(guiNode);
+
     }
 
     private void updateGUI() {
+	Vector3f v = translateControl.getPlayerPosition();
+	String pos = String.format("%.2f, %.2f, %.2f", v.x, v.y, v.z);
 	debugScreen.setPlayerArePosition(translateControl.getArePosition().toString());
-	debugScreen.setPlayerPosition(translateControl.getPlayerPosition().toString());
+	debugScreen.setPlayerPosition(pos);
     }
 
     private void customFunction() {
@@ -328,7 +331,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	    point = collision
 		    .getContactPoint()
 		    .addLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
-	    type = Voxel.VT_TORCH;
+	    type = Voxel.VT_DIRT;
 
 	}
 	Vec3 v = new Vec3(point.x, point.y, point.z);
@@ -420,9 +423,9 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 
 	    Chunk c;
 
-	    for (int x = -2; x <= 2; x++) {
-		for (int y = -2; y <= 2; y++) {
-		    for (int z = -2; z <= 2; z++) {
+	    for (int x = -100; x <= 100; x++) {
+		for (int y = -100; y <= 100; y++) {
+		    for (int z = -100; z <= 100; z++) {
 			c = are.get(Vec3.copyAdd(playerChunkPos, x, y, z));
 			showChunkLight(c, lightNode);
 			toggleBackfaceCulling(lightNode, true);
@@ -448,7 +451,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
 	for (int x = 0; x < Chunk.SIZE; x++) {
 	    for (int y = 0; y < Chunk.SIZE; y++) {
 		for (int z = 0; z < Chunk.SIZE; z++) {
-		    int light = chunk.getLight(x, y, z);
+		    int light = chunk.getSunLight(x, y, z);
 		    if (light == 0 || light == 15) {
 			continue;
 		    }

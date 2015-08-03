@@ -80,6 +80,10 @@ public class Chunk {
 	return get(z + SIZE * (y + SIZE * x));
     }
 
+    public Voxel get(int i) {
+	return (voxels != null && i < voxels.length && i >= 0) ? voxels[i] : null;
+    }
+
     public int getLight(Vec3 pos) {
 	return getLight(pos.getX(), pos.getY(), pos.getZ());
     }
@@ -88,15 +92,28 @@ public class Chunk {
 	return getLight(z + SIZE * (y + SIZE * x));
     }
 
-    public Voxel get(int i) {
-	return (voxels != null && i < voxels.length && i >= 0) ? voxels[i] : null;
-    }
-
     public int getLight(int i) {
 	if (lightMap == null || i >= lightMap.length || i < 0) {
 	    throw new RuntimeException(String.format("Invalid voxel index: %d", i));
 	} else {
 	    return lightMap[i] & 0x0F;
+	}
+    }
+
+    public int getSunLight(Vec3 pos) {
+	return getSunLight(pos.getX(), pos.getY(), pos.getZ());
+    }
+
+    public int getSunLight(int x, int y, int z) {
+	return getSunLight(z + SIZE * (y + SIZE * x));
+    }
+
+    public int getSunLight(int i) {
+	if (lightMap == null || i >= lightMap.length || i < 0) {
+	    throw new RuntimeException(String.format("Invalid voxel index: %d", i));
+	} else {
+	    int a = (lightMap[i] >>> 4) & 0xF;
+	    return a;
 	}
     }
 
@@ -120,6 +137,20 @@ public class Chunk {
 	//Then clear the bits on lightMap also, by using and AND 0xF0. So we'll have XXXX 0000.
 	//At least, just OR both XXXX 0000 OR 0000 XXXX, this will ensure that we change only desired bits.
 	lightMap[idx] = lightMap[idx] & 0xF0 | v & 0x0F;
+    }
+
+    public void setSunLight(Vec3 v, int light) {
+	setSunLight(v.getX(), v.getY(), v.getZ(), light);
+    }
+
+    public void setSunLight(int x, int y, int z, int v) {
+	int idx = z + SIZE * (y + SIZE * x);
+
+	//We are using only one byte of lightMap at moment.
+	//First set v to 0000 FFFF, to ensure only a light less then 15 will be get (0x0F = 15);
+	//Then clear the bits on lightMap also, by using and AND 0x0F. So we'll have 0000 XXXX.
+	//At least, just OR both 0000 XXXX OR XXXX 0000, this will ensure that we change only desired bits.
+	lightMap[idx] = lightMap[idx] & 0xF | ((v & 0x0F) << 4);
     }
 
     public void flagSkyLight(int x, int y, int z, boolean skyLight) {
@@ -328,6 +359,81 @@ public class Chunk {
 	return result;
     }
 
+    public int getAreFinalLight(int x, int y, int z, byte direction) {
+	int result = 0, light, sunLight;
+
+	switch (direction) {
+	    case VS_LEFT: {
+		if (x == 0) {
+		    light = are.getLight(Vec3.copyAdd(position, -1, 0, 0), SIZE - 1, y, z);
+		    sunLight = are.getSunLight(Vec3.copyAdd(position, -1, 0, 0), SIZE - 1, y, z);
+		} else {
+		    light = getLight(x - 1, y, z);
+		    sunLight = getSunLight(x - 1, y, z);
+		}
+		result = (sunLight > light) ? sunLight : light;
+		break;
+	    }
+	    case VS_RIGHT: {
+		if (x == SIZE - 1) {
+		    light = are.getLight(Vec3.copyAdd(position, 1, 0, 0), 0, y, z);
+		    sunLight = are.getSunLight(Vec3.copyAdd(position, 1, 0, 0), 0, y, z);
+		} else {
+		    light = getLight(x + 1, y, z);
+		    sunLight = getSunLight(x + 1, y, z);
+		}
+		result = (sunLight > light) ? sunLight : light;
+		break;
+	    }
+	    case VS_DOWN: {
+		if (y == 0) {
+		    light = are.getLight(Vec3.copyAdd(position, 0, -1, 0), x, SIZE - 1, z);
+		    sunLight = are.getSunLight(Vec3.copyAdd(position, 0, -1, 0), x, SIZE - 1, z);
+		} else {
+		    light = getLight(x, y - 1, z);
+		    sunLight = getSunLight(x, y - 1, z);
+		}
+		result = (sunLight > light) ? sunLight : light;
+		break;
+	    }
+	    case VS_TOP: {
+		if (y == SIZE - 1) {
+		    light = are.getLight(Vec3.copyAdd(position, 0, 1, 0), x, 0, z);
+		    sunLight = are.getSunLight(Vec3.copyAdd(position, 0, 1, 0), x, 0, z);
+		} else {
+		    light = getLight(x, y + 1, z);
+		    sunLight = getSunLight(x, y + 1, z);
+		}
+		result = (sunLight > light) ? sunLight : light;
+		break;
+	    }
+	    case VS_BACK: {
+		if (z == 0) {
+		    light = are.getLight(Vec3.copyAdd(position, 0, 0, -1), x, y, SIZE - 1);
+		    sunLight = are.getSunLight(Vec3.copyAdd(position, 0, 0, -1), x, y, SIZE - 1);
+		} else {
+		    light = getLight(x, y, z - 1);
+		    sunLight = getSunLight(x, y, z - 1);
+		}
+		result = (sunLight > light) ? sunLight : light;
+		break;
+	    }
+	    case VS_FRONT: {
+		if (z == SIZE - 1) {
+		    light = are.getLight(Vec3.copyAdd(position, 0, 0, 1), x, y, 0);
+		    sunLight = are.getSunLight(Vec3.copyAdd(position, 0, 0, 1), x, y, 0);
+		} else {
+		    light = getLight(x, y, z + 1);
+		    sunLight = getSunLight(x, y, z + 1);
+		}
+		result = (sunLight > light) ? sunLight : light;
+		break;
+	    }
+	}
+
+	return result;
+    }
+
     public void reset() {
 	for (Voxel v : voxels) {
 	    if (v == null) {
@@ -375,7 +481,7 @@ public class Chunk {
 	    for (int x = 0; x < SIZE; x++) {
 		double noiseHeight = TerrainNoise.getHeight(x + px * SIZE, z + pz * SIZE);
 		for (int y = SIZE - 1; y >= 0; y--) {
-		    if (y + py * SIZE < noiseHeight) {
+		    if (y + py * SIZE < noiseHeight && !(py == Are.HEIGHT - 1 && y == SIZE - 1)) {
 			type = VT_STONE;
 			visibleVoxels++;
 		    } else {
@@ -446,39 +552,39 @@ public class Chunk {
 			faces |= VS_TOP;
 		    } else if (!Voxel.isOpaque(nv)) {
 			faces |= VS_TOP;
-			v.setTopLight((byte) getAreLight(x, y, z, VS_TOP));
+			v.setTopLight((byte) getAreFinalLight(x, y, z, VS_TOP));
 		    }
 
 		    if ((nv = getAreVoxel(x, y, z, VS_DOWN)) == null) {
 			faces |= VS_DOWN;
 		    } else if (!Voxel.isOpaque(nv)) {
 			faces |= VS_DOWN;
-			v.setDownLight((byte) getAreLight(x, y, z, VS_DOWN));
+			v.setDownLight((byte) getAreFinalLight(x, y, z, VS_DOWN));
 		    }
 
 		    if ((nv = getAreVoxel(x, y, z, VS_LEFT)) == null) {
 			faces |= VS_LEFT;
 		    } else if (!Voxel.isOpaque(nv)) {
 			faces |= VS_LEFT;
-			v.setLeftLight((byte) getAreLight(x, y, z, VS_LEFT));
+			v.setLeftLight((byte) getAreFinalLight(x, y, z, VS_LEFT));
 		    }
 		    if ((nv = getAreVoxel(x, y, z, VS_RIGHT)) == null) {
 			faces |= VS_RIGHT;
 		    } else if (!Voxel.isOpaque(nv)) {
 			faces |= VS_RIGHT;
-			v.setRightLight((byte) getAreLight(x, y, z, VS_RIGHT));
+			v.setRightLight((byte) getAreFinalLight(x, y, z, VS_RIGHT));
 		    }
 		    if ((nv = getAreVoxel(x, y, z, VS_FRONT)) == null) {
 			faces |= VS_FRONT;
 		    } else if (!Voxel.isOpaque(nv)) {
 			faces |= VS_FRONT;
-			v.setFrontLight((byte) getAreLight(x, y, z, VS_FRONT));
+			v.setFrontLight((byte) getAreFinalLight(x, y, z, VS_FRONT));
 		    }
 		    if ((nv = getAreVoxel(x, y, z, VS_BACK)) == null) {
 			faces |= VS_BACK;
 		    } else if (!Voxel.isOpaque(nv)) {
 			faces |= VS_BACK;
-			v.setBackLight((byte) getAreLight(x, y, z, VS_BACK));
+			v.setBackLight((byte) getAreFinalLight(x, y, z, VS_BACK));
 		    }
 
 		    v.setVisibleSides(faces);

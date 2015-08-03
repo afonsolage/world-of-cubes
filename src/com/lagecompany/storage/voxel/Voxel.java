@@ -214,7 +214,11 @@ public class Voxel {
     }
 
     public static boolean isOpaque(Voxel voxel) {
-	return (voxel.getType() >>> 14 & 0x01) == 0;
+	return isOpaque(voxel.getType());
+    }
+    
+    public static boolean isOpaque(short type) {
+	return (type >>> 14 & 0x01) == 0;
     }
 
     public static boolean isSpecial(Voxel voxel) {

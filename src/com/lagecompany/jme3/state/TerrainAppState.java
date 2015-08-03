@@ -46,7 +46,7 @@ public class TerrainAppState extends AbstractAppState {
     private PhysicsSpace physicsSpace;
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
     private boolean shouldRender;
-    private Material voxelAtlas;
+    protected Material voxelAtlas;
     private Texture texture;
 
     /**

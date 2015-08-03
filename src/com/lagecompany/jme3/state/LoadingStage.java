@@ -1,12 +1,15 @@
 package com.lagecompany.jme3.state;
 
 import com.jme3.app.Application;
+import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.bullet.BulletAppState;
-import com.lagecompany.nifty.gui.LoadingScreen;
+import com.jme3.renderer.Camera;
+import com.jme3.scene.Node;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
+import com.lagecompany.ui.LoadingScreen;
 
 /**
  * The loading app state of game. On this state, Are will be initiated and chunks being loaded, while a loading message
@@ -21,6 +24,8 @@ public class LoadingStage extends AbstractAppState {
     private AppStateManager stateManager;
     private LoadingScreen loadingScreen;
     private Are are;
+    private Camera cam;
+    private Node guiNode;
 
     /**
      * Initialize this stage. Is called intenally by JME3.
@@ -31,10 +36,13 @@ public class LoadingStage extends AbstractAppState {
     @Override
     public void initialize(AppStateManager stateManager, Application app) {
 	this.stateManager = stateManager;
+	this.cam = app.getCamera();
 
-	loadingScreen = new LoadingScreen();
-	loadingScreen.create();
-	loadingScreen.display();
+	SimpleApplication simpleApp = (SimpleApplication) app;
+	guiNode = simpleApp.getGuiNode();
+
+	loadingScreen = new LoadingScreen(cam.getWidth(), cam.getHeight());
+	loadingScreen.show(guiNode);
 
 	are = Are.getInstance();
 
@@ -91,7 +99,7 @@ public class LoadingStage extends AbstractAppState {
     @Override
     public void cleanup() {
 	super.cleanup();
-	loadingScreen.delete();
+	loadingScreen.hide();
 	stateManager.attach(new DebugAppState());
 	worldState.startEnvironment();
     }

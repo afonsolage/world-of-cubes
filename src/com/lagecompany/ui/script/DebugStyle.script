@@ -1,0 +1,9 @@
+package com.lagecompany.ui.script
+
+import com.simsilica.lemur.*;
+
+selector("title", "debug") {
+    color = color(0, 0, 0, 0.8)
+    shadowColor = color(1, 1, 1, 0.5)
+    shadowOffset = new com.jme3.math.Vector3f(0, -2, -1)
+}
