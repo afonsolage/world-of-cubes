@@ -193,7 +193,7 @@ public class WorldAppState extends AbstractAppState {
 
 
 	toolbar.show(guiNode);
-	toolbar.setSlot(1, geom);
+	//toolbar.setSlot(1, geom);
     }
 
     private void initMaterials() {

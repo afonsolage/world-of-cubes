@@ -9,7 +9,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class Chunk {
 
-    public static final int SIZE = 32;
+    public static final int SIZE = 16;
     public static final int DATA_LENGTH = SIZE * SIZE * SIZE;
     public static final int X_UNIT = SIZE * SIZE;
     public static final int Y_UNIT = SIZE;
@@ -22,7 +22,7 @@ public class Chunk {
     public static final int FS_DOWN = 5;
     public static final int FS_COUNT = 6;
     private final Voxel[] voxels;
-    private final int[] lightMap;
+    private int[] lightMap;
     private ChunkSideBuffer buffer;
     private boolean loaded;
     private boolean updateFlag;

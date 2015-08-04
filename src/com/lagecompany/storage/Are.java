@@ -26,9 +26,9 @@ import java.util.concurrent.LinkedBlockingQueue;
  */
 public class Are extends Thread {
 
-    public static final int WIDTH = 2;
-    public static final int HEIGHT = 2;
-    public static final int LENGTH = 2;
+    public static final int WIDTH = 16;
+    public static final int HEIGHT = 32;
+    public static final int LENGTH = 16;
     public static final int DATA_WIDTH = WIDTH * Chunk.SIZE;
     public static final int DATA_HEIGHT = HEIGHT * Chunk.SIZE;
     public static final int DATA_LENGHT = LENGTH * Chunk.SIZE;
@@ -737,9 +737,35 @@ public class Are extends Thread {
 	    c.setLight(voxelPos, 10);
 	    lightQueue.add(new LightNode(c, voxelPos));
 	    sunLightQueue.add(new LightNode(c, voxelPos));
-	    propagateLight(batch);
-	    propagateSunLight(batch);
-	} else if (!Voxel.isOpaque(oldVoxel) && Voxel.isOpaque(newVoxel)) {
+	} else if (Voxel.isOpaque(oldVoxel)) {
+	    Chunk neighborChunk = c;
+	    Vec3 neigborVoxelPos;
+	    byte light = 0;
+	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+		if (dir == Vec3.UP) {
+		    light += oldVoxel.getTopLight();
+		} else if (dir == Vec3.DOWN) {
+		    light += oldVoxel.getDownLight();
+		} else if (dir == Vec3.FRONT) {
+		    light += oldVoxel.getFrontLight();
+		} else if (dir == Vec3.BACK) {
+		    light += oldVoxel.getBackLight();
+		} else if (dir == Vec3.RIGHT) {
+		    light += oldVoxel.getRightLight();
+		} else {
+		    light += oldVoxel.getLeftLight();
+		}
+
+		if (light > 0) {
+		    neigborVoxelPos = Vec3.copyAdd(voxelPos, dir);
+		    neighborChunk = validateChunkAndVoxel(c, neigborVoxelPos);
+		    lightQueue.add(new LightNode(neighborChunk, neigborVoxelPos));
+		    sunLightQueue.add(new LightNode(neighborChunk, neigborVoxelPos));
+		}
+	    }
+	}
+	
+	if (Voxel.isOpaque(newVoxel) || oldVoxel.getType() == Voxel.VT_TORCH) {
 	    int oldLightPower = c.getLight(voxelPos);
 	    if (oldLightPower > 0) {
 		lightRemovalQueue.add(new LightRemoveNode(c, voxelPos, oldLightPower));
@@ -753,68 +779,19 @@ public class Are extends Thread {
 		c.setSunLight(voxelPos, 0);
 		removeSunLight(batch);
 	    }
-	} else if (Voxel.isOpaque(oldVoxel) && !Voxel.isOpaque(newVoxel)) {
-	    Chunk neighborChunk = c;
-	    Vec3 neigborVoxelPos;
-	    byte light;
-	    for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
-		if (dir == Vec3.UP) {
-		    light = oldVoxel.getTopLight();
-		} else if (dir == Vec3.DOWN) {
-		    light = oldVoxel.getDownLight();
-		} else if (dir == Vec3.FRONT) {
-		    light = oldVoxel.getFrontLight();
-		} else if (dir == Vec3.BACK) {
-		    light = oldVoxel.getBackLight();
-		} else if (dir == Vec3.RIGHT) {
-		    light = oldVoxel.getRightLight();
-		} else {
-		    light = oldVoxel.getLeftLight();
-		}
-
-		if (light > 0) {
-		    neigborVoxelPos = Vec3.copyAdd(voxelPos, dir);
-		    neighborChunk = validateChunkAndVoxel(c, neigborVoxelPos);
-		    lightQueue.add(new LightNode(neighborChunk, neigborVoxelPos));
-		    sunLightQueue.add(new LightNode(neighborChunk, neigborVoxelPos));
-		    break;
-		}
-	    }
-	    propagateLight(batch);
-	    propagateSunLight(batch);
 	}
+
 
 	if (Voxel.isSpecial(oldVoxel)) {
 	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_DETACH, new SpecialVoxelData(c, voxelPos), batch));
 	}
+
 	if (Voxel.isSpecial(newVoxel)) {
 	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_ATTACH, new SpecialVoxelData(c, voxelPos), batch));
 	}
 
-//	if (newVoxel.getType() == Voxel.VT_TORCH) {
-//	    c.setLight(voxelPos.getX(), voxelPos.getY(), voxelPos.getZ(), 10);
-//	    lightQueue.add(new LightNode(c, voxelPos));
-//	    propagateLight(batch);
-//	    postMessage(new AreMessage(Type.SPECIAL_VOXEL_ATTACH, new SpecialVoxelData(c, voxelPos), batch));
-//	} else if (newVoxel.getType() == Voxel.VT_NONE) {
-//	    int lightLevel = c.getLight(voxelPos);
-//	    int sunLightLevel = c.getSunLight(voxelPos);
-//
-//	    if (lightLevel > 0) {
-//		c.setLight(voxelPos, 0);
-//	    }
-//
-//	    lightRemovalQueue.add(new LightRemoveNode(c, voxelPos, lightLevel));
-//
-//	    if (sunLightLevel > 0) {
-//		c.setSunLight(voxelPos, 0);
-//	    }
-//
-//	    sunLightRemovalQueue.add(new LightRemoveNode(c, voxelPos, lightLevel));
-//
-//	    removeSunLight(batch);
-//	    removeLight(batch);
-//	}
+	propagateLight(batch);
+	propagateSunLight(batch);
 
 	updateNeighborhood(pos, voxelPos, batch);
 
