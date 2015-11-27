@@ -1,10 +1,10 @@
 package com.lagecompany.storage;
 
-import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.storage.AreMessage.Type;
 import static com.lagecompany.storage.AreMessage.Type.SPECIAL_VOXEL_ATTACH;
+import com.lagecompany.storage.light.LightManager;
 import com.lagecompany.storage.light.LightNode;
-import com.lagecompany.storage.light.LightRemoveNode;
+import com.lagecompany.storage.light.LightRemovalNode;
 import com.lagecompany.storage.voxel.SpecialVoxelData;
 import com.lagecompany.storage.voxel.VoxelReference;
 import com.lagecompany.util.MathUtils;
@@ -40,8 +40,8 @@ public class Are extends Thread {
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
     private final Queue<LightNode> lightQueue;
     private final Queue<LightNode> sunLightQueue;
-    private final Queue<LightRemoveNode> lightRemovalQueue;
-    private final Queue<LightRemoveNode> sunLightRemovalQueue;
+    private final Queue<LightRemovalNode> lightRemovalQueue;
+    private final Queue<LightRemovalNode> sunLightRemovalQueue;
     private final AreQueue areQueue;
     private final ConcurrentLinkedQueue<SpecialVoxelData> specialVoxelList;
     private Vec3 position;
@@ -209,6 +209,7 @@ public class Are extends Thread {
     private void lightChunk(AreMessage message) {
         Chunk c = (Chunk) message.getData();
         try {
+            c.removeSunlight();
             c.computeSunlightReflection();
             c.propagateSunlight();
 
@@ -525,20 +526,18 @@ public class Are extends Thread {
 
         Vec3 voxelPos = toVoxelPosition(x, y, z), tmpVec = new Vec3();
 
-        c.lock();
         VoxelReference voxel = c.get(voxelPos);
+        short previousType = voxel.getType();
+        int previousSunLight = voxel.getSunLight();
+        int previousLight = voxel.getLight();
+        
+        c.lock();
         voxel.reset();
         voxel.setType(type);
         c.unlock();
 
-        Chunk tmpChunk;
-        for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
-            tmpVec.set(voxelPos.x + dir.x, voxelPos.y + dir.y, voxelPos.z + dir.z);
-            tmpChunk = validateChunkAndVoxel(c, tmpVec);
-
-            tmpChunk.addSunLightPropagationQueue(tmpChunk.get(tmpVec));
-        }
-
+        LightManager.updateVoxelLight(c, voxel, previousSunLight, previousLight, previousType, type);
+        
         int batch = areQueue.nextBatch();
         postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
 
@@ -552,36 +551,36 @@ public class Are extends Thread {
         if (voxelPos.x == 0) {
             c = get(chunkPos.copy().add(-1, 0, 0));
             if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
+                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
             }
         } else if (voxelPos.x == Chunk.SIZE - 1) {
             c = get(chunkPos.copy().add(1, 0, 0));
             if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
+                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
             }
         }
 
         if (voxelPos.y == 0) {
             c = get(chunkPos.copy().add(0, -1, 0));
             if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
+                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
             }
         } else if (voxelPos.y == Chunk.SIZE - 1) {
             c = get(chunkPos.copy().add(0, 1, 0));
             if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
+                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
             }
         }
 
         if (voxelPos.z == 0) {
             c = get(chunkPos.copy().add(0, 0, -1));
             if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
+                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
             }
         } else if (voxelPos.z == Chunk.SIZE - 1) {
             c = get(chunkPos.copy().add(0, 0, 1));
             if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LOAD, c, batch));
+                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
             }
         }
     }

@@ -29,7 +29,8 @@ import com.lagecompany.storage.voxel.SpecialVoxelData;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * On this stage, the terrain (chunks) will be processed. It means it will be managed by this app state.
+ * On this stage, the terrain (chunks) will be processed. It means it will be
+ * managed by this app state.
  *
  * @author Afonso Lage
  */
@@ -53,8 +54,8 @@ public class TerrainAppState extends AbstractAppState {
      * Create a new instance of this AppState
      */
     public TerrainAppState() {
-	are = Are.getInstance();
-	renderBatchQueue = are.getRenderBatchQueue();
+        are = Are.getInstance();
+        renderBatchQueue = are.getRenderBatchQueue();
     }
 
     /**
@@ -65,24 +66,24 @@ public class TerrainAppState extends AbstractAppState {
      */
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
-	this.app = (SimpleApplication) application;
-	this.assetManager = app.getAssetManager();
-	this.rootNode = app.getRootNode();
-	this.bulletState = stateManager.getState(BulletAppState.class);
-	this.physicsSpace = bulletState.getPhysicsSpace();
-	initMaterials();
+        this.app = (SimpleApplication) application;
+        this.assetManager = app.getAssetManager();
+        this.rootNode = app.getRootNode();
+        this.bulletState = stateManager.getState(BulletAppState.class);
+        this.physicsSpace = bulletState.getPhysicsSpace();
+        initMaterials();
 
-	node = new Node("Chunks Node");
+        node = new Node("Chunks Node");
 
-	playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
-	playerNode.addControl(new AreFollowControl());
+        playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
+        playerNode.addControl(new AreFollowControl());
 
-	Vector3f playerPosition = playerNode.getLocalTranslation();
-	node.setLocalTranslation(playerPosition);
-	rootNode.attachChild(node);
+        Vector3f playerPosition = playerNode.getLocalTranslation();
+        node.setLocalTranslation(playerPosition);
+        rootNode.attachChild(node);
 
-	are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
-	are.start();
+        are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
+        are.start();
     }
 
     /**
@@ -92,34 +93,35 @@ public class TerrainAppState extends AbstractAppState {
      */
     @Override
     public void update(float tpf) {
-	are.tick(tpf);
-	processMessages(tpf);
+        are.tick(tpf);
+        processMessages(tpf);
     }
 
     /**
-     * This method is called by JME3 when this stage is detached, so it must be used for cleanup.
+     * This method is called by JME3 when this stage is detached, so it must be
+     * used for cleanup.
      */
     @Override
     public void cleanup() {
-	super.cleanup(); //To change body of generated methods, choose Tools | Templates.
-	are.interrupt();
+        super.cleanup(); //To change body of generated methods, choose Tools | Templates.
+        are.interrupt();
     }
 
     /**
      * Init all default materials to be used by chunks.
      */
     private void initMaterials() {
-	texture = assetManager.loadTexture("Textures/Elements/atlas.png");
+        texture = assetManager.loadTexture("Textures/Elements/atlas.png");
 
-	voxelAtlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
-	voxelAtlas.setTexture("DiffuseMap", texture);
-	voxelAtlas.setFloat("TileSize", 1f / (float) (texture.getImage().getWidth() / 128));
-	voxelAtlas.setFloat("MaxTileSize", 1f / Chunk.SIZE);
-	voxelAtlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
-	voxelAtlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
-	voxelAtlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestLinearMipMap);
-	//size: 0,125 x 0,625
-	//offset: 0,4375 x 0,375
+        voxelAtlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
+        voxelAtlas.setTexture("DiffuseMap", texture);
+        voxelAtlas.setFloat("TileSize", 1f / (float) (texture.getImage().getWidth() / 128));
+        voxelAtlas.setFloat("MaxTileSize", 1f / Chunk.SIZE);
+        voxelAtlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
+        voxelAtlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
+        voxelAtlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestLinearMipMap);
+        //size: 0,125 x 0,625
+        //offset: 0,4375 x 0,375
 
     }
 
@@ -129,7 +131,7 @@ public class TerrainAppState extends AbstractAppState {
      * @return true if should render, else false.
      */
     public boolean shouldRender() {
-	return shouldRender;
+        return shouldRender;
     }
 
     /**
@@ -138,7 +140,7 @@ public class TerrainAppState extends AbstractAppState {
      * @param should true if should render, else false.
      */
     public void setShouldRender(boolean should) {
-	this.shouldRender = should;
+        this.shouldRender = should;
     }
 
     /**
@@ -147,43 +149,43 @@ public class TerrainAppState extends AbstractAppState {
      * @param tpf Time per frame in seconds.
      */
     public void processMessages(float tpf) {
-	Integer batch = renderBatchQueue.poll();
+        Integer batch = renderBatchQueue.poll();
 
-	if (batch == null) {
-	    return;
-	}
+        if (batch == null) {
+            return;
+        }
 
-	ConcurrentLinkedQueue<AreMessage> queue = are.getQueue(batch, AreMessage.Type.CHUNK_ATTACH);
-	if (queue != null) {
-	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
-		attachChunk(message);
-	    }
-	    are.finishBatch(AreMessage.Type.CHUNK_ATTACH, batch);
-	}
+        ConcurrentLinkedQueue<AreMessage> queue = are.getQueue(batch, AreMessage.Type.CHUNK_ATTACH);
+        if (queue != null) {
+            for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
+                attachChunk(message);
+            }
+            are.finishBatch(AreMessage.Type.CHUNK_ATTACH, batch);
+        }
 
-	queue = are.getQueue(batch, AreMessage.Type.CHUNK_DETACH);
-	if (queue != null) {
-	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
-		detachChunk(message);
-	    }
-	    are.finishBatch(AreMessage.Type.CHUNK_DETACH, batch);
-	}
+        queue = are.getQueue(batch, AreMessage.Type.CHUNK_DETACH);
+        if (queue != null) {
+            for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
+                detachChunk(message);
+            }
+            are.finishBatch(AreMessage.Type.CHUNK_DETACH, batch);
+        }
 
-	queue = are.getQueue(batch, AreMessage.Type.SPECIAL_VOXEL_ATTACH);
-	if (queue != null) {
-	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
-		attachSpecialVoxel(message);
-	    }
-	    are.finishBatch(AreMessage.Type.SPECIAL_VOXEL_ATTACH, batch);
-	}
+        queue = are.getQueue(batch, AreMessage.Type.SPECIAL_VOXEL_ATTACH);
+        if (queue != null) {
+            for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
+                attachSpecialVoxel(message);
+            }
+            are.finishBatch(AreMessage.Type.SPECIAL_VOXEL_ATTACH, batch);
+        }
 
-	queue = are.getQueue(batch, AreMessage.Type.SPECIAL_VOXEL_DETACH);
-	if (queue != null) {
-	    for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
-		detachSpecialVoxel(message);
-	    }
-	    are.finishBatch(AreMessage.Type.SPECIAL_VOXEL_DETACH, batch);
-	}
+        queue = are.getQueue(batch, AreMessage.Type.SPECIAL_VOXEL_DETACH);
+        if (queue != null) {
+            for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
+                detachSpecialVoxel(message);
+            }
+            are.finishBatch(AreMessage.Type.SPECIAL_VOXEL_DETACH, batch);
+        }
 
     }
 
@@ -193,76 +195,81 @@ public class TerrainAppState extends AbstractAppState {
      * @param message an AreMessage of type CHUNK_ATTACH
      */
     private void attachChunk(AreMessage message) {
-	Chunk c = (Chunk) message.getData();
+        Chunk c = (Chunk) message.getData();
 
-	if (!c.hasVertext()) {
-	    message.setType(AreMessage.Type.CHUNK_DETACH);
-	    are.postMessage(message);
-	    return;
-	}
+        if (!c.hasVertext()) {
+            message.setType(AreMessage.Type.CHUNK_DETACH);
+            are.postMessage(message);
+            return;
+        }
 
-	Vec3 v = c.getPosition();
-	String name = c.getName();
-	Spatial spatial = node.getChild(name);
+        Vec3 v = c.getPosition();
+        String name = c.getName();
+        Spatial spatial = node.getChild(name);
 
-	Geometry geometry;
-	RigidBodyControl rigidBodyControl;
+        Geometry geometry;
+        RigidBodyControl rigidBodyControl;
 
-	if (spatial == null) {
-	    geometry = new Geometry(name);
-	    Node chunkNode = new Node(CHUNK_NODE_PREFIX + name);
-	    chunkNode.attachChild(geometry);
-	    node.attachChild(chunkNode);
+        if (spatial == null) {
+            geometry = new Geometry(name);
+            Node chunkNode = new Node(CHUNK_NODE_PREFIX + name);
+            chunkNode.attachChild(geometry);
+            node.attachChild(chunkNode);
 
-	    Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
-	    chunkNode.setLocalTranslation(chunkPosition.x, chunkPosition.y, chunkPosition.z);
-	} else {
-	    geometry = (Geometry) spatial;
-	}
+            Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
+            chunkNode.setLocalTranslation(chunkPosition.x, chunkPosition.y, chunkPosition.z);
+        } else {
+            geometry = (Geometry) spatial;
+        }
 
-	Mesh mesh = new Mesh();
-	CollisionShape collisionShape;
+        Mesh mesh = new Mesh();
+        CollisionShape collisionShape;
 
-	try {
-	    c.lock();
-	    mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
-	    mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
-	    mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
-	    mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
-	    mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, c.getTileCoord());
-	    mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTexColor());
-	} finally {
-	    c.unlock();
-	}
+        try {
+            c.lock();
+            mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
+            mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
+            mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
+            mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
+            mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, c.getTileCoord());
+            mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTexColor());
+        } finally {
+            c.unlock();
+        }
 
-	mesh.updateBound();
-	geometry.setMesh(mesh);
-	geometry.setMaterial(voxelAtlas);
-	geometry.updateModelBound();
+        mesh.updateBound();
+        geometry.setMesh(mesh);
+        geometry.setMaterial(voxelAtlas);
 
-	rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-	collisionShape = CollisionShapeFactory.createMeshShape(geometry);
+        if (mesh.getTriangleCount() == 0 || mesh.getVertexCount() == 0) {
+            message.setType(AreMessage.Type.CHUNK_DETACH);
+            are.postMessage(message);
+            return;
+        }
 
-	if (rigidBodyControl == null) {
-	    rigidBodyControl = new RigidBodyControl(collisionShape, 0);
-	    rigidBodyControl.setFriction(1f);
-	    geometry.addControl(rigidBodyControl);
-	    physicsSpace.add(rigidBodyControl);
-	} else {
-	    rigidBodyControl.setEnabled(false);
-	    rigidBodyControl.setCollisionShape(collisionShape);
-	    rigidBodyControl.setEnabled(true);
-	}
+        rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+        collisionShape = CollisionShapeFactory.createMeshShape(geometry);
 
-	if (DebugAppState.backfaceCulled) {
-	    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
-	} else {
-	    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
-	}
+        if (rigidBodyControl == null) {
+            rigidBodyControl = new RigidBodyControl(collisionShape, 0);
+            rigidBodyControl.setFriction(1f);
+            geometry.addControl(rigidBodyControl);
+            physicsSpace.add(rigidBodyControl);
+        } else {
+            rigidBodyControl.setEnabled(false);
+            rigidBodyControl.setCollisionShape(collisionShape);
+            rigidBodyControl.setEnabled(true);
+        }
 
-	if (DebugAppState.wireframe) {
-	    geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
-	}
+        if (DebugAppState.backfaceCulled) {
+            geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
+        } else {
+            geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
+        }
+
+        if (DebugAppState.wireframe) {
+            geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
+        }
     }
 
     /**
@@ -271,99 +278,99 @@ public class TerrainAppState extends AbstractAppState {
      * @param message an AreMessage of type CHUNK_DETACH
      */
     private void detachChunk(AreMessage message) {
-	Chunk c = (Chunk) message.getData();
-	String name;
+        Chunk c = (Chunk) message.getData();
+        String name;
 
-	try {
-	    c.lock();
-	    name = c.getName();
-	} finally {
-	    c.unlock();
-	}
+        try {
+            c.lock();
+            name = c.getName();
+        } finally {
+            c.unlock();
+        }
 
-	Spatial spatial = node.getChild(name);
+        Spatial spatial = node.getChild(name);
 
-	if (spatial != null) {
-	    Geometry geometry = (Geometry) spatial;
-	    RigidBodyControl rigidBodyControl;
-	    try {
-		rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-		physicsSpace.remove(rigidBodyControl);
-	    } catch (Exception ex) {
-		System.out.println("Failed to remove rigidBody from: " + name);
-	    }
-	    geometry.removeFromParent();
-	}
+        if (spatial != null) {
+            Geometry geometry = (Geometry) spatial;
+            RigidBodyControl rigidBodyControl;
+            try {
+                rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+                physicsSpace.remove(rigidBodyControl);
+            } catch (Exception ex) {
+                System.out.println("Failed to remove rigidBody from: " + name);
+            }
+            geometry.removeFromParent();
+        }
     }
 
     private void attachSpecialVoxel(AreMessage message) {
-	SpecialVoxelData data = (SpecialVoxelData) message.getData();
-	String voxelName = data.toString();
-	String chunkNodeName = CHUNK_NODE_PREFIX + data.chunk.getName();
+        SpecialVoxelData data = (SpecialVoxelData) message.getData();
+        String voxelName = data.toString();
+        String chunkNodeName = CHUNK_NODE_PREFIX + data.chunk.getName();
 
-	Spatial chunkNodeSpatial = node.getChild(chunkNodeName);
+        Spatial chunkNodeSpatial = node.getChild(chunkNodeName);
 
-	if (chunkNodeSpatial == null) {
-	    throw new RuntimeException("Failed to find chunk node " + chunkNodeName);
-	}
+        if (chunkNodeSpatial == null) {
+            throw new RuntimeException("Failed to find chunk node " + chunkNodeName);
+        }
 
-	Node chunkNode = (Node) chunkNodeSpatial;
+        Node chunkNode = (Node) chunkNodeSpatial;
 
-	Spatial voxelSpatial = chunkNode.getChild(voxelName);
-	Geometry geometry;
+        Spatial voxelSpatial = chunkNode.getChild(voxelName);
+        Geometry geometry;
 
-	if (voxelSpatial == null) {
-	    geometry = new Geometry(voxelName);
-	    chunkNode.attachChild(geometry);
+        if (voxelSpatial == null) {
+            geometry = new Geometry(voxelName);
+            chunkNode.attachChild(geometry);
 
-	    geometry.setLocalTranslation(data.x, data.y, data.z);
-	} else {
-	    geometry = (Geometry) voxelSpatial;
-	}
+            geometry.setLocalTranslation(data.x, data.y, data.z);
+        } else {
+            geometry = (Geometry) voxelSpatial;
+        }
 
-	short specialType = data.chunk.get(data.x, data.y, data.z).getType();
+        short specialType = data.chunk.get(data.x, data.y, data.z).getType();
 
-	Mesh mesh = new Mesh();
-	mesh.setBuffer(VertexBuffer.Type.Position, 3, SpecialVoxel.getVertices(specialType));
-	mesh.setBuffer(VertexBuffer.Type.Index, 1, SpecialVoxel.getIndexes(specialType));
-	mesh.setBuffer(VertexBuffer.Type.Normal, 3, SpecialVoxel.getNormals(specialType));
-	mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, SpecialVoxel.getTextCoord(specialType));
-	mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, SpecialVoxel.getTileCoord(specialType));
-	mesh.setBuffer(VertexBuffer.Type.Color, 4, SpecialVoxel.getTextColor(specialType));
+        Mesh mesh = new Mesh();
+        mesh.setBuffer(VertexBuffer.Type.Position, 3, SpecialVoxel.getVertices(specialType));
+        mesh.setBuffer(VertexBuffer.Type.Index, 1, SpecialVoxel.getIndexes(specialType));
+        mesh.setBuffer(VertexBuffer.Type.Normal, 3, SpecialVoxel.getNormals(specialType));
+        mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, SpecialVoxel.getTextCoord(specialType));
+        mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, SpecialVoxel.getTileCoord(specialType));
+        mesh.setBuffer(VertexBuffer.Type.Color, 4, SpecialVoxel.getTextColor(specialType));
 
-	mesh.updateBound();
-	geometry.setMesh(mesh);
-	geometry.setMaterial(voxelAtlas);
-	geometry.updateModelBound();
+        mesh.updateBound();
+        geometry.setMesh(mesh);
+        geometry.setMaterial(voxelAtlas);
+        geometry.updateModelBound();
 
-	if (DebugAppState.backfaceCulled) {
-	    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
-	} else {
-	    geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
-	}
+        if (DebugAppState.backfaceCulled) {
+            geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
+        } else {
+            geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
+        }
 
-	if (DebugAppState.wireframe) {
-	    geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
-	}
+        if (DebugAppState.wireframe) {
+            geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
+        }
     }
 
     private void detachSpecialVoxel(AreMessage message) {
-	SpecialVoxelData data = (SpecialVoxelData) message.getData();
-	String voxelName = data.toString();
-	String chunkNodeName = CHUNK_NODE_PREFIX + data.chunk.getName();
+        SpecialVoxelData data = (SpecialVoxelData) message.getData();
+        String voxelName = data.toString();
+        String chunkNodeName = CHUNK_NODE_PREFIX + data.chunk.getName();
 
-	Spatial chunkNodeSpatial = node.getChild(chunkNodeName);
+        Spatial chunkNodeSpatial = node.getChild(chunkNodeName);
 
-	if (chunkNodeSpatial != null) {
-	    Node chunkNode = (Node) chunkNodeSpatial;
-	    Spatial voxelSpatial = chunkNode.getChild(voxelName);
+        if (chunkNodeSpatial != null) {
+            Node chunkNode = (Node) chunkNodeSpatial;
+            Spatial voxelSpatial = chunkNode.getChild(voxelName);
 
-	    if (voxelSpatial == null) {
-		return;
-	    }
+            if (voxelSpatial == null) {
+                return;
+            }
 
-	    Geometry voxelGeometry = (Geometry) voxelSpatial;
-	    voxelGeometry.removeFromParent();
-	}
+            Geometry voxelGeometry = (Geometry) voxelSpatial;
+            voxelGeometry.removeFromParent();
+        }
     }
 }

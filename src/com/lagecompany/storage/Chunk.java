@@ -1,5 +1,6 @@
 package com.lagecompany.storage;
 
+import com.lagecompany.storage.light.LightRemovalNode;
 import com.lagecompany.storage.voxel.Voxel;
 import static com.lagecompany.storage.voxel.Voxel.VS_BACK;
 import static com.lagecompany.storage.voxel.Voxel.VS_DOWN;
@@ -37,6 +38,7 @@ public class Chunk {
     private ChunkSideBuffer buffer;
     private ChunkBuffer chunkBuffer;
     private final Queue<VoxelReference> sunlightPropagationQueue;
+    private final Queue<LightRemovalNode> sunlightRemovalQueue;
     private boolean loaded;
     private boolean updateFlag;
     private boolean directSunLight;
@@ -55,6 +57,7 @@ public class Chunk {
         this.updateFlag = false;
         this.chunkBuffer = new ChunkBuffer();
         this.sunlightPropagationQueue = new LinkedList<>();
+        this.sunlightRemovalQueue = new LinkedList<>();
     }
 
     public boolean isLoaded() {
@@ -405,6 +408,67 @@ public class Chunk {
         }
     }
 
+    public void removeSunlight() {
+        int previousLightLevel, neighborLightLevel;
+        VoxelReference neighborVoxel;
+        LightRemovalNode node;
+        Vec3 tmpVec = new Vec3();
+        Chunk tmpChunk;
+
+        boolean updated = false;
+
+        while (!sunlightRemovalQueue.isEmpty()) {
+            node = sunlightRemovalQueue.poll();
+
+            previousLightLevel = node.previousLight;
+
+            //If previous light level is equals or less then 1, we can't remove neighbor light.
+            if (previousLightLevel <= 1) {
+                continue;
+            }
+
+            //Look for all neighbors and check for light removal.
+            for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+                tmpVec.set(node.x + dir.x, node.y + dir.y, node.z + dir.z);
+                tmpChunk = are.validateChunkAndVoxel(this, tmpVec);
+
+                if (tmpChunk == null) {
+                    continue;
+                }
+
+                neighborVoxel = tmpChunk.get(tmpVec);
+                neighborLightLevel = neighborVoxel.getSunLight();
+
+                //If this neighbor isn't transparent or is already dark (no sun light), there is nothing to do with it.
+                if (!neighborVoxel.isTransparent() || neighborLightLevel == 0) {
+                    continue;
+                }
+
+                if (neighborLightLevel > 0 && ((neighborLightLevel < previousLightLevel) || (dir == Vec3.DOWN && previousLightLevel == Voxel.SUN_LIGHT))) {
+                    //If this neighbor has a light lower then our previousLight OR our previous sunlight is direct sun light (max) and we are looking at our
+                    //downwards neighbor, we will remove it and propagate it's removal.
+                    neighborVoxel.setSunLight((byte) 0);
+                    tmpChunk.sunlightRemovalQueue.add(new LightRemovalNode(tmpVec.x, tmpVec.y, tmpVec.z, neighborLightLevel));
+                } else if (neighborLightLevel >= previousLightLevel) {
+                    //Else, if this neighbor has a light equals or higher then our previous light, then we need to propagate it's light, 
+                    //so we may receive it on sunLightPropagation
+                    tmpChunk.addSunLightPropagationQueue(neighborVoxel);
+                }
+
+                updated = true;
+            }
+        }
+
+        if (updated) {
+            for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+                tmpChunk = are.get(position.x + dir.x, position.y + dir.y, position.z + dir.z);
+                if (tmpChunk != null && !tmpChunk.isFlaggedToUpdate()) {
+                    are.requestChunkUpdate(tmpChunk);
+                }
+            }
+        }
+    }
+
     /**
      * Propagate sun light across neigbor voxels. This method uses a Passive
      * Flood Fill algorithm.
@@ -416,6 +480,8 @@ public class Chunk {
         VoxelReference neighborVoxel, voxel;
         Vec3 tmpVec = new Vec3();
         Chunk tmpChunk;
+
+        boolean updated = false;
 
         while (!sunlightPropagationQueue.isEmpty()) {
             voxel = sunlightPropagationQueue.poll();
@@ -432,6 +498,10 @@ public class Chunk {
                 tmpVec.set(voxel.x + dir.x, voxel.y + dir.y, voxel.z + dir.z);
                 tmpChunk = are.validateChunkAndVoxel(this, tmpVec);
 
+                if (tmpChunk == null) {
+                    continue;
+                }
+
                 neighborVoxel = tmpChunk.get(tmpVec);
 
                 //If current light level is direct sun light (Voxel.SUN_LIGHT) and we are propagating downwards, we don't decrease light level.
@@ -439,17 +509,23 @@ public class Chunk {
 
                 //If this neighbor is transparent and have a light power lower then our, lets propagate it.
                 if (neighborVoxel.isTransparent() && neighborVoxel.getSunLight() < propagatedLightLevel) {
-                    
-                    //If the chunk isn't the same as it and isn't flagged to update, let's request it to update.
-                    if (tmpChunk != this && !tmpChunk.isFlaggedToUpdate()) {
-                        are.requestChunkUpdate(tmpChunk);
-                    }
-                    
+
                     neighborVoxel.setSunLight(propagatedLightLevel);
                     //We may propagate light only if it's greater then 1.
                     if (lightLevel > 1) {
                         tmpChunk.sunlightPropagationQueue.add(neighborVoxel);
                     }
+
+                    updated = true;
+                }
+            }
+        }
+
+        if (updated) {
+            for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+                tmpChunk = are.get(position.x + dir.x, position.y + dir.y, position.z + dir.z);
+                if (tmpChunk != null && !tmpChunk.isFlaggedToUpdate()) {
+                    are.requestChunkUpdate(tmpChunk);
                 }
             }
         }
@@ -1202,13 +1278,14 @@ public class Chunk {
             return false;
         }
         final Chunk other = (Chunk) obj;
-        if (!Objects.equals(this.position, other.position)) {
-            return false;
-        }
-        return true;
+        return Objects.equals(this.position, other.position);
     }
 
     public void addSunLightPropagationQueue(VoxelReference voxel) {
         this.sunlightPropagationQueue.add(voxel);
+    }
+
+    public void addSunLightRemovalQueue(LightRemovalNode node) {
+        this.sunlightRemovalQueue.add(node);
     }
 }
