@@ -7,8 +7,6 @@ public class MemoryTest {
     public static void main(String[] args) {
 	test();
 	test();
-	simpleObject();
-	simpleObject();
 	arrayEmpty();
 	arrayEmpty();
 	byteArrayAllocation();
@@ -46,16 +44,6 @@ public class MemoryTest {
 
     }
 
-    private static long simpleObject() {
-	Runtime.getRuntime().gc();
-	long a = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-	Voxel v = new Voxel((short)0);
-
-	Runtime.getRuntime().gc();
-	long b = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-
-	return b - a;
-    }
 
     private static long variables() {
 	Runtime.getRuntime().gc();

@@ -17,7 +17,7 @@ public class SpecialVoxelData {
     public boolean active;
 
     public SpecialVoxelData(Chunk chunk, Vec3 position) {
-	this(chunk, position.getX(), position.getY(), position.getZ());
+	this(chunk, position.x, position.y, position.z);
     }
 
     public SpecialVoxelData(Chunk chunk, int x, int y, int z) {

@@ -7,6 +7,8 @@ import com.jme3.app.state.AppStateManager;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.renderer.Camera;
 import com.jme3.scene.Node;
+import com.lagecompany.manager.Global;
+import com.lagecompany.manager.WindowManager;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.AreMessage;
 import com.lagecompany.ui.LoadingScreen;
@@ -41,8 +43,9 @@ public class LoadingStage extends AbstractAppState {
 	SimpleApplication simpleApp = (SimpleApplication) app;
 	guiNode = simpleApp.getGuiNode();
 
-	loadingScreen = new LoadingScreen(cam.getWidth(), cam.getHeight());
-	loadingScreen.show(guiNode);
+	loadingScreen = (LoadingScreen) Global.winMan.get(WindowManager.LOADING);
+	loadingScreen.build();
+	loadingScreen.show();
 
 	are = Are.getInstance();
 
@@ -56,9 +59,6 @@ public class LoadingStage extends AbstractAppState {
      */
     @Override
     public void update(float tpf) {
-	if (!are.isInited()) {
-	    return;
-	}
 	int setupCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_SETUP);
 	int loadCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_LOAD);
 	int lightCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_LIGHT);
@@ -66,14 +66,14 @@ public class LoadingStage extends AbstractAppState {
 	int detachCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_DETACH);
 	int unloadCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_UNLOAD);
 
-	loadingScreen.setMessageCount("setup", setupCount);
-	loadingScreen.setMessageCount("load", loadCount);
-	loadingScreen.setMessageCount("light", lightCount);
-	loadingScreen.setMessageCount("attach", attachCount);
-	loadingScreen.setMessageCount("detach", detachCount);
-	loadingScreen.setMessageCount("unload", unloadCount);
+	loadingScreen.set(LoadingScreen.SETUP_QUEUE, setupCount);
+	loadingScreen.set(LoadingScreen.LOAD_QUEUE, loadCount);
+	loadingScreen.set(LoadingScreen.LIGHT_QUEUE, lightCount);
+	loadingScreen.set(LoadingScreen.ATTACH_QUEUE, attachCount);
+	loadingScreen.set(LoadingScreen.DETACH_QUEUE, detachCount);
+	loadingScreen.set(LoadingScreen.UNLOAD_QUEUE, unloadCount);
 
-	if (setupCount + loadCount + lightCount + attachCount + detachCount + unloadCount == 0) {
+	if (are.isInited()) {
 	    stateManager.detach(this);
 	}
     }
@@ -87,8 +87,6 @@ public class LoadingStage extends AbstractAppState {
 	terrainState = new TerrainAppState();
 	terrainState.setShouldRender(false);
 	stateManager.attach(terrainState);
-
-
 
 	this.worldState = stateManager.getState(WorldAppState.class);
     }

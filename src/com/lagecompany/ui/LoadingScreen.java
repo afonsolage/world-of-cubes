@@ -20,7 +20,12 @@ import com.simsilica.lemur.component.QuadBackgroundComponent;
  */
 public class LoadingScreen extends Window {
 
-    private Container mainContainer;
+    public static final String SETUP_QUEUE = "setupQueue";
+    public static final String LIGHT_QUEUE = "lightQueue";
+    public static final String LOAD_QUEUE = "loadQueue";
+    public static final String ATTACH_QUEUE = "attachQueue";
+    public static final String DETACH_QUEUE = "detachQueue";
+    public static final String UNLOAD_QUEUE = "unloadQueue";
     private Label setupText;
     private Label lightText;
     private Label loadText;
@@ -33,7 +38,7 @@ public class LoadingScreen extends Window {
     }
 
     @Override
-    public void show(Node guiNode) {
+    public void build() {
 	mainContainer = new Container();
 	mainContainer.setLocalTranslation(0, screenHeight, 0);
 	mainContainer.setBackground(new QuadBackgroundComponent(ColorRGBA.Black));
@@ -47,34 +52,24 @@ public class LoadingScreen extends Window {
 	unloadText = mainContainer.addChild(new Label("Unload queue..."));
 
 	mainContainer.setPreferredSize(new Vector3f(screenWidth, screenHeight, 0));
-	guiNode.attachChild(mainContainer);
     }
 
     @Override
-    public void hide() {
-	mainContainer.removeFromParent();
-    }
-
-    public void setMessageCount(String type, int count) {
-	String message = " " + count;
-	if (type.equalsIgnoreCase("setup")) {
-	    message = "Setup queue..." + message;
-	    setupText.setText(message);
-	} else if (type.equalsIgnoreCase("light")) {
-	    message = "Light queue..." + message;
-	    lightText.setText(message);
-	} else if (type.equalsIgnoreCase("load")) {
-	    message = "Load queue...." + message;
-	    loadText.setText(message);
-	} else if (type.equalsIgnoreCase("attach")) {
-	    message = "Attach queue.." + message;
-	    attachText.setText(message);
-	} else if (type.equalsIgnoreCase("detach")) {
-	    message = "Detach queue.." + message;
-	    detachText.setText(message);
+    public void set(String key, Object value) {
+	if (SETUP_QUEUE.equals(key)) {
+	    setupText.setText("Setup queue..." + value);
+	} else if (LIGHT_QUEUE.equals(key)) {
+	    lightText.setText("Light queue..." + value);
+	} else if (LOAD_QUEUE.equals(key)) {
+	    loadText.setText("Load queue..." + value);
+	} else if (ATTACH_QUEUE.equals(key)) {
+	    attachText.setText("Attach queue..." + value);
+	} else if (DETACH_QUEUE.equals(key)) {
+	    detachText.setText("Detach queue..." + value);
+	} else if (UNLOAD_QUEUE.equals(key)) {
+	    unloadText.setText("Unload queue..." + value);
 	} else {
-	    message = "Unload queue.." + message;
-	    unloadText.setText(message);
+	    throw new RuntimeException("Invalid key name: " + key);
 	}
     }
 }

@@ -59,7 +59,7 @@ public class AreFollowControl extends AbstractControl {
 	Vec3 moved = lastAreLocation.subtractNew(are.getPosition());
 	
 	//TODO: For debug reason, we wont move Are on Y axis.
-	moved.setY(0);
+	moved.y = 0;
 
 	if (moved.equals(Vec3.ZERO)) {
 	    return;

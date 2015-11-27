@@ -1,6 +1,8 @@
 package com.lagecompany.ui;
 
 import com.jme3.scene.Node;
+import com.lagecompany.manager.Global;
+import com.simsilica.lemur.Container;
 
 /**
  *
@@ -8,6 +10,7 @@ import com.jme3.scene.Node;
  */
 public abstract class Window {
 
+    protected Container mainContainer;
     protected int screenWidth;
     protected int screenHeight;
 
@@ -16,7 +19,15 @@ public abstract class Window {
 	this.screenHeight = height;
     }
 
-    public abstract void show(Node guiNode);
+    public abstract void build();
 
-    public abstract void hide();
+    public void show() {
+	Global.winMan.getGuiNode().attachChild(mainContainer);
+    }
+
+    public void hide() {
+	mainContainer.removeFromParent();
+    }
+
+    public abstract void set(String key, Object value);
 }

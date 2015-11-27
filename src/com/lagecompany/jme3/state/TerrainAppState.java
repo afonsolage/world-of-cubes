@@ -61,7 +61,7 @@ public class TerrainAppState extends AbstractAppState {
      * Initialize this stage. Is called intenally by JME3.
      *
      * @param stateManager The StateManager used by JME3
-     * @param app The application which this stage was attached to
+     * @param application The application which this stage was attached to
      */
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -82,7 +82,6 @@ public class TerrainAppState extends AbstractAppState {
 	rootNode.attachChild(node);
 
 	are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
-	are.init();
 	are.start();
     }
 
@@ -216,7 +215,7 @@ public class TerrainAppState extends AbstractAppState {
 	    node.attachChild(chunkNode);
 
 	    Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
-	    chunkNode.setLocalTranslation(chunkPosition.getX(), chunkPosition.getY(), chunkPosition.getZ());
+	    chunkNode.setLocalTranslation(chunkPosition.x, chunkPosition.y, chunkPosition.z);
 	} else {
 	    geometry = (Geometry) spatial;
 	}

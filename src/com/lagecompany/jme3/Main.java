@@ -5,6 +5,7 @@ import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
 import com.jme3.util.BufferUtils;
 import com.lagecompany.jme3.state.LoadingStage;
+import com.lagecompany.manager.Global;
 import com.simsilica.lemur.GuiGlobals;
 
 /**
@@ -36,7 +37,6 @@ public class Main extends SimpleApplication {
 	AppSettings sett = new AppSettings(true);
 	sett.setResolution(800, 600);
 	sett.setVSync(false);
-	sett.setFrameRate(-1);
 	setSettings(sett);
 	super.start(contextType);
     }
@@ -48,6 +48,10 @@ public class Main extends SimpleApplication {
     @Override
     public void simpleInitApp() {
 	GuiGlobals.initialize(this);
+	
+	Global.winMan.setCamera(cam);
+	Global.winMan.setGuiNode(guiNode);
+	
 	stateManager.attach(new LoadingStage());
     }
 }

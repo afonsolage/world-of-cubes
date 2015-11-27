@@ -22,7 +22,6 @@ import com.simsilica.lemur.component.QuadBackgroundComponent;
  */
 public class ToolbarWindow extends Window {
 
-    private Container mainContainer;
     private static final int SLOT_WIDTH = 50;
     private static final int SLOT_HEIGHT = 50;
     private static final int SLOT_COUNT = 5;
@@ -34,13 +33,14 @@ public class ToolbarWindow extends Window {
 
     public ToolbarWindow(int screenWidth, int screenHeight) {
 	super(screenWidth, screenHeight);
-	base_width = BORDER_SIZE + (SLOT_COUNT * (SLOT_WIDTH + BORDER_SIZE));
-	base_height = BORDER_SIZE + SLOT_HEIGHT + BORDER_SIZE;
-	slots = new Container[SLOT_COUNT];
     }
 
     @Override
-    public void show(Node guiNode) {
+    public void build() {
+	base_width = BORDER_SIZE + (SLOT_COUNT * (SLOT_WIDTH + BORDER_SIZE));
+	base_height = BORDER_SIZE + SLOT_HEIGHT + BORDER_SIZE;
+	slots = new Container[SLOT_COUNT];
+	
 	mainContainer = new Container("debug");
 	mainContainer.setLocalTranslation((screenWidth / 2) - (base_width / 2), base_height, 0);
 	mainContainer.setLayout(new BoxLayout(Axis.Y, FillMode.None));
@@ -69,16 +69,15 @@ public class ToolbarWindow extends Window {
 	}
 
 	mainContainer.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
-
-	guiNode.attachChild(mainContainer);
     }
 
     @Override
-    public void hide() {
-	mainContainer.removeFromParent();
+    public void set(String key, Object value) {
+	int slot = Integer.parseInt(key);
+	setSlot(slot, (Spatial) value);
     }
 
-    public void setSlot(int slotId, Spatial object) {
+    private void setSlot(int slotId, Spatial object) {
 	if (slotId < 0 || slotId > SLOT_COUNT) {
 	    throw new RuntimeException("Invalid slot " + slotId);
 	}

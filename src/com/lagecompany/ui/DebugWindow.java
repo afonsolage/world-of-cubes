@@ -21,7 +21,8 @@ import com.simsilica.lemur.style.Styles;
  */
 public class DebugWindow extends Window {
 
-    private Container mainContainer;
+    public static final String PLAYER_ARE_POSITION = "playerArePosition";
+    public static final String PLAYER_POSITION = "playerPosition";
     private Label playerAreText;
     private Label playerText;
 
@@ -32,27 +33,23 @@ public class DebugWindow extends Window {
     }
 
     @Override
-    public void show(Node guiNode) {
+    public void build() {
 	mainContainer = new Container("debug");
 	mainContainer.setLocalTranslation(5, screenHeight - 5, 0);
 	mainContainer.setLayout(new BoxLayout(Axis.Y, FillMode.None));
 
 	playerAreText = mainContainer.addChild(new Label("Player are position: ", new ElementId("title"), "debug"));
 	playerText = mainContainer.addChild(new Label("Player position: ", new ElementId("title"), "debug"));
-
-	guiNode.attachChild(mainContainer);
     }
 
     @Override
-    public void hide() {
-	mainContainer.removeFromParent();
-    }
-
-    public void setPlayerArePosition(String text) {
-	playerAreText.setText("Player are position: " + text);
-    }
-
-    public void setPlayerPosition(String text) {
-	playerText.setText("Player position: " + text);
+    public void set(String key, Object value) {
+	if (PLAYER_ARE_POSITION.equals(key)) {
+	    playerAreText.setText("Player are position: " + value);
+	} else if (PLAYER_POSITION.equals(key)) {
+	    playerText.setText("Player position: " + value);
+	} else {
+	    throw new RuntimeException("Invalid key name: " + key);
+	}
     }
 }

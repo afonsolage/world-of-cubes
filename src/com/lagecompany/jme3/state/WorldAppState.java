@@ -23,6 +23,8 @@ import com.jme3.texture.Texture;
 import com.lagecompany.jme3.control.CameraFollowControl;
 import com.lagecompany.jme3.control.PlayerControl;
 import com.lagecompany.jme3.manager.CameraMan;
+import com.lagecompany.manager.Global;
+import com.lagecompany.manager.WindowManager;
 import com.lagecompany.storage.Are;
 import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.voxel.Voxel;
@@ -73,14 +75,13 @@ public class WorldAppState extends AbstractAppState {
 	app.getViewPort().setBackgroundColor(new ColorRGBA(0.5294f, 0.8078f, 0.9215f, 1f));
 	terrainState = stateManager.getState(TerrainAppState.class);
 	inputManager.setCursorVisible(true);
-//	rootNode.setCullHint(Spatial.CullHint.Never); //TODO: Fix frustum culling.
 
 	//Create some lights.
 	AmbientLight ambient = new AmbientLight();
 	ambient.setColor(ColorRGBA.DarkGray.mult(.25f));
 	rootNode.addLight(ambient);
 	guiNode.addLight(ambient);
-	
+
 	DirectionalLight sun = new DirectionalLight();
 	sun.setDirection(new Vector3f(-0.25f, -0.75f, -0.25f).normalizeLocal());
 
@@ -151,39 +152,61 @@ public class WorldAppState extends AbstractAppState {
     }
 
     private void initInterface() {
-	toolbar = new ToolbarWindow(cam.getWidth(), cam.getHeight());
-
 	Mesh mesh = VoxelMesh.getMesh(Voxel.VT_STONE);
-	
+
 	FloatBuffer buffer = (FloatBuffer) mesh.getBuffer(VertexBuffer.Type.Color).getData();
 	buffer.rewind();
-	
-	while(buffer.hasRemaining()) {
+
+	while (buffer.hasRemaining()) {
 	    //Front
-	    buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f);
-	    buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f);
-	    buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f);
-	    buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f); buffer.put(1.3f);
-	    
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+	    buffer.put(1.3f);
+
 	    //Right
 	    buffer.position(buffer.position() + 4 * 4);
-	    
+
 	    //Back
 	    buffer.position(buffer.position() + 4 * 4);
-	    
+
 	    //Left
 	    buffer.position(buffer.position() + 4 * 4);
-	    
+
 	    //Top
-	    buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f);
-	    buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f);
-	    buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f);
-	    buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f); buffer.put(1.8f);
-	    
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+	    buffer.put(1.8f);
+
 	    //Down
 	    buffer.position(buffer.position() + 4 * 4);
 	}
-	
+
 	Geometry geom = new Geometry("box", mesh);
 	geom.setMaterial(atlas);
 //	geom.setMaterial(new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md"));
@@ -191,8 +214,9 @@ public class WorldAppState extends AbstractAppState {
 
 //	guiNode.attachChild(geom);
 
-
-	toolbar.show(guiNode);
+	toolbar = (ToolbarWindow) Global.winMan.get(WindowManager.TOOLBAR);
+	toolbar.build();
+	toolbar.show();
 	//toolbar.setSlot(1, geom);
     }
 

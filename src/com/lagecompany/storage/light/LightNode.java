@@ -15,7 +15,7 @@ public class LightNode {
     public Chunk chunk;
 
     public LightNode(Chunk chunk, Vec3 position) {
-	this(chunk, position.getX(), position.getY(), position.getZ());
+	this(chunk, position.x, position.y, position.z);
     }
 
     public LightNode(Chunk chunk, int x, int y, int z) {

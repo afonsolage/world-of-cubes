@@ -16,7 +16,7 @@ public class LightRemoveNode {
     public Chunk chunk;
 
     public LightRemoveNode(Chunk chunk, Vec3 position, int light) {
-	this(chunk, position.getX(), position.getY(), position.getZ(), light);
+	this(chunk, position.x, position.y, position.z, light);
     }
 
     public LightRemoveNode(Chunk chunk, int x, int y, int z, int light) {
