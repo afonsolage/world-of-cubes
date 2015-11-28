@@ -575,7 +575,6 @@ public class Chunk {
     private void checkVisibleFaces() {
         //Neighbor Voxel.
         VoxelReference neighborVoxel, voxel;
-        byte faces;
 
         for (int x = 0; x < SIZE; x++) {
             for (int z = 0; z < SIZE; z++) {

@@ -196,19 +196,38 @@ public class TerrainAppState extends AbstractAppState {
      */
     private void attachChunk(AreMessage message) {
         Chunk c = (Chunk) message.getData();
-
-        if (!c.hasVertext()) {
-            message.setType(AreMessage.Type.CHUNK_DETACH);
-            are.postMessage(message);
-            return;
-        }
-
-        Vec3 v = c.getPosition();
-        String name = c.getName();
-        Spatial spatial = node.getChild(name);
-
         Geometry geometry;
         RigidBodyControl rigidBodyControl;
+        CollisionShape collisionShape;
+        Mesh mesh;
+        String name;
+        Vec3 v;
+
+        try {
+            c.lock();
+            if (!c.hasVertext()) {
+                message.setType(AreMessage.Type.CHUNK_DETACH);
+                are.postMessage(message);
+                return;
+            } else {
+
+                v = c.getPosition();
+                name = c.getName();
+
+                mesh = new Mesh();
+
+                mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
+                mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
+                mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
+                mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
+                mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, c.getTileCoord());
+                mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTexColor());
+            }
+        } finally {
+            c.unlock();
+        }
+
+        Spatial spatial = node.getChild(name);
 
         if (spatial == null) {
             geometry = new Geometry(name);
@@ -220,21 +239,6 @@ public class TerrainAppState extends AbstractAppState {
             chunkNode.setLocalTranslation(chunkPosition.x, chunkPosition.y, chunkPosition.z);
         } else {
             geometry = (Geometry) spatial;
-        }
-
-        Mesh mesh = new Mesh();
-        CollisionShape collisionShape;
-
-        try {
-            c.lock();
-            mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
-            mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
-            mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
-            mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, c.getTextCoord());
-            mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, c.getTileCoord());
-            mesh.setBuffer(VertexBuffer.Type.Color, 4, c.getTexColor());
-        } finally {
-            c.unlock();
         }
 
         mesh.updateBound();
