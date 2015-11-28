@@ -35,7 +35,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @author Afonso Lage
  */
 public class TerrainAppState extends AbstractAppState {
-
+    
     private static final String CHUNK_NODE_PREFIX = "Node-";
     private Are are;
     private Node node;
@@ -72,16 +72,16 @@ public class TerrainAppState extends AbstractAppState {
         this.bulletState = stateManager.getState(BulletAppState.class);
         this.physicsSpace = bulletState.getPhysicsSpace();
         initMaterials();
-
+        
         node = new Node("Chunks Node");
-
+        
         playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
         playerNode.addControl(new AreFollowControl());
-
+        
         Vector3f playerPosition = playerNode.getLocalTranslation();
         node.setLocalTranslation(playerPosition);
         rootNode.attachChild(node);
-
+        
         are.setPosition((int) playerPosition.getX(), (int) playerPosition.getY(), (int) playerPosition.getZ());
         are.start();
     }
@@ -112,7 +112,7 @@ public class TerrainAppState extends AbstractAppState {
      */
     private void initMaterials() {
         texture = assetManager.loadTexture("Textures/Elements/atlas.png");
-
+        
         voxelAtlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
         voxelAtlas.setTexture("DiffuseMap", texture);
         voxelAtlas.setFloat("TileSize", 1f / (float) (texture.getImage().getWidth() / 128));
@@ -150,11 +150,11 @@ public class TerrainAppState extends AbstractAppState {
      */
     public void processMessages(float tpf) {
         Integer batch = renderBatchQueue.poll();
-
+        
         if (batch == null) {
             return;
         }
-
+        
         ConcurrentLinkedQueue<AreMessage> queue = are.getQueue(batch, AreMessage.Type.CHUNK_ATTACH);
         if (queue != null) {
             for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
@@ -162,7 +162,7 @@ public class TerrainAppState extends AbstractAppState {
             }
             are.finishBatch(AreMessage.Type.CHUNK_ATTACH, batch);
         }
-
+        
         queue = are.getQueue(batch, AreMessage.Type.CHUNK_DETACH);
         if (queue != null) {
             for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
@@ -170,7 +170,7 @@ public class TerrainAppState extends AbstractAppState {
             }
             are.finishBatch(AreMessage.Type.CHUNK_DETACH, batch);
         }
-
+        
         queue = are.getQueue(batch, AreMessage.Type.SPECIAL_VOXEL_ATTACH);
         if (queue != null) {
             for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
@@ -178,7 +178,7 @@ public class TerrainAppState extends AbstractAppState {
             }
             are.finishBatch(AreMessage.Type.SPECIAL_VOXEL_ATTACH, batch);
         }
-
+        
         queue = are.getQueue(batch, AreMessage.Type.SPECIAL_VOXEL_DETACH);
         if (queue != null) {
             for (AreMessage message = queue.poll(); message != null; message = queue.poll()) {
@@ -186,7 +186,7 @@ public class TerrainAppState extends AbstractAppState {
             }
             are.finishBatch(AreMessage.Type.SPECIAL_VOXEL_DETACH, batch);
         }
-
+        
     }
 
     /**
@@ -202,7 +202,7 @@ public class TerrainAppState extends AbstractAppState {
         Mesh mesh;
         String name;
         Vec3 v;
-
+        
         try {
             c.lock();
             if (!c.hasVertext()) {
@@ -210,12 +210,12 @@ public class TerrainAppState extends AbstractAppState {
                 are.postMessage(message);
                 return;
             } else {
-
+                
                 v = c.getPosition();
                 name = c.getName();
-
+                
                 mesh = new Mesh();
-
+                
                 mesh.setBuffer(VertexBuffer.Type.Position, 3, c.getVertexList());
                 mesh.setBuffer(VertexBuffer.Type.Index, 1, c.getIndexList());
                 mesh.setBuffer(VertexBuffer.Type.Normal, 3, c.getNormalList());
@@ -226,34 +226,34 @@ public class TerrainAppState extends AbstractAppState {
         } finally {
             c.unlock();
         }
-
+        
         Spatial spatial = node.getChild(name);
-
+        
         if (spatial == null) {
             geometry = new Geometry(name);
             Node chunkNode = new Node(CHUNK_NODE_PREFIX + name);
             chunkNode.attachChild(geometry);
             node.attachChild(chunkNode);
-
+            
             Vec3 chunkPosition = are.getAbsoluteChunkPosition(v);
             chunkNode.setLocalTranslation(chunkPosition.x, chunkPosition.y, chunkPosition.z);
         } else {
             geometry = (Geometry) spatial;
         }
-
+        
         mesh.updateBound();
         geometry.setMesh(mesh);
         geometry.setMaterial(voxelAtlas);
-
+        
         if (mesh.getTriangleCount() == 0 || mesh.getVertexCount() == 0) {
             message.setType(AreMessage.Type.CHUNK_DETACH);
             are.postMessage(message);
             return;
         }
-
+        
         rigidBodyControl = geometry.getControl(RigidBodyControl.class);
         collisionShape = CollisionShapeFactory.createMeshShape(geometry);
-
+        
         if (rigidBodyControl == null) {
             rigidBodyControl = new RigidBodyControl(collisionShape, 0);
             rigidBodyControl.setFriction(1f);
@@ -264,13 +264,13 @@ public class TerrainAppState extends AbstractAppState {
             rigidBodyControl.setCollisionShape(collisionShape);
             rigidBodyControl.setEnabled(true);
         }
-
+        
         if (DebugAppState.backfaceCulled) {
             geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
         } else {
             geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
         }
-
+        
         if (DebugAppState.wireframe) {
             geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
         }
@@ -284,56 +284,58 @@ public class TerrainAppState extends AbstractAppState {
     private void detachChunk(AreMessage message) {
         Chunk c = (Chunk) message.getData();
         String name;
-
+        
         try {
             c.lock();
             name = c.getName();
+            
+            Spatial spatial = node.getChild(name);
+            
+            if (spatial != null) {
+                Geometry geometry = (Geometry) spatial;
+                RigidBodyControl rigidBodyControl;
+                try {
+                    rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+                    physicsSpace.remove(rigidBodyControl);
+                } catch (Exception ex) {
+                    System.out.println("Failed to remove rigidBody from: " + name);
+                }
+                geometry.removeFromParent();
+            }
         } finally {
+            message.setType(AreMessage.Type.CHUNK_UNLOAD);
+            are.postMessage(message);
             c.unlock();
         }
-
-        Spatial spatial = node.getChild(name);
-
-        if (spatial != null) {
-            Geometry geometry = (Geometry) spatial;
-            RigidBodyControl rigidBodyControl;
-            try {
-                rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-                physicsSpace.remove(rigidBodyControl);
-            } catch (Exception ex) {
-                System.out.println("Failed to remove rigidBody from: " + name);
-            }
-            geometry.removeFromParent();
-        }
     }
-
+    
     private void attachSpecialVoxel(AreMessage message) {
         SpecialVoxelData data = (SpecialVoxelData) message.getData();
         String voxelName = data.toString();
         String chunkNodeName = CHUNK_NODE_PREFIX + data.chunk.getName();
-
+        
         Spatial chunkNodeSpatial = node.getChild(chunkNodeName);
-
+        
         if (chunkNodeSpatial == null) {
             throw new RuntimeException("Failed to find chunk node " + chunkNodeName);
         }
-
+        
         Node chunkNode = (Node) chunkNodeSpatial;
-
+        
         Spatial voxelSpatial = chunkNode.getChild(voxelName);
         Geometry geometry;
-
+        
         if (voxelSpatial == null) {
             geometry = new Geometry(voxelName);
             chunkNode.attachChild(geometry);
-
+            
             geometry.setLocalTranslation(data.x, data.y, data.z);
         } else {
             geometry = (Geometry) voxelSpatial;
         }
-
+        
         short specialType = data.chunk.get(data.x, data.y, data.z).getType();
-
+        
         Mesh mesh = new Mesh();
         mesh.setBuffer(VertexBuffer.Type.Position, 3, SpecialVoxel.getVertices(specialType));
         mesh.setBuffer(VertexBuffer.Type.Index, 1, SpecialVoxel.getIndexes(specialType));
@@ -341,38 +343,38 @@ public class TerrainAppState extends AbstractAppState {
         mesh.setBuffer(VertexBuffer.Type.TexCoord, 2, SpecialVoxel.getTextCoord(specialType));
         mesh.setBuffer(VertexBuffer.Type.TexCoord2, 2, SpecialVoxel.getTileCoord(specialType));
         mesh.setBuffer(VertexBuffer.Type.Color, 4, SpecialVoxel.getTextColor(specialType));
-
+        
         mesh.updateBound();
         geometry.setMesh(mesh);
         geometry.setMaterial(voxelAtlas);
         geometry.updateModelBound();
-
+        
         if (DebugAppState.backfaceCulled) {
             geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
         } else {
             geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Back);
         }
-
+        
         if (DebugAppState.wireframe) {
             geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
         }
     }
-
+    
     private void detachSpecialVoxel(AreMessage message) {
         SpecialVoxelData data = (SpecialVoxelData) message.getData();
         String voxelName = data.toString();
         String chunkNodeName = CHUNK_NODE_PREFIX + data.chunk.getName();
-
+        
         Spatial chunkNodeSpatial = node.getChild(chunkNodeName);
-
+        
         if (chunkNodeSpatial != null) {
             Node chunkNode = (Node) chunkNodeSpatial;
             Spatial voxelSpatial = chunkNode.getChild(voxelName);
-
+            
             if (voxelSpatial == null) {
                 return;
             }
-
+            
             Geometry voxelGeometry = (Geometry) voxelSpatial;
             voxelGeometry.removeFromParent();
         }

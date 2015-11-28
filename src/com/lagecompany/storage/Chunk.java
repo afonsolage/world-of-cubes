@@ -1,5 +1,6 @@
 package com.lagecompany.storage;
 
+import com.lagecompany.storage.light.LightManager;
 import com.lagecompany.storage.light.LightRemovalNode;
 import com.lagecompany.storage.voxel.Voxel;
 import static com.lagecompany.storage.voxel.Voxel.VS_BACK;
@@ -11,6 +12,7 @@ import static com.lagecompany.storage.voxel.Voxel.VS_TOP;
 import static com.lagecompany.storage.voxel.Voxel.VT_NONE;
 import static com.lagecompany.storage.voxel.Voxel.VT_STONE;
 import com.lagecompany.storage.voxel.VoxelReference;
+import com.lagecompany.util.MathUtils;
 import com.lagecompany.util.TerrainNoise;
 import java.util.LinkedList;
 import java.util.Objects;
@@ -94,6 +96,16 @@ public class Chunk {
 
     public void set(int x, int y, int z, short type) {
         chunkBuffer.set(x, y, z, type);
+    }
+
+    public VoxelReference getAreVoxel(int x, int y, int z) {
+        Vec3 tmpVec = new Vec3(x, y, z);
+        Chunk tmp = are.validateChunkAndVoxel(this, tmpVec);
+        if (tmp == null) {
+            return null;
+        } else {
+            return tmp.get(tmpVec);
+        }
     }
 
     public VoxelReference getAreVoxel(int x, int y, int z, byte direction) {
@@ -264,13 +276,16 @@ public class Chunk {
     }
 
     public void reset() {
-        chunkBuffer.resetMergedVisible();
+        if (chunkBuffer != null) {
+            chunkBuffer.resetMergedVisible();
+        }
+
         buffer = new ChunkSideBuffer();
         loaded = false;
     }
 
     public boolean load() {
-        if (isLoaded() && buffer != null) {
+        if (isLoaded()) {
             reset();
         }
         checkVisibleFaces();
@@ -531,8 +546,7 @@ public class Chunk {
         }
     }
 
-    void unload() {
-        chunkBuffer = null;
+    public void unload() {
         buffer = null;
     }
 
@@ -638,12 +652,13 @@ public class Chunk {
     }
 
     private void mergeVisibleFaces() {
-        mergeFrontFaces();
-        mergeRightFaces();
-        mergeBackFaces();
-        mergeLeftFaces();
-        mergeTopFaces();
-        mergeDownFaces();
+        byte[] data = LightManager.computeAmbientOcclusion(this);
+        mergeFrontFaces(data);
+        mergeRightFaces(data);
+        mergeBackFaces(data);
+        mergeLeftFaces(data);
+        mergeTopFaces(data);
+        mergeDownFaces(data);
     }
 
     public boolean hasVertext() {
@@ -660,7 +675,7 @@ public class Chunk {
      * those voxels on a singles float array and returns it.
      *
      */
-    private void mergeFrontFaces() {
+    private void mergeFrontFaces(byte[] aoBuffer) {
         //Voxel and Neightbor Voxel
         VoxelReference v, nv;
 
@@ -669,7 +684,7 @@ public class Chunk {
         boolean done;
         short currentType;
         byte currentLight;
-
+        byte currentAo;
         int side = Voxel.FRONT;
 
         //When looking for front faces (Z+) we need to check X axis and later Y axis, becouse this, the iteration
@@ -680,13 +695,15 @@ public class Chunk {
 
                     v = get(x, y, z);
                     currentType = v.getType();
-                    currentLight = v.getSideLight(side);
 
                     //If vox is invalid or is merged already, skip it;
                     if (v.getType() == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
                         continue;
                     }
 
+                    currentLight = v.getSideLight(side);
+
+                    currentAo = aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)];
                     float[] vertices = new float[12];
                     ox = x;
                     oy = y;
@@ -728,7 +745,8 @@ public class Chunk {
                         if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (nv.getSideLight(side) != currentLight)) {
+                                || (nv.getSideLight(side) != currentLight)
+                                || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                             //Go back to previous voxel;
                             --x;
                             break;
@@ -763,7 +781,8 @@ public class Chunk {
                             if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (nv.getSideLight(side) != currentLight)) {
+                                    || (nv.getSideLight(side) != currentLight)
+                                    || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -790,14 +809,14 @@ public class Chunk {
                         }
                     }
 
-                    buffer.add(currentType, currentLight, VS_FRONT, vertices);
+                    buffer.add(currentType, currentLight, currentAo, VS_FRONT, vertices);
                     y = oy; //Set the y back to orignal location, so we can iterate over it again.
                 }
             }
         }
     }
 
-    private void mergeBackFaces() {
+    private void mergeBackFaces(byte[] aoBuffer) {
         //Voxel and Neightbor Voxel
         VoxelReference v, nv;
 
@@ -806,6 +825,7 @@ public class Chunk {
         boolean done;
         short currentType;
         int currentLight;
+        byte currentAo;
 
         int side = Voxel.BACK;
 
@@ -815,7 +835,6 @@ public class Chunk {
 
                     v = get(x, y, z);
                     currentType = v.getType();
-                    currentLight = v.getSideLight(side);
 
                     //If vox is invalid or is merged already, skip it;
                     if (v.getType() == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
@@ -823,6 +842,8 @@ public class Chunk {
                         continue;
                     }
 
+                    currentLight = v.getSideLight(side);
+                    currentAo = aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)];
                     float[] vertices = new float[12];
                     ox = x;
                     oy = y;
@@ -842,7 +863,8 @@ public class Chunk {
                         if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (nv.getSideLight(side) != currentLight)) {
+                                || (nv.getSideLight(side) != currentLight)
+                                || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                             ++x; //Go back to previous voxel;
                             break;
                         }
@@ -864,7 +886,8 @@ public class Chunk {
                             if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (nv.getSideLight(side) != currentLight)) {
+                                    || (nv.getSideLight(side) != currentLight)
+                                    || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -881,14 +904,14 @@ public class Chunk {
                         }
                     }
 
-                    buffer.add(currentType, currentLight, VS_BACK, vertices);
+                    buffer.add(currentType, currentLight, currentAo, VS_BACK, vertices);
                     y = oy; //Set the y back to orignal location, so we can iterate over it again.
                 }
             }
         }
     }
 
-    private void mergeTopFaces() {
+    private void mergeTopFaces(byte[] aoBuffer) {
         //Voxel and Neightbor Voxel
         VoxelReference v, nv;
 
@@ -897,7 +920,7 @@ public class Chunk {
         boolean done;
         short currentType;
         int currentLight;
-
+        byte currentAo;
         int side = Voxel.TOP;
 
         for (int y = SIZE - 1; y > -1; y--) {
@@ -913,7 +936,7 @@ public class Chunk {
                     }
 
                     currentLight = v.getSideLight(side);
-
+                    currentAo = aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)];
                     float[] vertices = new float[12];
                     ox = x;
                     oz = z;
@@ -933,7 +956,8 @@ public class Chunk {
                         if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (nv.getSideLight(side) != currentLight)) {
+                                || (nv.getSideLight(side) != currentLight)
+                                || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                             --x; //Go back to previous voxel;
                             break;
                         }
@@ -955,7 +979,8 @@ public class Chunk {
                             if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (nv.getSideLight(side) != currentLight)) {
+                                    || (nv.getSideLight(side) != currentLight)
+                                    || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                                 ++z; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -972,14 +997,14 @@ public class Chunk {
                         }
                     }
 
-                    buffer.add(currentType, currentLight, VS_TOP, vertices);
+                    buffer.add(currentType, currentLight, currentAo, VS_TOP, vertices);
                     z = oz; //Set the z back to orignal location, so we can iterate over it again.
                 }
             }
         }
     }
 
-    private void mergeDownFaces() {
+    private void mergeDownFaces(byte[] aoBuffer) {
         //Voxel and Neightbor Voxel
         VoxelReference v, nv;
 
@@ -988,6 +1013,7 @@ public class Chunk {
         boolean done;
         short currentType;
         int currentLight;
+        byte currentAo;
 
         int side = Voxel.DOWN;
 
@@ -997,13 +1023,15 @@ public class Chunk {
 
                     v = get(x, y, z);
                     currentType = v.getType();
-                    currentLight = v.getSideLight(side);
 
                     //If vox is invalid or is merged already, skip it;
                     if (v.getType() == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
                         continue;
                     }
 
+                    currentLight = v.getSideLight(side);
+
+                    currentAo = aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)];
                     float[] vertices = new float[12];
                     ox = x;
                     oz = z;
@@ -1023,7 +1051,8 @@ public class Chunk {
                         if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (nv.getSideLight(side) != currentLight)) {
+                                || (nv.getSideLight(side) != currentLight)
+                                || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                             --x; //Go back to previous voxel;
                             break;
                         }
@@ -1045,7 +1074,8 @@ public class Chunk {
                             if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (nv.getSideLight(side) != currentLight)) {
+                                    || (nv.getSideLight(side) != currentLight)
+                                    || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                                 --z; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -1062,14 +1092,14 @@ public class Chunk {
                         }
                     }
 
-                    buffer.add(currentType, currentLight, VS_DOWN, vertices);
+                    buffer.add(currentType, currentLight, currentAo, VS_DOWN, vertices);
                     z = oz; //Set the z back to orignal location, so we can iterate over it again.
                 }
             }
         }
     }
 
-    private void mergeRightFaces() {
+    private void mergeRightFaces(byte[] aoBuffer) {
         //Voxel and Neightbor Voxel
         VoxelReference v, nv;
 
@@ -1078,7 +1108,7 @@ public class Chunk {
         boolean done;
         short currentType;
         int currentLight;
-
+        byte currentAo;
         int side = Voxel.RIGHT;
 
         for (int x = SIZE - 1; x > -1; x--) {
@@ -1087,13 +1117,15 @@ public class Chunk {
 
                     v = get(x, y, z);
                     currentType = v.getType();
-                    currentLight = v.getSideLight(side);
 
                     //If vox is invalid or is merged already, skip it;
                     if (v.getType() == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
                         continue;
                     }
 
+                    currentLight = v.getSideLight(side);
+
+                    currentAo = aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)];
                     float[] vertices = new float[12];
                     oz = z;
                     oy = y;
@@ -1113,7 +1145,8 @@ public class Chunk {
                         if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (nv.getSideLight(side) != currentLight)) {
+                                || (nv.getSideLight(side) != currentLight)
+                                || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                             ++z; //Go back to previous voxel;
                             break;
                         }
@@ -1135,7 +1168,8 @@ public class Chunk {
                             if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (nv.getSideLight(side) != currentLight)) {
+                                    || (nv.getSideLight(side) != currentLight)
+                                    || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -1152,14 +1186,14 @@ public class Chunk {
                         }
                     }
 
-                    buffer.add(currentType, currentLight, VS_RIGHT, vertices);
+                    buffer.add(currentType, currentLight, currentAo, VS_RIGHT, vertices);
                     y = oy; //Set the y back to orignal location, so we can iterate over it again.
                 }
             }
         }
     }
 
-    private void mergeLeftFaces() {
+    private void mergeLeftFaces(byte[] aoBuffer) {
         //Voxel and Neightbor Voxel
         VoxelReference v, nv;
 
@@ -1168,6 +1202,7 @@ public class Chunk {
         boolean done;
         short currentType;
         int currentLight;
+        byte currentAo;
 
         int side = Voxel.LEFT;
 
@@ -1177,13 +1212,15 @@ public class Chunk {
 
                     v = get(x, y, z);
                     currentType = v.getType();
-                    currentLight = v.getSideLight(side);
 
                     //If vox is invalid or is merged already, skip it;
                     if (v.getType() == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
                         continue;
                     }
 
+                    currentLight = v.getSideLight(side);
+
+                    currentAo = aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)];
                     float[] vertices = new float[12];
                     oy = y;
                     oz = z;
@@ -1203,7 +1240,8 @@ public class Chunk {
                         if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (nv.getSideLight(side) != currentLight)) {
+                                || (nv.getSideLight(side) != currentLight)
+                                || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                             --z; //Go back to previous voxel;
                             break;
                         }
@@ -1225,7 +1263,8 @@ public class Chunk {
                             if (nv.getType() == VT_NONE || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (nv.getSideLight(side) != currentLight)) {
+                                    || (nv.getSideLight(side) != currentLight)
+                                    || (currentAo != aoBuffer[LightManager.getAoBufferIndex(x, y, z, side)])) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -1242,7 +1281,7 @@ public class Chunk {
                         }
                     }
 
-                    buffer.add(currentType, currentLight, VS_LEFT, vertices);
+                    buffer.add(currentType, currentLight, currentAo, VS_LEFT, vertices);
                     y = oy; //Set the y back to orignal location, so we can iterate over it again.
                 }
             }
@@ -1278,6 +1317,11 @@ public class Chunk {
         }
         final Chunk other = (Chunk) obj;
         return Objects.equals(this.position, other.position);
+    }
+
+    @Override
+    public String toString() {
+        return "Chunk{" + "name=" + name + '}';
     }
 
     public void addSunLightPropagationQueue(VoxelReference voxel) {

@@ -5,10 +5,9 @@
  */
 package com.lagecompany.storage;
 
-import static com.lagecompany.storage.Chunk.SIZE_SHIFT_X;
-import static com.lagecompany.storage.Chunk.SIZE_SHIFT_Y;
 import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.storage.voxel.VoxelReference;
+import com.lagecompany.util.MathUtils;
 import java.util.Arrays;
 
 /**
@@ -48,7 +47,7 @@ public class ChunkBuffer {
     }
 
     public VoxelReference get(int x, int y, int z) {
-        int index = (x << SIZE_SHIFT_X) + (y << SIZE_SHIFT_Y) + z;
+        int index = MathUtils.toVoxelIndex(x, y, z);
         return new VoxelReference(this, index * Voxel.SIZE, x, y, z);
     }
 

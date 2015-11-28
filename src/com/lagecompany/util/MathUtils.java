@@ -1,5 +1,8 @@
 package com.lagecompany.util;
 
+import static com.lagecompany.storage.Chunk.SIZE_SHIFT_X;
+import static com.lagecompany.storage.Chunk.SIZE_SHIFT_Y;
+
 /**
  *
  * @author Afonso Lage
@@ -33,5 +36,9 @@ public abstract class MathUtils {
 	} else {
 	    return operand % operator;
 	}
+    }
+    
+    public static int toVoxelIndex(int x, int y, int z) {
+        return (x << SIZE_SHIFT_X) + (y << SIZE_SHIFT_Y) + z;
     }
 }

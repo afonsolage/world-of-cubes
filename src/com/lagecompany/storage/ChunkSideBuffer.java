@@ -15,12 +15,14 @@ public class ChunkSideBuffer {
         private final byte side;
         private final short type;
         private final int light;
+        private final byte aoData;
         private float[] buffer;
 
-        private ChunkData(short type, int light, byte side) {
+        private ChunkData(short type, int light, byte aoData, byte side) {
             this.side = side;
             this.type = type;
             this.light = light;
+            this.aoData = aoData;
             this.buffer = new float[0];
         }
     }
@@ -44,7 +46,7 @@ public class ChunkSideBuffer {
         for (ChunkData data : dataList) {
             result += data.buffer.length;
         }
-        
+
         return result;
     }
 
@@ -98,37 +100,37 @@ public class ChunkSideBuffer {
         if (i == 0) {
             System.out.println("Returning empty buffer.");
         }
-        
+
         return result;
     }
 
-    private ChunkData getData(short type, int light, byte side) {
+    private ChunkData getData(short type, int light, byte aoData, byte side) {
         for (ChunkData data : dataList) {
-            if (type == data.type && light == data.light && side == data.side) {
+            if (type == data.type && light == data.light && data.aoData == aoData && side == data.side) {
                 return data;
             }
         }
         return null;
     }
 
-    private ChunkData safeGetData(short type, int light, byte side) {
-        ChunkData result = getData(type, light, side);
+    private ChunkData safeGetData(short type, int light, byte aoData, byte side) {
+        ChunkData result = getData(type, light, aoData, side);
 
         if (result == null) {
-            result = new ChunkData(type, light, side);
+            result = new ChunkData(type, light, aoData, side);
             dataList.add(result);
         }
 
         return result;
     }
 
-    public void add(short type, int light, byte side, float[] buffer) {
-        ChunkData data = safeGetData(type, light, side);
+    public void add(short type, int light, byte aoData, byte side, float[] buffer) {
+        ChunkData data = safeGetData(type, light, aoData, side);
         data.buffer = ArrayUtils.append(buffer, data.buffer);
     }
 
-    public float[] get(short type, int light, byte side) {
-        ChunkData data = getData(type, light, side);
+    public float[] get(short type, int light, byte aoData, byte side) {
+        ChunkData data = getData(type, light, aoData, side);
         return (data == null) ? null : data.buffer;
     }
 
@@ -289,10 +291,28 @@ public class ChunkSideBuffer {
         float[] r = new float[(int) (size() * 1.33333333333f)];
         int offset = 0;
         float lightFactor;
+        int aoFactor;
+        int vertexIndex;
+
         for (ChunkData data : dataList) {
             for (int i = 0, size = data.buffer.length; i < size;) {
                 System.arraycopy(Voxel.getColor(data.type, data.side), 0, r, offset, 4);
+
                 lightFactor = 0.10f * data.light;
+
+                //We don't need to calculate AO for vertex that has no light.
+                if (lightFactor > 0) {
+                    //Since we iterate i += 3, so "i" will always be multiple of 3. Each face has 4 vertex, 
+                    //so we can ge the current vertex index by doing it:
+                    vertexIndex = (i / 3) % 4;
+
+                    //Ambient Occlusion range from 0 to 3, beign 3 no occusion and 0 occlusion from all sides.
+                    aoFactor = (data.aoData >>> (2 * vertexIndex)) & 0x03;
+
+                    //TODO: Play with those values.
+                    lightFactor -= lightFactor * ((3 - aoFactor) / 10f);
+                }
+
                 r[offset] *= lightFactor;
                 r[offset + 1] *= lightFactor;
                 r[offset + 2] *= lightFactor;

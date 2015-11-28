@@ -38,16 +38,12 @@ public class Are extends Thread {
     private final BlockingQueue<AreMessage> actionQueue;
     private final BlockingDeque<Integer> processBatchQueue;
     private final ConcurrentLinkedQueue<Integer> renderBatchQueue;
-    private final Queue<LightNode> lightQueue;
-    private final Queue<LightNode> sunLightQueue;
-    private final Queue<LightRemovalNode> lightRemovalQueue;
-    private final Queue<LightRemovalNode> sunLightRemovalQueue;
     private final AreQueue areQueue;
     private final ConcurrentLinkedQueue<SpecialVoxelData> specialVoxelList;
     private Vec3 position;
     private boolean moving;
     private boolean inited = false;
-    private AreWorker worker;
+    private final AreWorker worker;
     private float timePast;
     private int currentBatch;
 
@@ -63,10 +59,6 @@ public class Are extends Thread {
     }
 
     private Are() {
-        /*
-         * The memory needed by this class will be (WIDTH * HEIGHT * LENGTH * (Chunk memory usage)) + 12;
-         * The memory usage will range from 64k ~ 448k ~ 640k, but this may be compressed later.
-         */
         this.setName("Are Thread");
         position = new Vec3();
 
@@ -74,10 +66,6 @@ public class Are extends Thread {
         actionQueue = new LinkedBlockingQueue<>();
         processBatchQueue = new LinkedBlockingDeque<>();
         renderBatchQueue = new ConcurrentLinkedQueue<>();
-        lightQueue = new LinkedList<>();
-        sunLightQueue = new LinkedList<>();
-        lightRemovalQueue = new LinkedList<>();
-        sunLightRemovalQueue = new LinkedList<>();
         specialVoxelList = new ConcurrentLinkedQueue<>();
 
         areQueue = new AreQueue();
@@ -168,7 +156,6 @@ public class Are extends Thread {
 
     private void unloadChunk(AreMessage message) {
         Chunk c = (Chunk) message.getData();
-//	set(c.getPosition(), null);
 
         try {
             c.lock();
@@ -216,7 +203,7 @@ public class Are extends Thread {
             if (c.hasVisibleVoxel()) {
                 message.setType(Type.CHUNK_LOAD);
             } else {
-                message.setType(Type.CHUNK_UNLOAD);
+                message.setType(Type.CHUNK_DETACH);
             }
             postMessage(message);
         } catch (Exception ex) {
@@ -229,22 +216,6 @@ public class Are extends Thread {
         try {
             c.lock();
             if (c.load()) {
-                message.setType(Type.CHUNK_ATTACH);
-                postMessage(message);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        } finally {
-            c.unlock();
-        }
-    }
-
-    private void updateChunk(AreMessage message) {
-        Chunk c = (Chunk) message.getData();
-
-        try {
-            c.lock();
-            if (c.update()) {
                 message.setType(Type.CHUNK_ATTACH);
             } else {
                 message.setType(Type.CHUNK_DETACH);
@@ -530,14 +501,14 @@ public class Are extends Thread {
         short previousType = voxel.getType();
         int previousSunLight = voxel.getSunLight();
         int previousLight = voxel.getLight();
-        
+
         c.lock();
         voxel.reset();
         voxel.setType(type);
         c.unlock();
 
         LightManager.updateVoxelLight(c, voxel, previousSunLight, previousLight, previousType, type);
-        
+
         int batch = areQueue.nextBatch();
         postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
 
