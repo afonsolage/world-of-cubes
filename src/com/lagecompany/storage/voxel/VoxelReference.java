@@ -17,7 +17,7 @@ public class VoxelReference {
     public int y;
     public int z;
 
-    private final int offset;
+    public final int offset;
     private final ChunkBuffer buffer;
 
     public VoxelReference(ChunkBuffer buffer, int offset) {

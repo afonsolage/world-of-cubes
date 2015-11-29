@@ -1,5 +1,6 @@
 package com.lagecompany.storage.voxel;
 
+import com.lagecompany.storage.Vec3;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -179,5 +180,21 @@ public class Voxel {
 
     public static float[] getTile(short type, short side) {
         return getInfo(type).getTile(side);
+    }
+
+    public static int directionToSide(Vec3 dir) {
+        if (dir == Vec3.FRONT) {
+            return Voxel.FRONT;
+        } else if (dir == Vec3.RIGHT) {
+            return Voxel.RIGHT;
+        } else if (dir == Vec3.BACK) {
+            return Voxel.BACK;
+        } else if (dir == Vec3.LEFT) {
+            return Voxel.LEFT;
+        } else if (dir == Vec3.UP) {
+            return Voxel.TOP;
+        } else {
+            return Voxel.DOWN;
+        }
     }
 }

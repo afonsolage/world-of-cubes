@@ -3,6 +3,7 @@ package com.lagecompany.storage;
 import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.util.ArrayUtils;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class ChunkSideBuffer {
@@ -14,16 +15,16 @@ public class ChunkSideBuffer {
 
         private final byte side;
         private final short type;
-        private final int light;
-        private final byte aoData;
+        private final float[] lightData;
         private float[] buffer;
 
-        private ChunkData(short type, int light, byte aoData, byte side) {
+        private ChunkData(short type, float[] lightData, byte side) {
             this.side = side;
             this.type = type;
-            this.light = light;
-            this.aoData = aoData;
+            this.lightData = new float[4];
             this.buffer = new float[0];
+
+            System.arraycopy(lightData, 0, this.lightData, 0, 4); //4 Vertex per side.
         }
     }
     private final List<ChunkData> dataList;
@@ -104,33 +105,33 @@ public class ChunkSideBuffer {
         return result;
     }
 
-    private ChunkData getData(short type, int light, byte aoData, byte side) {
+    private ChunkData getData(short type, float[] lightData, byte side) {
         for (ChunkData data : dataList) {
-            if (type == data.type && light == data.light && data.aoData == aoData && side == data.side) {
+            if (type == data.type && side == data.side && Arrays.equals(lightData, data.lightData)) {
                 return data;
             }
         }
         return null;
     }
 
-    private ChunkData safeGetData(short type, int light, byte aoData, byte side) {
-        ChunkData result = getData(type, light, aoData, side);
+    private ChunkData safeGetData(short type, float[] lightData, byte side) {
+        ChunkData result = getData(type, lightData, side);
 
         if (result == null) {
-            result = new ChunkData(type, light, aoData, side);
+            result = new ChunkData(type, lightData, side);
             dataList.add(result);
         }
 
         return result;
     }
 
-    public void add(short type, int light, byte aoData, byte side, float[] buffer) {
-        ChunkData data = safeGetData(type, light, aoData, side);
+    public void add(short type, float[] lightData, byte side, float[] buffer) {
+        ChunkData data = safeGetData(type, lightData, side);
         data.buffer = ArrayUtils.append(buffer, data.buffer);
     }
 
-    public float[] get(short type, int light, byte aoData, byte side) {
-        ChunkData data = getData(type, light, aoData, side);
+    public float[] get(short type, float[] lightData, byte side) {
+        ChunkData data = getData(type, lightData, side);
         return (data == null) ? null : data.buffer;
     }
 
@@ -289,33 +290,25 @@ public class ChunkSideBuffer {
 
         //Since each vertex, which has 3 floats, needs a color, we need 4 floats per vertex.
         float[] r = new float[(int) (size() * 1.33333333333f)];
-        int offset = 0;
-        float lightFactor;
-        int aoFactor;
-        int vertexIndex;
+        int offset = 0;//, vertexIndex, aoFactor;
+        int vertexCount = 0;
+        float vertexLightFactor;
 
         for (ChunkData data : dataList) {
             for (int i = 0, size = data.buffer.length; i < size;) {
                 System.arraycopy(Voxel.getColor(data.type, data.side), 0, r, offset, 4);
 
-                lightFactor = 0.10f * data.light;
-
-                //We don't need to calculate AO for vertex that has no light.
-                if (lightFactor > 0) {
-                    //Since we iterate i += 3, so "i" will always be multiple of 3. Each face has 4 vertex, 
-                    //so we can ge the current vertex index by doing it:
-                    vertexIndex = (i / 3) % 4;
-
-                    //Ambient Occlusion range from 0 to 3, beign 3 no occusion and 0 occlusion from all sides.
-                    aoFactor = (data.aoData >>> (2 * vertexIndex)) & 0x03;
-
-                    //TODO: Play with those values.
-                    lightFactor -= lightFactor * ((3 - aoFactor) / 10f);
+                if (data.lightData != null) {
+                    vertexLightFactor = data.lightData[vertexCount % 4] * 0.10f;
+                } else {
+                    vertexLightFactor = 0;
                 }
 
-                r[offset] *= lightFactor;
-                r[offset + 1] *= lightFactor;
-                r[offset + 2] *= lightFactor;
+                r[offset] *= vertexLightFactor;
+                r[offset + 1] *= vertexLightFactor;
+                r[offset + 2] *= vertexLightFactor;
+
+                vertexCount++;
                 i += 3;
                 offset += 4;
             }

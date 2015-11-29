@@ -51,21 +51,20 @@ public class LightManager {
     }
 
     /**
-     * Fills the voxelBuffer with neighbor information. If neighbor exists and
-     * is opaque, voxelBuffer is set to true, else it is set to false.
+     * Fills the voxelBuffer with neighbor lighting information.
      *
      * @param chunk Chunk where voxel is placed.
      * @param voxel
      * @param voxelBuffer
      */
-    private static void getVoxelNeighborhood(Chunk chunk, VoxelReference voxel, boolean[] voxelBuffer) {
+    private static void getNeighborhoodLighting(Chunk chunk, VoxelReference voxel, byte[] voxelBuffer) {
         VoxelReference v;
 
         /*
          -               +-------++-------++-----+
          -             /   7   //  4    //  2   /|
          -            +-------++-------++------+ |
-         -          /   6   //||     //   1   /| +
+         -          /   6   / ||      /   1   /| +
          -         +-------++-------++-------+ |/+
          -       /   5   //    3   //   0   /| +/|
          -       +-------++-------++-------+ |/+ |
@@ -91,18 +90,18 @@ public class LightManager {
         
          */
         //TOP RIGHT NEIGHBORS
-        voxelBuffer[0] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y + 1, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[1] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y + 1, voxel.z)) != null) && v.isOpaque();
-        voxelBuffer[2] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y + 1, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[0] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y + 1, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[1] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y + 1, voxel.z)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[2] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y + 1, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         //TOP MIDDLE NEIGHBORS
-        voxelBuffer[3] = ((v = chunk.getAreVoxel(voxel.x, voxel.y + 1, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[4] = ((v = chunk.getAreVoxel(voxel.x, voxel.y + 1, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[3] = ((v = chunk.getAreVoxel(voxel.x, voxel.y + 1, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[4] = ((v = chunk.getAreVoxel(voxel.x, voxel.y + 1, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         //TOP LEFT NEIGHBORS
-        voxelBuffer[5] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y + 1, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[6] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y + 1, voxel.z)) != null) && v.isOpaque();
-        voxelBuffer[7] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y + 1, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[5] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y + 1, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[6] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y + 1, voxel.z)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[7] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y + 1, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         /*
          -               +-------++-------++-----+
@@ -141,12 +140,12 @@ public class LightManager {
         
          */
         //MID RIGHT NEIGHBORS
-        voxelBuffer[8] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[9] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[8] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[9] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         //MID LEFT NEIGHBORS
-        voxelBuffer[10] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[11] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[10] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[11] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         /*
         
@@ -186,131 +185,252 @@ public class LightManager {
         
          */
         //DOWN RIGHT NEIGHBORS
-        voxelBuffer[12] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y - 1, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[13] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y - 1, voxel.z)) != null) && v.isOpaque();
-        voxelBuffer[14] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y - 1, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[12] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y - 1, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[13] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y - 1, voxel.z)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[14] = ((v = chunk.getAreVoxel(voxel.x + 1, voxel.y - 1, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         //DOWN MIDDLE NEIGHBORS
-        voxelBuffer[15] = ((v = chunk.getAreVoxel(voxel.x, voxel.y - 1, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[16] = ((v = chunk.getAreVoxel(voxel.x, voxel.y - 1, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[15] = ((v = chunk.getAreVoxel(voxel.x, voxel.y - 1, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[16] = ((v = chunk.getAreVoxel(voxel.x, voxel.y - 1, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
 
         //DOWN LEFT NEIGHBORS
-        voxelBuffer[17] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y - 1, voxel.z + 1)) != null) && v.isOpaque();
-        voxelBuffer[18] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y - 1, voxel.z)) != null) && v.isOpaque();
-        voxelBuffer[19] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y - 1, voxel.z - 1)) != null) && v.isOpaque();
+        voxelBuffer[17] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y - 1, voxel.z + 1)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[18] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y - 1, voxel.z)) != null) ? v.getFinalLight() : 0;
+        voxelBuffer[19] = ((v = chunk.getAreVoxel(voxel.x - 1, voxel.y - 1, voxel.z - 1)) != null) ? v.getFinalLight() : 0;
     }
 
-    /**
-     * Compute Ambiente Occlusion. This method was based on 0fps blog:
-     * http://0fps.net/2013/07/03/ambient-occlusion-for-minecraft-like-worlds/
-     *
-     * @param side1 side one of current calculating vertex. Should be 0 or 1.
-     * @param side2 side two of current calculating vertex. Should be 0 or 1.
-     * @param corner corner of current calculating vertex. Should be 0 or 1.
-     * @return The Ambient Occulsion factor, from 0 to 3.
-     */
-    private static byte computeAO(boolean side1, boolean side2, boolean corner) {
-        if (side1 && side2) {
-            return 0;
-        }
-        return (byte) (3 - ((side1 ? 1 : 0) + (side2 ? 1 : 0) + (corner ? 1 : 0)));
-    }
+    public static void computeSmoothLighting(Chunk chunk, VoxelReference voxel) {
+        byte[] neighborhood = new byte[26];
+        int sideLighting;
+        getNeighborhoodLighting(chunk, voxel, neighborhood);
 
-    public static byte[] computeAmbientOcclusion(Chunk chunk) {
-        byte[] result = new byte[Chunk.DATA_LENGTH * 6]; //6 sides.
+        LightData data = new LightData(voxel.offset);
+        chunk.setLightData(data);
 
-        VoxelReference voxel;
-        boolean[] neighborhood = new boolean[20];
-        int voxelIndex;
-        byte aoV0 = 0, aoV1 = 0, aoV2 = 0, aoV3 = 0;
+        /*
+         * 
+         *      v7 +-------+ v6         y
+         *      /  |      /|            |  
+         *   v3 +-------+v2|            |
+         *      |v4+-------+ v5         +-- X
+         *      | /     | /              \
+         *      +-------+                 Z 
+         *     v0        v1
+         */
+        for (int side = Voxel.FRONT; side <= Voxel.DOWN; side++) {
 
-        for (int x = 0; x < SIZE; x++) {
-            for (int y = 0; y < SIZE; y++) {
-                for (int z = 0; z < SIZE; z++) {
-                    voxel = chunk.get(x, y, z);
+            if (!voxel.isSideVisible(side)) {
+                continue;
+            }
 
-                    getVoxelNeighborhood(chunk, voxel, neighborhood);
-                    voxelIndex = MathUtils.toVoxelIndex(x, y, z) * 6; //6 sides
+            sideLighting = voxel.getSideLight(side);
 
-                    /*
-                     * 
-                     *      v7 +-------+ v6         y
-                     *      /  |      /|            |  
-                     *   v3 +-------+v2|            |
-                     *      |v4+-------+ v5         +-- X
-                     *      | /     | /              \
-                     *      +-------+                 Z 
-                     *     v0        v1
-                     */
-                    for (int side = Voxel.FRONT; side <= Voxel.DOWN; side++) {
-
-                        if (!voxel.isSideVisible(side)) {
-                            continue;
-                        }
-
-                        switch (side) {
-                            case Voxel.FRONT: {
-                                //The front face is composed of v0, v1, v2 and v3.
-                                aoV0 = computeAO(neighborhood[15], neighborhood[10], neighborhood[17]); //v0
-                                aoV1 = computeAO(neighborhood[15], neighborhood[8], neighborhood[12]); //v1
-                                aoV2 = computeAO(neighborhood[3], neighborhood[8], neighborhood[0]); //v2
-                                aoV3 = computeAO(neighborhood[3], neighborhood[10], neighborhood[5]); //v3
-                                break;
-                            }
-                            case Voxel.RIGHT: {
-                                //The right face is composed of v1, v5, v6 and v2.
-                                aoV0 = computeAO(neighborhood[13], neighborhood[8], neighborhood[12]); //v1
-                                aoV1 = computeAO(neighborhood[13], neighborhood[9], neighborhood[14]); //v5
-                                aoV2 = computeAO(neighborhood[1], neighborhood[9], neighborhood[2]); //v6
-                                aoV3 = computeAO(neighborhood[1], neighborhood[8], neighborhood[0]); //v2
-                                break;
-                            }
-                            case Voxel.BACK: {
-                                //The back face is composed of v5, v4, v7 and v6.
-                                aoV0 = computeAO(neighborhood[16], neighborhood[9], neighborhood[14]); //v5
-                                aoV1 = computeAO(neighborhood[16], neighborhood[11], neighborhood[19]); //v4
-                                aoV2 = computeAO(neighborhood[4], neighborhood[11], neighborhood[7]); //v7
-                                aoV3 = computeAO(neighborhood[4], neighborhood[9], neighborhood[2]); //v6
-                                break;
-                            }
-                            case Voxel.LEFT: {
-                                //The left face is composed of v4, v0, v3 and v7.
-                                aoV0 = computeAO(neighborhood[18], neighborhood[11], neighborhood[19]); //v4
-                                aoV1 = computeAO(neighborhood[18], neighborhood[10], neighborhood[17]); //v0
-                                aoV2 = computeAO(neighborhood[6], neighborhood[10], neighborhood[5]); //v3
-                                aoV3 = computeAO(neighborhood[6], neighborhood[11], neighborhood[7]); //v7
-                                break;
-                            }
-                            case Voxel.TOP: {
-                                //The top face is composed of v3, v2, v6 and v7.
-                                aoV0 = computeAO(neighborhood[3], neighborhood[6], neighborhood[5]); //v3
-                                aoV1 = computeAO(neighborhood[3], neighborhood[1], neighborhood[0]); //v2
-                                aoV2 = computeAO(neighborhood[4], neighborhood[1], neighborhood[2]); //v6
-                                aoV3 = computeAO(neighborhood[4], neighborhood[6], neighborhood[7]); //v7
-                                break;
-                            }
-                            case Voxel.DOWN: {
-                                //The down face is composed of v4, v5, v1 and v0.
-                                aoV0 = computeAO(neighborhood[16], neighborhood[18], neighborhood[19]); //v4
-                                aoV1 = computeAO(neighborhood[16], neighborhood[13], neighborhood[14]); //v5
-                                aoV2 = computeAO(neighborhood[15], neighborhood[13], neighborhood[12]); //v1
-                                aoV3 = computeAO(neighborhood[15], neighborhood[18], neighborhood[17]); //v0
-                                break;
-                            }
-                            default: {
-                                System.out.println("Invalid side value!!!");
-                            }
-                        }
-                        result[voxelIndex + side] = (byte) (aoV3 << 6 | aoV2 << 4 | aoV1 << 2 | aoV0);
-                    }
+            switch (side) {
+                case Voxel.FRONT: {
+                    //The front face is composed of v0, v1, v2 and v3.
+                    data.setVertexData(side, 0, computeSmoorthLightingVertex(sideLighting, neighborhood[15], neighborhood[10], neighborhood[17])); //v0
+                    data.setVertexData(side, 1, computeSmoorthLightingVertex(sideLighting, neighborhood[15], neighborhood[8], neighborhood[12])); //v1
+                    data.setVertexData(side, 2, computeSmoorthLightingVertex(sideLighting, neighborhood[3], neighborhood[8], neighborhood[0])); //v2
+                    data.setVertexData(side, 3, computeSmoorthLightingVertex(sideLighting, neighborhood[3], neighborhood[10], neighborhood[5])); //v3
+                    break;
+                }
+                case Voxel.RIGHT: {
+                    //The right face is composed of v1, v5, v6 and v2.
+                    data.setVertexData(side, 0, computeSmoorthLightingVertex(sideLighting, neighborhood[13], neighborhood[8], neighborhood[12])); //v1
+                    data.setVertexData(side, 1, computeSmoorthLightingVertex(sideLighting, neighborhood[13], neighborhood[9], neighborhood[14])); //v5
+                    data.setVertexData(side, 2, computeSmoorthLightingVertex(sideLighting, neighborhood[1], neighborhood[9], neighborhood[2])); //v6
+                    data.setVertexData(side, 3, computeSmoorthLightingVertex(sideLighting, neighborhood[1], neighborhood[8], neighborhood[0])); //v2
+                    break;
+                }
+                case Voxel.BACK: {
+                    //The back face is composed of v5, v4, v7 and v6.
+                    data.setVertexData(side, 0, computeSmoorthLightingVertex(sideLighting, neighborhood[16], neighborhood[9], neighborhood[14])); //v5
+                    data.setVertexData(side, 1, computeSmoorthLightingVertex(sideLighting, neighborhood[16], neighborhood[11], neighborhood[19])); //v4
+                    data.setVertexData(side, 2, computeSmoorthLightingVertex(sideLighting, neighborhood[4], neighborhood[11], neighborhood[7])); //v7
+                    data.setVertexData(side, 3, computeSmoorthLightingVertex(sideLighting, neighborhood[4], neighborhood[9], neighborhood[2])); //v6
+                    break;
+                }
+                case Voxel.LEFT: {
+                    //The left face is composed of v4, v0, v3 and v7.
+                    data.setVertexData(side, 0, computeSmoorthLightingVertex(sideLighting, neighborhood[18], neighborhood[11], neighborhood[19])); //v4
+                    data.setVertexData(side, 1, computeSmoorthLightingVertex(sideLighting, neighborhood[18], neighborhood[10], neighborhood[17])); //v0
+                    data.setVertexData(side, 2, computeSmoorthLightingVertex(sideLighting, neighborhood[6], neighborhood[10], neighborhood[5])); //v3
+                    data.setVertexData(side, 3, computeSmoorthLightingVertex(sideLighting, neighborhood[6], neighborhood[11], neighborhood[7])); //v7
+                    break;
+                }
+                case Voxel.TOP: {
+                    //The top face is composed of v3, v2, v6 and v7.
+                    data.setVertexData(side, 0, computeSmoorthLightingVertex(sideLighting, neighborhood[3], neighborhood[6], neighborhood[5])); //v3
+                    data.setVertexData(side, 1, computeSmoorthLightingVertex(sideLighting, neighborhood[3], neighborhood[1], neighborhood[0])); //v2
+                    data.setVertexData(side, 2, computeSmoorthLightingVertex(sideLighting, neighborhood[4], neighborhood[1], neighborhood[2])); //v6
+                    data.setVertexData(side, 3, computeSmoorthLightingVertex(sideLighting, neighborhood[4], neighborhood[6], neighborhood[7])); //v7
+                    break;
+                }
+                case Voxel.DOWN: {
+                    //The down face is composed of v4, v5, v1 and v0.
+                    data.setVertexData(side, 0, computeSmoorthLightingVertex(sideLighting, neighborhood[16], neighborhood[18], neighborhood[19])); //v4
+                    data.setVertexData(side, 1, computeSmoorthLightingVertex(sideLighting, neighborhood[16], neighborhood[13], neighborhood[14])); //v5
+                    data.setVertexData(side, 2, computeSmoorthLightingVertex(sideLighting, neighborhood[15], neighborhood[13], neighborhood[12])); //v1
+                    data.setVertexData(side, 3, computeSmoorthLightingVertex(sideLighting, neighborhood[15], neighborhood[18], neighborhood[17])); //v0
+                    break;
+                }
+                default: {
+                    System.out.println("Invalid side value!!!");
                 }
             }
         }
-        return result;
     }
 
-    public static int getAoBufferIndex(int x, int y, int z, int side) {
-        return (MathUtils.toVoxelIndex(x, y, z) * 6) + side;
+    private static byte getNeighborLighting(Chunk chunk, int side, Vec3 position) {
+        chunk = are.validateChunkAndVoxel(chunk, position);
+
+        if (chunk == null) {
+            return 0;
+        }
+
+        VoxelReference voxel = chunk.get(position);
+        return (voxel == null) ? 0 : voxel.getSideLight(side);
     }
 
+    public static byte[] getNeighborhoodLighting(Chunk chunk, int side, Vec3 vec0, Vec3 vec1, Vec3 vec2, Vec3 vec3) {
+        Vec3 tmpVec = new Vec3();
+        byte[] neighborhood = new byte[12];
+        int i = 0;
+
+        switch (side) {
+            case Voxel.FRONT: {
+                //The front face is composed of v0, v1, v2 and v3.
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y, vec0.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y - 1, vec0.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x, vec0.y - 1, vec0.z + 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x, vec1.y - 1, vec1.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y - 1, vec1.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y, vec1.z + 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y, vec2.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y + 1, vec2.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x, vec2.y + 1, vec2.z + 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x, vec3.y + 1, vec3.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y + 1, vec3.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y, vec3.z + 1));
+                break;
+            }
+            case Voxel.RIGHT: {
+                //The right face is composed of v1, v5, v6 and v2.
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x + 1, vec0.y, vec0.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x + 1, vec0.y - 1, vec0.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x + 1, vec0.y - 1, vec0.z));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y - 1, vec1.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y - 1, vec1.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y, vec1.z - 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y, vec2.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y + 1, vec2.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y + 1, vec2.z));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x + 1, vec3.y + 1, vec3.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x + 1, vec3.y + 1, vec3.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x + 1, vec3.y, vec3.z + 1));
+                break;
+            }
+            case Voxel.BACK: {
+                //The back face is composed of v5, v4, v7 and v6.
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x + 1, vec0.y, vec0.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x + 1, vec0.y - 1, vec0.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x, vec0.y - 1, vec0.z - 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x, vec1.y - 1, vec1.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x - 1, vec1.y - 1, vec1.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x - 1, vec1.y, vec1.z - 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x - 1, vec2.y, vec2.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x - 1, vec2.y + 1, vec2.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x, vec2.y + 1, vec2.z - 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x, vec3.y + 1, vec3.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x + 1, vec3.y + 1, vec3.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x + 1, vec3.y, vec3.z - 1));
+
+                break;
+            }
+            case Voxel.LEFT: {
+                //The left face is composed of v4, v0, v3 and v7.
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y, vec0.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y - 1, vec0.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y - 1, vec0.z));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x - 1, vec1.y - 1, vec1.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x - 1, vec1.y - 1, vec1.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x - 1, vec1.y, vec1.z + 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x - 1, vec2.y, vec2.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x - 1, vec2.y + 1, vec2.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x - 1, vec2.y + 1, vec2.z));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y + 1, vec3.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y + 1, vec3.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y, vec3.z - 1));
+
+                break;
+            }
+            case Voxel.TOP: {
+                //The top face is composed of v3, v2, v6 and v7.
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y + 1, vec0.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y + 1, vec0.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x, vec0.y + 1, vec0.z + 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x, vec1.y + 1, vec1.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y + 1, vec1.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y + 1, vec1.z));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y + 1, vec2.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y + 1, vec2.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x, vec2.y + 1, vec2.z - 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x, vec3.y + 1, vec3.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y + 1, vec3.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y + 1, vec3.z));
+
+                break;
+            }
+            case Voxel.DOWN: {
+                //The down face is composed of v4, v5, v1 and v0.
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y - 1, vec0.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x - 1, vec0.y - 1, vec0.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec0.x, vec0.y - 1, vec0.z - 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x, vec1.y - 1, vec1.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y - 1, vec1.z - 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec1.x + 1, vec1.y - 1, vec1.z));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y - 1, vec2.z));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x + 1, vec2.y - 1, vec2.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec2.x, vec2.y - 1, vec2.z + 1));
+
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x, vec3.y - 1, vec3.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y - 1, vec3.z + 1));
+                neighborhood[i++] = getNeighborLighting(chunk, side, tmpVec.set(vec3.x - 1, vec3.y - 1, vec3.z));
+
+                break;
+            }
+            default: {
+                System.out.println("Invalid side value!!!");
+            }
+        }
+
+        return neighborhood;
+    }
+
+    private static float computeSmoorthLightingVertex(int sideLighting, byte neighborhood, byte neighborhood0, byte neighborhood1) {
+        return (sideLighting + neighborhood + neighborhood0 + neighborhood1) / 4f;
+    }
 }

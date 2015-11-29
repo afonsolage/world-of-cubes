@@ -38,10 +38,12 @@ public class Vec3 {
         this.z = MathUtils.floorRound(z);
     }
 
-    public void set(float x, float y, float z) {
+    public Vec3 set(float x, float y, float z) {
         this.x = (int) x;
         this.y = (int) y;
         this.z = (int) z;
+        
+        return this;
     }
 
     @Override
