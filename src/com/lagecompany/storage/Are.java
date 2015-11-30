@@ -266,204 +266,55 @@ public class Are extends Thread {
         this.inited = inited;
     }
 
-    protected VoxelReference getVoxel(Chunk c, int x, int y, int z) {
-        if (x >= 0 && x < Chunk.SIZE && y >= 0 && y < Chunk.SIZE && z >= 0 && z < Chunk.SIZE) {
-            return c.get(x, y, z);
+    protected VoxelReference getVoxel(Chunk c, VoxelReference voxel) {
+        if (voxel.position.x >= 0 && voxel.position.x < Chunk.SIZE && voxel.position.y >= 0 && voxel.position.y < Chunk.SIZE
+                && voxel.position.z >= 0 && voxel.position.z < Chunk.SIZE) {
+            return (c.get(voxel) ? voxel : null);
         } else {
             int cx, cy, cz;
 
-            if (x < 0) {
+            if (voxel.position.x < 0) {
                 cx = -1;
-                x = Chunk.SIZE - 1;
-            } else if (x >= Chunk.SIZE) {
+                voxel.position.x = Chunk.SIZE - 1;
+            } else if (voxel.position.x >= Chunk.SIZE) {
                 cx = 1;
-                x = 0;
+                voxel.position.x = 0;
             } else {
                 cx = 0;
             }
 
-            if (y < 0) {
+            if (voxel.position.y < 0) {
                 cy = -1;
-                y = Chunk.SIZE - 1;
-            } else if (y >= Chunk.SIZE) {
+                voxel.position.y = Chunk.SIZE - 1;
+            } else if (voxel.position.y >= Chunk.SIZE) {
                 cy = 1;
-                y = 0;
+                voxel.position.y = 0;
             } else {
                 cy = 0;
             }
 
-            if (z < 0) {
+            if (voxel.position.z < 0) {
                 cz = -1;
-                z = Chunk.SIZE - 1;
-            } else if (z >= Chunk.SIZE) {
+                voxel.position.z = Chunk.SIZE - 1;
+            } else if (voxel.position.z >= Chunk.SIZE) {
                 cz = 1;
-                z = 0;
+                voxel.position.z = 0;
             } else {
                 cz = 0;
             }
 
-            return getVoxel(c.getPosition().copy().add(cx, cy, cx), x, y, z);
+            return getVoxel(c.getPosition().copy().add(cx, cy, cx), voxel);
         }
     }
 
-    protected VoxelReference getVoxel(Vec3 chunkPos, int x, int y, int z) {
+    protected VoxelReference getVoxel(Vec3 chunkPos, VoxelReference voxel) {
         Chunk c = get(chunkPos);
 
         if (c == null) {
             return null;
         }
 
-        return c.get(x, y, z);
-    }
-
-    protected void setLight(Chunk c, int x, int y, int z, int light) {
-        if (x >= 0 && x < Chunk.SIZE && y >= 0 && y < Chunk.SIZE && z >= 0 && z < Chunk.SIZE) {
-            c.get(x, y, z).setLight((byte) (light));
-        } else {
-            int cx, cy, cz;
-
-            if (x < 0) {
-                cx = -1;
-                x = Chunk.SIZE - 1;
-            } else if (x >= Chunk.SIZE) {
-                cx = 1;
-                x = 0;
-            } else {
-                cx = 0;
-            }
-
-            if (y < 0) {
-                cy = -1;
-                y = Chunk.SIZE - 1;
-            } else if (y >= Chunk.SIZE) {
-                cy = 1;
-                y = 0;
-            } else {
-                cy = 0;
-            }
-
-            if (z < 0) {
-                cz = -1;
-                z = Chunk.SIZE - 1;
-            } else if (z >= Chunk.SIZE) {
-                cz = 1;
-                z = 0;
-            } else {
-                cz = 0;
-            }
-
-            setLight(c.getPosition().copy().add(cx, cy, cx), x, y, z, light);
-        }
-    }
-
-    protected void setLight(Vec3 chunkPos, int x, int y, int z, int light) {
-        Chunk c = get(chunkPos);
-
-        if (c == null) {
-            return;
-        }
-
-        c.get(x, y, z).setLight((byte) light);
-    }
-
-    protected int getSunLight(Vec3 chunkPos, int x, int y, int z) {
-        Chunk c = get(chunkPos);
-
-        if (c == null) {
-            return -1;
-        }
-
-        return c.get(x, y, z).getSunLight();
-    }
-
-    protected int getSunLight(Chunk c, int x, int y, int z) {
-        if (x >= 0 && x < Chunk.SIZE && y >= 0 && y < Chunk.SIZE && z >= 0 && z < Chunk.SIZE) {
-            return c.get(x, y, z).getSunLight();
-        } else {
-            int cx, cy, cz;
-
-            if (x < 0) {
-                cx = -1;
-                x = Chunk.SIZE - 1;
-            } else if (x >= Chunk.SIZE) {
-                cx = 1;
-                x = 0;
-            } else {
-                cx = 0;
-            }
-
-            if (y < 0) {
-                cy = -1;
-                y = Chunk.SIZE - 1;
-            } else if (y >= Chunk.SIZE) {
-                cy = 1;
-                y = 0;
-            } else {
-                cy = 0;
-            }
-
-            if (z < 0) {
-                cz = -1;
-                z = Chunk.SIZE - 1;
-            } else if (z >= Chunk.SIZE) {
-                cz = 1;
-                z = 0;
-            } else {
-                cz = 0;
-            }
-
-            return getSunLight(Vec3.copyAdd(c.getPosition(), cx, cy, cx), x, y, z);
-        }
-    }
-
-    protected int getLight(Vec3 chunkPos, int x, int y, int z) {
-        Chunk c = get(chunkPos);
-
-        if (c == null) {
-            return -1;
-        }
-
-        return c.get(x, y, z).getLight();
-    }
-
-    protected int getLight(Chunk c, int x, int y, int z) {
-        if (x >= 0 && x < Chunk.SIZE && y >= 0 && y < Chunk.SIZE && z >= 0 && z < Chunk.SIZE) {
-            return c.get(x, y, z).getLight();
-        } else {
-            int cx, cy, cz;
-
-            if (x < 0) {
-                cx = -1;
-                x = Chunk.SIZE - 1;
-            } else if (x >= Chunk.SIZE) {
-                cx = 1;
-                x = 0;
-            } else {
-                cx = 0;
-            }
-
-            if (y < 0) {
-                cy = -1;
-                y = Chunk.SIZE - 1;
-            } else if (y >= Chunk.SIZE) {
-                cy = 1;
-                y = 0;
-            } else {
-                cy = 0;
-            }
-
-            if (z < 0) {
-                cz = -1;
-                z = Chunk.SIZE - 1;
-            } else if (z >= Chunk.SIZE) {
-                cz = 1;
-                z = 0;
-            } else {
-                cz = 0;
-            }
-
-            return getLight(c.getPosition().copy().add(cx, cy, cx), x, y, z);
-        }
+        return (c.get(voxel) ? voxel : null);
     }
 
     //Convert given coordinates to Chunk index on Are.
@@ -493,7 +344,7 @@ public class Are extends Thread {
 
         Vec3 voxelPos = toVoxelPosition(x, y, z), tmpVec = new Vec3();
 
-        VoxelReference voxel = c.get(voxelPos);
+        VoxelReference voxel = c.createReference(voxelPos.x, voxelPos.y, voxelPos.z);
         short previousType = voxel.getType();
         int previousSunLight = voxel.getSunLight();
         int previousLight = voxel.getLight();

@@ -1,6 +1,7 @@
 package com.lagecompany.jme3.state;
 
 import com.jme3.app.Application;
+import com.jme3.app.BasicProfilerState;
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
@@ -112,6 +113,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
         this.bindKeys();
         this.initGUI();
 
+        //stateManager.attach(new BasicProfilerState(true));
         DebugAppState.instance = this;
     }
 
@@ -450,14 +452,16 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
             return;
         }
 
-        VoxelReference voxel;
+        VoxelReference voxel = new VoxelReference();
         int light;
         Vec3 cPos = are.getAbsoluteChunkPosition(chunk.getPosition());
         for (int x = 0; x < Chunk.SIZE; x++) {
+            voxel.position.x = x;
             for (int y = 0; y < Chunk.SIZE; y++) {
+                voxel.position.y = y;
                 for (int z = 0; z < Chunk.SIZE; z++) {
-                    voxel = chunk.get(x, y, z);
-                    if (voxel == null) {
+                    voxel.position.z = z;
+                    if (!chunk.get(voxel)) {
                         continue;
                     }
 

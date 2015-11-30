@@ -30,8 +30,8 @@ public class ChunkBuffer {
         VoxelReference voxel;
         for (int i = 0; i < Chunk.DATA_LENGTH; i++) {
             voxel = new VoxelReference(this, i * Voxel.SIZE, 0, 0, 0);
-            
-            for(int side = Voxel.FRONT; side <= Voxel.DOWN; side++) {
+
+            for (int side = Voxel.FRONT; side <= Voxel.DOWN; side++) {
                 voxel.resetSideMerged(side);
                 voxel.resetSideVisible(side);
             }
@@ -46,23 +46,25 @@ public class ChunkBuffer {
         System.arraycopy(buffer, srcOffset, buffer, dstOffset, Voxel.SIZE);
     }
 
-    public VoxelReference get(int x, int y, int z) {
-        int index = MathUtils.toVoxelIndex(x, y, z);
-        return new VoxelReference(this, index * Voxel.SIZE, x, y, z);
+    public boolean get(VoxelReference voxel) {
+        voxel.offset = MathUtils.toVoxelIndex(voxel.position.x, voxel.position.y, voxel.position.z) * Voxel.SIZE;
+        voxel.buffer = this;
+        return voxel.offset > -1 && voxel.offset < buffer.length;
     }
 
-    void set(int x, int y, int z, short type) {
-        get(x, y, z).setType(type);
+    void set(VoxelReference voxel, short type) {
+        if (get(voxel)) {
+            voxel.setType(type);
+        }
     }
 
     void set(VoxelReference newVoxel) {
-        get(newVoxel.x, newVoxel.y, newVoxel.z).copy(newVoxel);
+        if (get(newVoxel)) {
+            newVoxel.copy(newVoxel);
+        }
     }
 
     public byte getByte(int i) {
-        if (i < 0 || i >= buffer.length) {
-            System.out.println("Ooops...");
-        }
         return buffer[i];
     }
 

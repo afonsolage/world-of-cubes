@@ -6,6 +6,7 @@
 package com.lagecompany.storage.voxel;
 
 import com.lagecompany.storage.ChunkBuffer;
+import com.lagecompany.storage.Vec3;
 
 /**
  *
@@ -13,12 +14,14 @@ import com.lagecompany.storage.ChunkBuffer;
  */
 public class VoxelReference {
 
-    public int x;
-    public int y;
-    public int z;
+    public final Vec3 position = new Vec3();
 
-    public final int offset;
-    private final ChunkBuffer buffer;
+    public int offset;
+    public ChunkBuffer buffer;
+    
+
+    public VoxelReference() {
+    }
 
     public VoxelReference(ChunkBuffer buffer, int offset) {
         this.buffer = buffer;
@@ -28,9 +31,12 @@ public class VoxelReference {
     public VoxelReference(ChunkBuffer buffer, int offset, int x, int y, int z) {
         this.buffer = buffer;
         this.offset = offset;
-        this.x = x;
-        this.y = y;
-        this.z = z;
+        this.position.set(x, y, z);
+    }
+
+    public void set(int offset, ChunkBuffer buffer) {
+        this.offset = offset;
+        this.buffer = buffer;
     }
 
     public void setType(short type) {
