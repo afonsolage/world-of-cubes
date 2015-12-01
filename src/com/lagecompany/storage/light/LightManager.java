@@ -301,7 +301,11 @@ public class LightManager {
         }
     }
 
-    private static float computeSmoorthLightingVertex(int sideLighting, byte neighborhood, byte neighborhood0, byte neighborhood1) {
-        return (sideLighting + neighborhood + neighborhood0 + neighborhood1) / 4f;
+    private static float computeSmoorthLightingVertex(int sideLighting, byte side1, byte side2, byte corner) {
+        //if side1 and side2 are both opaque or have no light, corner should be darker also, becouse side1 and side2 are blocking corner light.
+        if (side1 == 0 && side2 == 0) {
+            corner = 0;
+        }
+        return (sideLighting + side1 + side2 + corner) / 4f;
     }
 }
