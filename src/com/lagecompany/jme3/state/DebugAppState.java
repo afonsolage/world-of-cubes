@@ -76,6 +76,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     public static boolean playerFollow;
     public static DebugAppState instance;
     private static BitmapFont defaultFont;
+    private long lastPicking;
 
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
@@ -307,6 +308,12 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void cursorPicking(boolean remove) {
+        if (System.currentTimeMillis() - lastPicking < 300) {
+            return;
+        }
+
+        lastPicking = System.currentTimeMillis();
+
         CollisionResults results = new CollisionResults();
 
         Ray ray = new Ray(cam.getLocation(), cam.getDirection());

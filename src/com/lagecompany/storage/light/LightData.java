@@ -36,8 +36,15 @@ public class LightData {
         System.arraycopy(data, side * VERTEX_COUNT, buffer, 0, VERTEX_COUNT); //6 sides
     }
 
-    public boolean compare(LightData other) {
-        return Arrays.equals(data, other.data);
+    public boolean compare(LightData other, int side) {
+        int offset = side * VERTEX_COUNT;
+        for (int i = 0; i < VERTEX_COUNT; i++) {
+            if (data[offset + i] != other.data[offset + i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     @Override

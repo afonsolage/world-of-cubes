@@ -2,7 +2,6 @@ package com.lagecompany.storage;
 
 import com.lagecompany.storage.AreMessage.Type;
 import static com.lagecompany.storage.AreMessage.Type.SPECIAL_VOXEL_ATTACH;
-import com.lagecompany.storage.light.LightManager;
 import com.lagecompany.storage.voxel.SpecialVoxelData;
 import com.lagecompany.storage.voxel.VoxelReference;
 import com.lagecompany.util.MathUtils;
@@ -155,10 +154,15 @@ public class Are extends Thread {
 
         try {
             c.lock();
+            if (c.getCurrentState() != Chunk.State.UNLOAD) {
+                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.UNLOAD);
+                return;
+            }
             c.unload();
         } catch (Exception ex) {
             ex.printStackTrace();
         } finally {
+            c.setCurrentState(Chunk.State.FINISH);
             c.unlock();
         }
     }
@@ -168,8 +172,15 @@ public class Are extends Thread {
 
         try {
             c.lock();
+            if (c.getCurrentState() != Chunk.State.SETUP) {
+                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.SETUP);
+                return;
+            }
+            
             c.setup();
             c.computeSunlight();
+            c.computeSunlightReflection();
+            c.setCurrentState(Chunk.State.LIGHT);
             message.setType(Type.CHUNK_LIGHT);
             postMessage(message);
         } catch (Exception ex) {
@@ -179,26 +190,32 @@ public class Are extends Thread {
         }
     }
 
-    public void requestChunkUpdate(Chunk c) {
-        if (c != null && c.isLoaded()) {
+    public void requestChunkUpdate(Chunk c, int batch) {
+        if (c != null) {
             c.lock();
-            c.flagToUpdate();
-            c.reset();
+            c.setCurrentState(Chunk.State.LIGHT);
+            postMessage(new AreMessage(Type.CHUNK_LIGHT, c, (batch >= 0) ? batch : currentBatch), true);
             c.unlock();
-            postMessage(new AreMessage(Type.CHUNK_LIGHT, c, currentBatch), true);
         }
     }
 
     private void lightChunk(AreMessage message) {
         Chunk c = (Chunk) message.getData();
         try {
+            if (c.getCurrentState() != Chunk.State.LIGHT) {
+                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.LIGHT);
+                return;
+            }
+            
+            c.reset();
             c.removeSunlight();
-            c.computeSunlightReflection();
             c.propagateSunlight();
 
             if (c.hasVisibleVoxel()) {
+                c.setCurrentState(Chunk.State.LOAD);
                 message.setType(Type.CHUNK_LOAD);
             } else {
+                c.setCurrentState(Chunk.State.DETACH);
                 message.setType(Type.CHUNK_DETACH);
             }
             postMessage(message);
@@ -211,9 +228,16 @@ public class Are extends Thread {
         Chunk c = (Chunk) message.getData();
         try {
             c.lock();
+            if (c.getCurrentState() != Chunk.State.LOAD) {
+                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.LOAD);
+                return;
+            }
+            
             if (c.load()) {
+                c.setCurrentState(Chunk.State.ATTACH);
                 message.setType(Type.CHUNK_ATTACH);
             } else {
+                c.setCurrentState(Chunk.State.DETACH);
                 message.setType(Type.CHUNK_DETACH);
             }
             postMessage(message);
@@ -235,6 +259,7 @@ public class Are extends Thread {
                     v = new Vec3(x, y, z);
                     c = new Chunk(this, v);
                     set(v, c);
+                    c.setCurrentState(Chunk.State.SETUP);
                     postMessage(new AreMessage(Type.CHUNK_SETUP, c, batch));
                 }
             }
@@ -341,64 +366,244 @@ public class Are extends Thread {
         if (c == null) {
             return;
         }
+        try {
+            c.lock();
 
-        Vec3 voxelPos = toVoxelPosition(x, y, z), tmpVec = new Vec3();
+            Vec3 voxelPos = toVoxelPosition(x, y, z);
 
-        VoxelReference voxel = c.createReference(voxelPos.x, voxelPos.y, voxelPos.z);
-        short previousType = voxel.getType();
-        int previousSunLight = voxel.getSunLight();
-        int previousLight = voxel.getLight();
+            VoxelReference voxel = c.createReference(voxelPos.x, voxelPos.y, voxelPos.z);
 
-        c.lock();
-        voxel.reset();
-        voxel.setType(type);
-        c.unlock();
+            c.updateVoxelType(voxel, type);
 
-        LightManager.updateVoxelLight(c, voxel, previousSunLight, previousLight, previousType, type);
+            int batch = areQueue.nextBatch();
+            requestChunkUpdate(c, batch);
+            updateNeighborhood(pos, voxelPos, batch);
 
-        int batch = areQueue.nextBatch();
-        postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
-
-        updateNeighborhood(pos, voxelPos, batch);
-
-        process(batch);
+            process(batch);
+        } finally {
+            c.unlock();
+        }
     }
 
     public void updateNeighborhood(Vec3 chunkPos, Vec3 voxelPos, int batch) {
-        Chunk c;
+        Vec3 tmpVec = new Vec3();
+        Chunk tmpChunk;
+
+        //Side neighbors
         if (voxelPos.x == 0) {
-            c = get(chunkPos.copy().add(-1, 0, 0));
-            if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+            //Update left neighbor chunk;
+            tmpVec.set(chunkPos.x - 1, chunkPos.y, chunkPos.z);
+            tmpChunk = get(tmpVec);
+            if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                requestChunkUpdate(tmpChunk, batch);
             }
-        } else if (voxelPos.x == Chunk.SIZE - 1) {
-            c = get(chunkPos.copy().add(1, 0, 0));
-            if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+
+            if (voxelPos.y == 0) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y - 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.y == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y + 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+            if (voxelPos.z == 0) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.z == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+        } else if (voxelPos.x >= Chunk.SIZE - 1) {
+            //Update right neighbor chunk;
+            tmpVec.set(chunkPos.x + 1, chunkPos.y, chunkPos.z);
+            tmpChunk = get(tmpVec);
+            if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                requestChunkUpdate(tmpChunk, batch);
+            }
+
+            if (voxelPos.y == 0) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y - 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.y == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y + 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+            if (voxelPos.z == 0) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.z == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
             }
         }
 
         if (voxelPos.y == 0) {
-            c = get(chunkPos.copy().add(0, -1, 0));
-            if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+            //Update bottom neighbor chunk;
+            tmpVec.set(chunkPos.x, chunkPos.y - 1, chunkPos.z);
+            tmpChunk = get(tmpVec);
+            if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                requestChunkUpdate(tmpChunk, batch);
+            }
+
+            if (voxelPos.x == 0) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y - 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.x == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y - 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+            if (voxelPos.z == 0) {
+                tmpVec.set(chunkPos.x, chunkPos.y - 1, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.z == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x, chunkPos.y - 1, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
             }
         } else if (voxelPos.y == Chunk.SIZE - 1) {
-            c = get(chunkPos.copy().add(0, 1, 0));
-            if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+            //Update up neighbor chunk;
+            tmpVec.set(chunkPos.x, chunkPos.y + 1, chunkPos.z);
+            tmpChunk = get(tmpVec);
+            if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                requestChunkUpdate(tmpChunk, batch);
+            }
+
+            if (voxelPos.x == 0) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y + 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.x == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y + 1, chunkPos.z);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+            if (voxelPos.z == 0) {
+                tmpVec.set(chunkPos.x, chunkPos.y + 1, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.z == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x, chunkPos.y + 1, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
             }
         }
 
         if (voxelPos.z == 0) {
-            c = get(chunkPos.copy().add(0, 0, -1));
-            if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+            //Update back neighbor chunk;
+            tmpVec.set(chunkPos.x, chunkPos.y, chunkPos.z - 1);
+            tmpChunk = get(tmpVec);
+            if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                requestChunkUpdate(tmpChunk, batch);
             }
-        } else if (voxelPos.z == Chunk.SIZE - 1) {
-            c = get(chunkPos.copy().add(0, 0, 1));
-            if (c != null) {
-                postMessage(new AreMessage(Type.CHUNK_LIGHT, c, batch));
+
+            if (voxelPos.x == 0) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.x == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+            if (voxelPos.y == 0) {
+                tmpVec.set(chunkPos.x, chunkPos.y - 1, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.y == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x, chunkPos.y + 1, chunkPos.z - 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+        } else if (voxelPos.z >= Chunk.SIZE - 1) {
+            //Update front neighbor chunk;
+            tmpVec.set(chunkPos.x, chunkPos.y, chunkPos.z + 1);
+            tmpChunk = get(tmpVec);
+            if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                requestChunkUpdate(tmpChunk, batch);
+            }
+
+            if (voxelPos.x == 0) {
+                tmpVec.set(chunkPos.x - 1, chunkPos.y, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.x == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x + 1, chunkPos.y, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            }
+
+            if (voxelPos.y == 0) {
+                tmpVec.set(chunkPos.x, chunkPos.y - 1, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
+            } else if (voxelPos.y == Chunk.SIZE - 1) {
+                tmpVec.set(chunkPos.x, chunkPos.y + 1, chunkPos.z + 1);
+                tmpChunk = get(tmpVec);
+                if (tmpChunk != null && tmpChunk.getCurrentState() != Chunk.State.LIGHT) {
+                    requestChunkUpdate(tmpChunk, batch);
+                }
             }
         }
     }

@@ -2,14 +2,18 @@ package com.lagecompany.storage;
 
 import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.util.ArrayUtils;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class ChunkSideBuffer {
 
     public static final float[] EMPTY_FLOAT_BUFFER = new float[]{};
     public static final int[] EMPTY_INT_BUFFER = new int[]{};
+
+    void clear() {
+        dataList.clear();
+    }
 
     public class ChunkData {
 
@@ -30,7 +34,7 @@ public class ChunkSideBuffer {
     private final List<ChunkData> dataList;
 
     public ChunkSideBuffer() {
-        dataList = new ArrayList<>();
+        dataList = new CopyOnWriteArrayList<>();
     }
 
     public void reset() {
