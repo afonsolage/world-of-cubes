@@ -155,7 +155,7 @@ public class Are extends Thread {
         try {
             c.lock();
             if (c.getCurrentState() != Chunk.State.UNLOAD) {
-                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.UNLOAD);
+                System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.UNLOAD);
                 return;
             }
             c.unload();
@@ -173,10 +173,10 @@ public class Are extends Thread {
         try {
             c.lock();
             if (c.getCurrentState() != Chunk.State.SETUP) {
-                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.SETUP);
+                System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.SETUP);
                 return;
             }
-            
+
             c.setup();
             c.computeSunlight();
             c.computeSunlightReflection();
@@ -203,13 +203,15 @@ public class Are extends Thread {
         Chunk c = (Chunk) message.getData();
         try {
             if (c.getCurrentState() != Chunk.State.LIGHT) {
-                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.LIGHT);
+                System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.LIGHT);
                 return;
             }
-            
+
             c.reset();
             c.removeSunlight();
+            c.removeLight();
             c.propagateSunlight();
+            c.propagateLight();
 
             if (c.hasVisibleVoxel()) {
                 c.setCurrentState(Chunk.State.LOAD);
@@ -229,10 +231,10 @@ public class Are extends Thread {
         try {
             c.lock();
             if (c.getCurrentState() != Chunk.State.LOAD) {
-                System.out.println("Invalid chunk state " + c.getCurrentState() +". Expected: " + Chunk.State.LOAD);
+                System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.LOAD);
                 return;
             }
-            
+
             if (c.load()) {
                 c.setCurrentState(Chunk.State.ATTACH);
                 message.setType(Type.CHUNK_ATTACH);
@@ -388,6 +390,8 @@ public class Are extends Thread {
     public void updateNeighborhood(Vec3 chunkPos, Vec3 voxelPos, int batch) {
         Vec3 tmpVec = new Vec3();
         Chunk tmpChunk;
+
+        batch = (batch >= 0) ? batch : currentBatch;
 
         //Side neighbors
         if (voxelPos.x == 0) {
@@ -1005,5 +1009,15 @@ public class Are extends Thread {
                 return;
             }
         }
+    }
+
+    void requestSpecialVoxelAttach(SpecialVoxelData data) {
+        postMessage(new AreMessage(SPECIAL_VOXEL_ATTACH, data, currentBatch + 1));
+        process(currentBatch + 1);
+    }
+
+    void requestSpecialVoxelDetach(SpecialVoxelData data) {
+        postMessage(new AreMessage(Type.SPECIAL_VOXEL_DETACH, data, currentBatch + 1));
+        process(currentBatch + 1);
     }
 }

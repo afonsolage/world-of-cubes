@@ -23,14 +23,29 @@ public class LightManager {
         are = Are.getInstance();
     }
 
-    public static void updateVoxelLight(Chunk c, VoxelReference voxel, int previousSunLight, int previousLight, short previousType, short newType) {
+    public static void updateVoxelLight(Chunk c, VoxelReference voxel, int previousSunLight, int previousLight, int newLight, short previousType, short newType) {
         VoxelReference neighbor = new VoxelReference();
         Chunk tmpChunk;
 
         if (previousType == Voxel.VT_NONE) {
             //Block add
+            if (VoxelReference.isOpaque(newType)) {
+                c.addSunLightRemovalQueue(new LightRemovalNode(voxel.position.x, voxel.position.y, voxel.position.z, previousSunLight));
+            }
+            if (newLight > 0) {
+                c.addLightPropagationQueue(c.cloneReference(voxel));
+            } else {
+                for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+                    neighbor.position.set(voxel.position.x + dir.x, voxel.position.y + dir.y, voxel.position.z + dir.z);
+                    tmpChunk = are.validateChunkAndVoxel(c, neighbor.position);
 
-            c.addSunLightRemovalQueue(new LightRemovalNode(voxel.position.x, voxel.position.y, voxel.position.z, previousSunLight));
+                    if (tmpChunk == null) {
+                        //Oopps, we hit the are bounds, this shouldn't happen outside development.
+                        continue;
+                    }
+                    tmpChunk.addLightRemovalQueue(new LightRemovalNode(voxel.position.x, voxel.position.y, voxel.position.z, previousLight));
+                }
+            }
         } else {
             //Block remove
 
@@ -44,6 +59,11 @@ public class LightManager {
                 }
 
                 tmpChunk.addSunLightPropagationQueue(tmpChunk.cloneReference(neighbor));
+                if (previousLight > 0) {
+                    tmpChunk.addLightRemovalQueue(new LightRemovalNode(voxel.position.x, voxel.position.y, voxel.position.z, previousLight));
+                } else {
+                    tmpChunk.addLightPropagationQueue(tmpChunk.cloneReference(neighbor));
+                }
             }
         }
     }

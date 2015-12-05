@@ -14,11 +14,18 @@ import com.lagecompany.storage.Vec3;
  */
 public class VoxelReference {
 
+    public static boolean isSpecial(short type) {
+        return (type & Voxel.VF_SPECIAL) == Voxel.VF_SPECIAL;
+    }
+
+    public static boolean isOpaque(short type) {
+        return (type & Voxel.VF_OPAQUE) == Voxel.VF_OPAQUE;
+    }
+
     public final Vec3 position = new Vec3();
 
     public int offset;
     public ChunkBuffer buffer;
-    
 
     public VoxelReference() {
     }
@@ -71,6 +78,10 @@ public class VoxelReference {
 
     public boolean isOpaque() {
         return (buffer.getShort(offset + Voxel.TYPE) & Voxel.VF_OPAQUE) == Voxel.VF_OPAQUE;
+    }
+
+    public boolean isSpecial() {
+        return (buffer.getShort(offset + Voxel.TYPE) & Voxel.VF_SPECIAL) == Voxel.VF_SPECIAL;
     }
 
     public short getType() {

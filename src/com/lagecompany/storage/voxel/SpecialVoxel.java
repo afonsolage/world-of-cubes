@@ -1,6 +1,5 @@
 package com.lagecompany.storage.voxel;
 
-import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,5 +56,9 @@ public class SpecialVoxel {
 
     public static float[] getTextColor(short specialType) {
 	return get(specialType).getColor(Voxel.VS_ALL);
+    }
+    
+    public static byte getLight(short specialType) {
+        return get(specialType).getLight();
     }
 }

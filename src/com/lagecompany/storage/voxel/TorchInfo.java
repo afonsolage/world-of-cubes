@@ -15,9 +15,11 @@ public class TorchInfo extends SpecialVoxelInfo {
     private final float z2 = x2;
     private final float unit = 1f / 128f;
 
+    private final byte light = 0xA;
+    
     protected TorchInfo() {
     }
-
+    
     @Override
     public short getCode() {
 	return Voxel.VT_TORCH;
@@ -232,5 +234,10 @@ public class TorchInfo extends SpecialVoxelInfo {
 	    0, -1, 0,
 	    0, -1, 0
 	};
+    }
+
+    @Override
+    public byte getLight() {
+        return light;
     }
 }

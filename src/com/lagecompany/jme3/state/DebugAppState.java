@@ -308,7 +308,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void cursorPicking(boolean remove) {
-        if (System.currentTimeMillis() - lastPicking < 300) {
+        if (System.currentTimeMillis() - lastPicking < 100) {
             return;
         }
 
@@ -343,7 +343,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
             point = collision
                     .getContactPoint()
                     .addLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
-            type = Voxel.VT_DIRT;
+            type = Voxel.VT_TORCH;
 
         }
         Vec3 v = new Vec3(point.x, point.y, point.z);

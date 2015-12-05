@@ -3,6 +3,8 @@ package com.lagecompany.storage;
 import com.lagecompany.storage.light.LightData;
 import com.lagecompany.storage.light.LightManager;
 import com.lagecompany.storage.light.LightRemovalNode;
+import com.lagecompany.storage.voxel.SpecialVoxel;
+import com.lagecompany.storage.voxel.SpecialVoxelData;
 import com.lagecompany.storage.voxel.Voxel;
 import static com.lagecompany.storage.voxel.Voxel.VS_BACK;
 import static com.lagecompany.storage.voxel.Voxel.VS_DOWN;
@@ -48,6 +50,8 @@ public class Chunk {
     private final ChunkBuffer chunkBuffer;
     private final Queue<VoxelReference> sunlightPropagationQueue;
     private final Queue<LightRemovalNode> sunlightRemovalQueue;
+    private final Queue<VoxelReference> lightPropagationQueue;
+    private final Queue<LightRemovalNode> lightRemovalQueue;
     private final HashMap<Integer, LightData> lightMap;
     private int visibleVoxels;
     private final Are are;
@@ -65,6 +69,8 @@ public class Chunk {
         this.chunkBuffer = new ChunkBuffer();
         this.sunlightPropagationQueue = new LinkedList<>();
         this.sunlightRemovalQueue = new LinkedList<>();
+        this.lightPropagationQueue = new LinkedList<>();
+        this.lightRemovalQueue = new LinkedList<>();
         this.lightMap = new HashMap<>();
         this.currentState = State.NEW;
     }
@@ -347,8 +353,6 @@ public class Chunk {
         LightRemovalNode node;
         Chunk tmpChunk;
 
-        boolean updated = false;
-
         while (!sunlightRemovalQueue.isEmpty()) {
             node = sunlightRemovalQueue.poll();
 
@@ -371,19 +375,17 @@ public class Chunk {
                 neighborLightLevel = neighborVoxel.getSunLight();
 
                 //If this neighbor isn't transparent or is already dark (no sun light), there is nothing to do with it.
-                if (!neighborVoxel.isTransparent() || neighborLightLevel == 0) {
-                    continue;
-                }
-
-                if (neighborLightLevel > 0 && ((neighborLightLevel < previousLightLevel) || (dir == Vec3.DOWN && previousLightLevel == Voxel.SUN_LIGHT))) {
-                    //If this neighbor has a light lower then our previousLight OR our previous sunlight is direct sun light (max) and we are looking at our
-                    //downwards neighbor, we will remove it and propagate it's removal.
-                    neighborVoxel.setSunLight((byte) 0);
-                    tmpChunk.sunlightRemovalQueue.add(new LightRemovalNode(neighborVoxel.position.x, neighborVoxel.position.y, neighborVoxel.position.z, neighborLightLevel));
-                } else if (neighborLightLevel >= previousLightLevel) {
-                    //Else, if this neighbor has a light equals or higher then our previous light, then we need to propagate it's light, 
-                    //so we may receive it on sunLightPropagation
-                    tmpChunk.addSunLightPropagationQueue(tmpChunk.cloneReference(neighborVoxel));
+                if (neighborVoxel.isTransparent() || neighborLightLevel > 0) {
+                    if (neighborLightLevel < previousLightLevel || (dir == Vec3.DOWN && previousLightLevel == Voxel.SUN_LIGHT)) {
+                        //If this neighbor has a light lower then our previousLight OR our previous sunlight is direct sun light (max) and we are looking at our
+                        //downwards neighbor, we will remove it and propagate it's removal.
+                        neighborVoxel.setSunLight((byte) 0);
+                        tmpChunk.sunlightRemovalQueue.add(new LightRemovalNode(neighborVoxel.position.x, neighborVoxel.position.y, neighborVoxel.position.z, neighborLightLevel));
+                    } else if (neighborLightLevel >= previousLightLevel) {
+                        //Else, if this neighbor has a light equals or higher then our previous light, then we need to propagate it's light, 
+                        //so we may receive it on sunLightPropagation
+                        tmpChunk.addSunLightPropagationQueue(tmpChunk.cloneReference(neighborVoxel));
+                    }
                 }
 
                 if (tmpChunk != this && tmpChunk.currentState != Chunk.State.LIGHT) {
@@ -403,8 +405,6 @@ public class Chunk {
 
         VoxelReference neighborVoxel = new VoxelReference(), voxel;
         Chunk tmpChunk;
-
-        boolean updated = false;
 
         while (!sunlightPropagationQueue.isEmpty()) {
             voxel = sunlightPropagationQueue.poll();
@@ -437,9 +437,108 @@ public class Chunk {
                         tmpChunk.sunlightPropagationQueue.add(tmpChunk.cloneReference(neighborVoxel));
                     }
 
-                    if (tmpChunk != this && tmpChunk.currentState != Chunk.State.LIGHT) {
-                        are.requestChunkUpdate(tmpChunk, -1);
+                }
+                if (tmpChunk != this && tmpChunk.currentState != Chunk.State.LIGHT) {
+                    are.requestChunkUpdate(tmpChunk, -1);
+                }
+            }
+        }
+    }
+
+    public void removeLight() {
+        int previousLightLevel, neighborLightLevel;
+
+        VoxelReference neighborVoxel = new VoxelReference();
+        LightRemovalNode node;
+        Chunk tmpChunk;
+
+        while (!lightRemovalQueue.isEmpty()) {
+            node = lightRemovalQueue.poll();
+
+            previousLightLevel = node.previousLight;
+
+            //If previous light level is equals or less then 1, we can't remove neighbor light.
+            if (previousLightLevel <= 1) {
+                continue;
+            }
+
+            //Look for all neighbors and check for light removal.
+            for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+                neighborVoxel.position.set(node.x + dir.x, node.y + dir.y, node.z + dir.z);
+                tmpChunk = are.validateChunkAndVoxel(this, neighborVoxel.position);
+
+                if (tmpChunk == null || !tmpChunk.get(neighborVoxel)) {
+                    continue;
+                }
+
+                neighborLightLevel = neighborVoxel.getLight();
+
+                //If this neighbor isn't transparent or is already dark (no sun light), there is nothing to do with it.
+                if (neighborVoxel.isTransparent() || neighborLightLevel > 0) {
+                    if (neighborLightLevel < previousLightLevel) {
+                        //If this neighbor has a light lower then our previousLight OR our previous sunlight is direct sun light (max) and we are looking at our
+                        //downwards neighbor, we will remove it and propagate it's removal.
+                        neighborVoxel.setLight((byte) 0);
+                        tmpChunk.lightRemovalQueue.add(new LightRemovalNode(neighborVoxel.position.x, neighborVoxel.position.y, neighborVoxel.position.z, neighborLightLevel));
+                    } else if (neighborLightLevel >= previousLightLevel) {
+                        //Else, if this neighbor has a light equals or higher then our previous light, then we need to propagate it's light, 
+                        //so we may receive it on sunLightPropagation
+                        tmpChunk.addLightPropagationQueue(tmpChunk.cloneReference(neighborVoxel));
                     }
+                }
+
+                if (tmpChunk != this && tmpChunk.currentState != Chunk.State.LIGHT) {
+                    are.requestChunkUpdate(tmpChunk, -1);
+                }
+            }
+        }
+    }
+
+    /**
+     * Propagate light across neigbor voxels. This method uses a Passive Flood
+     * Fill algorithm.
+     */
+    public void propagateLight() {
+        int lightLevel;
+        byte propagatedLightLevel;
+
+        VoxelReference neighborVoxel = new VoxelReference(), voxel;
+        Chunk tmpChunk;
+
+        while (!lightPropagationQueue.isEmpty()) {
+            voxel = lightPropagationQueue.poll();
+
+            lightLevel = voxel.getLight();
+
+            //If current light level is equals or less then 1, we can't propagate light.
+            if (lightLevel <= 1) {
+                continue;
+            }
+
+            //Look for all neighbors and check if the light can be propagated.
+            for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+                neighborVoxel.position.set(voxel.position.x + dir.x, voxel.position.y + dir.y, voxel.position.z + dir.z);
+                tmpChunk = are.validateChunkAndVoxel(this, neighborVoxel.position);
+
+                if (tmpChunk == null || !tmpChunk.get(neighborVoxel)) {
+                    continue;
+                }
+
+                //If current light level is direct sun light (Voxel.SUN_LIGHT) and we are propagating downwards, we don't decrease light level.
+                propagatedLightLevel = (byte) (lightLevel - 1);
+
+                //If this neighbor is transparent and have a light power lower then our, lets propagate it.
+                if (neighborVoxel.isTransparent() && neighborVoxel.getLight() < propagatedLightLevel) {
+
+                    neighborVoxel.setLight(propagatedLightLevel);
+                    //We may propagate light only if it's greater then 1.
+                    if (lightLevel > 1) {
+                        tmpChunk.lightPropagationQueue.add(tmpChunk.cloneReference(neighborVoxel));
+                    }
+
+                }
+                if (tmpChunk != this && tmpChunk.currentState != Chunk.State.LIGHT) {
+                    are.requestChunkUpdate(tmpChunk, -1);
                 }
             }
         }
@@ -563,7 +662,7 @@ public class Chunk {
                     currentType = v.getType();
 
                     //If vox is invalid or is merged already, skip it;
-                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
+                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side) || v.isSpecial()) {
                         continue;
                     }
 
@@ -610,7 +709,7 @@ public class Chunk {
                         if (!get(nv) || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                             //Go back to previous voxel;
                             --x;
                             break;
@@ -645,7 +744,7 @@ public class Chunk {
                             if (!get(nv) || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                    || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -708,7 +807,7 @@ public class Chunk {
                     currentType = v.getType();
 
                     //If vox is invalid or is merged already, skip it;
-                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
+                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side) || v.isSpecial()) {
 
                         continue;
                     }
@@ -732,7 +831,7 @@ public class Chunk {
                         if (!get(nv) || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                             ++x; //Go back to previous voxel;
                             break;
                         }
@@ -753,7 +852,7 @@ public class Chunk {
                             if (!get(nv) || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                    || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -807,7 +906,7 @@ public class Chunk {
                     currentType = v.getType();
 
                     //If vox is invalid or is merged already, skip it;
-                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
+                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side) || v.isSpecial()) {
                         continue;
                     }
 
@@ -830,7 +929,7 @@ public class Chunk {
                         if (!get(nv) || nv.getType() == VT_NONE || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                             --x; //Go back to previous voxel;
                             break;
                         }
@@ -852,7 +951,7 @@ public class Chunk {
                             if (!get(nv) || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                    || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                                 ++z; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -906,7 +1005,7 @@ public class Chunk {
                     currentType = v.getType();
 
                     //If vox is invalid or is merged already, skip it;
-                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
+                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side) || v.isSpecial()) {
                         continue;
                     }
 
@@ -930,7 +1029,7 @@ public class Chunk {
                         if (!get(nv) || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                             --x; //Go back to previous voxel;
                             break;
                         }
@@ -952,7 +1051,7 @@ public class Chunk {
                             if (!get(nv) || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                    || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                                 --z; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -1006,7 +1105,7 @@ public class Chunk {
                     currentType = v.getType();
 
                     //If vox is invalid or is merged already, skip it;
-                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
+                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side) || v.isSpecial()) {
                         continue;
                     }
 
@@ -1029,7 +1128,7 @@ public class Chunk {
                         if (!get(nv) || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                             ++z; //Go back to previous voxel;
                             break;
                         }
@@ -1050,7 +1149,7 @@ public class Chunk {
                             if (!get(nv) || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                    || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -1104,7 +1203,7 @@ public class Chunk {
                     currentType = v.getType();
 
                     //If vox is invalid or is merged already, skip it;
-                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)) {
+                    if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side) || v.isSpecial()) {
                         continue;
                     }
 
@@ -1127,7 +1226,7 @@ public class Chunk {
                         if (!get(nv) || nv.isSideMerged(side)
                                 || !nv.isSideVisible(side)
                                 || (nv.getType() != currentType)
-                                || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                             --z; //Go back to previous voxel;
                             break;
                         }
@@ -1147,7 +1246,7 @@ public class Chunk {
                             if (!get(nv) || nv.isSideMerged(side)
                                     || !nv.isSideVisible(side)
                                     || (nv.getType() != currentType)
-                                    || (!currentLight.compare(findLightData(nv.offset), side))) {
+                                    || (!currentLight.compare(findLightData(nv.offset), side)) || v.isSpecial()) {
                                 --y; //Go back to previous voxel;
                                 done = true;
                                 break;
@@ -1219,10 +1318,19 @@ public class Chunk {
         this.sunlightRemovalQueue.add(node);
     }
 
+    public void addLightPropagationQueue(VoxelReference voxel) {
+        this.lightPropagationQueue.add(voxel);
+    }
+
+    public void addLightRemovalQueue(LightRemovalNode node) {
+        this.lightRemovalQueue.add(node);
+    }
+
     void updateVoxelType(VoxelReference voxel, short type) {
         short previousType = voxel.getType();
         int previousSunLight = voxel.getSunLight();
         int previousLight = voxel.getLight();
+        byte light = 0;
 
         voxel.reset();
         voxel.setType(type);
@@ -1233,7 +1341,18 @@ public class Chunk {
             visibleVoxels--;
         }
 
-        LightManager.updateVoxelLight(this, voxel, previousSunLight, previousLight, previousType, type);
+        if (voxel.isSpecial()) {
+            SpecialVoxelData data = new SpecialVoxelData(this, voxel.position);
+            are.requestSpecialVoxelAttach(data);
+
+            light = SpecialVoxel.getLight(type);
+            voxel.setLight(light);
+        } else if (VoxelReference.isSpecial(previousType)) {
+            SpecialVoxelData data = new SpecialVoxelData(this, voxel.position);
+            are.requestSpecialVoxelDetach(data);
+        }
+
+        LightManager.updateVoxelLight(this, voxel, previousSunLight, previousLight, light, previousType, type);
     }
 
     public void clearSideBuffer() {
