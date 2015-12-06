@@ -1,10 +1,10 @@
 package com.lagecompany.jme3.state;
 
 import com.jme3.app.Application;
-import com.jme3.app.BasicProfilerState;
 import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
+import com.jme3.app.state.VideoRecorderAppState;
 import com.jme3.asset.AssetManager;
 import com.jme3.bullet.BulletAppState;
 import com.jme3.bullet.PhysicsSpace;
@@ -48,7 +48,9 @@ import com.lagecompany.storage.Chunk;
 import com.lagecompany.storage.Vec3;
 import com.lagecompany.storage.voxel.Voxel;
 import com.lagecompany.storage.voxel.VoxelReference;
+import com.lagecompany.ui.CommandWindow;
 import com.lagecompany.ui.DebugWindow;
+import com.lagecompany.ui.ToolbarWindow;
 
 public class DebugAppState extends AbstractAppState implements ActionListener, AnalogListener {
 
@@ -70,6 +72,9 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private AppSettings settings;
     private Node compass;
     private Node lightNode;
+    private WorldAppState worldState;
+    private AppStateManager stateManager;
+    private VideoRecorderAppState recordState;
     public static boolean wireframe;
     public static boolean backfaceCulled;
     public static boolean axisArrowsEnabled;
@@ -81,6 +86,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
         super.initialize(stateManager, application);
+        this.stateManager = stateManager;
         this.app = (SimpleApplication) application;
         this.rootNode = app.getRootNode();
         this.inputManager = app.getInputManager();
@@ -90,8 +96,9 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
         this.guiNode = app.getGuiNode();
         this.cam = app.getCamera();
 
-        playerNode = stateManager.getState(WorldAppState.class).getPlayerNode();
-        cameraMan = stateManager.getState(WorldAppState.class).getCameraMan();
+        worldState = stateManager.getState(WorldAppState.class);
+        playerNode = worldState.getPlayerNode();
+        cameraMan = worldState.getCameraMan();
         bulletState = stateManager.getState(BulletAppState.class);
         physicsSpace = bulletState.getPhysicsSpace();
 //	stateManager.attach(new BulletDebugAppState(physicsSpace));
@@ -136,12 +143,14 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
         inputManager.addMapping("SET_VOXEL", new MouseButtonTrigger(MouseInput.BUTTON_LEFT));
         inputManager.addMapping("REMOVE_VOXEL", new MouseButtonTrigger(MouseInput.BUTTON_RIGHT));
 
+        inputManager.addMapping("COMMAND_WINDOW", new KeyTrigger(KeyInput.KEY_RETURN));
+
         inputManager.addMapping("MOVESPEED_UP", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, false));
         inputManager.addMapping("MOVESPEED_DOWN", new MouseAxisTrigger(MouseInput.AXIS_WHEEL, true));
 
         inputManager.addListener(this, "TOGGLE_WIREFRAME", "TOGGLE_CURSOR", "TOGGLE_CULLING", "TOGGLE_AXISARROWS",
                 "MOVESPEED_UP", "MOVESPEED_DOWN", "UPDATE_GUI", "CUSTOM_FUNCTION", "TOGGLE_CAM_VIEW", "SET_VOXEL",
-                "REMOVE_VOXEL");
+                "REMOVE_VOXEL", "COMMAND_WINDOW");
 
     }
 
@@ -157,8 +166,8 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
             toggleBackfaceCulling(rootNode);
         } else if ("TOGGLE_AXISARROWS".equals(name) && !isPressed) {
             toggleAxisArrows();
-        } else if ("UPDATE_GUI".equals(name) && !isPressed) {
-            // updateGUI();
+        } else if ("COMMAND_WINDOW".equals(name) && !isPressed) {
+            toggleCommandWindow();
         } else if ("TOGGLE_CAM_VIEW".equals(name) && !isPressed) {
             toggleCamView();
         } else if ("CUSTOM_FUNCTION".equals(name) && !isPressed) {
@@ -308,7 +317,7 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     }
 
     private void cursorPicking(boolean remove) {
-        if (System.currentTimeMillis() - lastPicking < 100) {
+        if (System.currentTimeMillis() - lastPicking < 100 || (!remove && Global.player.getActiveBlock() == Voxel.VT_NONE)) {
             return;
         }
 
@@ -343,9 +352,10 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
             point = collision
                     .getContactPoint()
                     .addLocal(collision.getContactNormal().mult(FastMath.ZERO_TOLERANCE));
-            type = Voxel.VT_TORCH;
+            type = Global.player.getActiveBlock();
 
         }
+
         Vec3 v = new Vec3(point.x, point.y, point.z);
         System.out.println("Picking: (" + point + ") - (" + v + ") - (" + collision.getContactPoint() + ")");
         are.setVoxel(v, type);
@@ -500,5 +510,70 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
         result.setColor(color);
         result.addControl(new BillboardControl());
         return result;
+    }
+
+    private void updateToolbar() {
+        ToolbarWindow window = (ToolbarWindow) Global.winMan.get(WindowManager.TOOLBAR);
+        window.clearSlots();
+        worldState.loadToolbar();
+    }
+
+    private void toggleCommandWindow() {
+        CommandWindow commandWindow = (CommandWindow) Global.winMan.get(WindowManager.COMMAND);
+        if (!commandWindow.isShown()) {
+            commandWindow.build();
+            commandWindow.show();
+        } else {
+            String s = commandWindow.getText();
+            if (s != null && !s.isEmpty()) {
+                doCommand(s);
+            }
+            commandWindow.setText("");
+            commandWindow.hide();
+        }
+    }
+
+    private void doCommand(String command) {
+        if (command.startsWith("set")) {
+            String[] arr = command.split(" ");
+            if (arr.length != 2) {
+                return;
+            }
+
+            short block;
+
+            switch (arr[1]) {
+                case "dirt": {
+                    block = Voxel.VT_DIRT;
+                    break;
+                }
+                case "torch": {
+                    block = Voxel.VT_TORCH;
+                    break;
+                }
+                case "grass": {
+                    block = Voxel.VT_GRASS;
+                    break;
+                }
+                default: {
+                    block = Voxel.VT_STONE;
+                }
+            }
+
+            Global.player.setActiveBlock(block);
+        } else if (command.startsWith("record")) {
+            String[] arr = command.split(" ");
+            if (arr.length != 2) {
+                return;
+            }
+
+            if ("begin".endsWith(arr[1])) {
+                recordState = new VideoRecorderAppState();
+                stateManager.attach(recordState);
+            } else {
+                stateManager.detach(recordState);
+            }
+        }
+
     }
 }

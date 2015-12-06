@@ -33,7 +33,8 @@ import com.lagecompany.ui.ToolbarWindow;
 import java.nio.FloatBuffer;
 
 /**
- * On this stage, the world will be processed. By world we mean all content relative to world except Terrain.
+ * On this stage, the world will be processed. By world we mean all content
+ * relative to world except Terrain.
  *
  * @author Afonso Lage
  */
@@ -58,60 +59,60 @@ public class WorldAppState extends AbstractAppState {
      * Initialize this stage. Is called intenally by JME3.
      *
      * @param stateManager The StateManager used by JME3
-     * @param app The application which this stage was attached to
+     * @param application The application which this stage was attached to
      */
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
-	super.initialize(stateManager, application);
-	this.app = (SimpleApplication) application;
-	this.rootNode = app.getRootNode();
-	this.guiNode = app.getGuiNode();
-	this.inputManager = app.getInputManager();
-	this.flyCam = app.getFlyByCamera();
-	this.cam = app.getCamera();
-	this.bulletState = stateManager.getState(BulletAppState.class);
-	this.are = Are.getInstance();
-	this.assetManager = app.getAssetManager();
-	app.getViewPort().setBackgroundColor(new ColorRGBA(0.5294f, 0.8078f, 0.9215f, 1f));
-	terrainState = stateManager.getState(TerrainAppState.class);
-	inputManager.setCursorVisible(true);
+        super.initialize(stateManager, application);
+        this.app = (SimpleApplication) application;
+        this.rootNode = app.getRootNode();
+        this.guiNode = app.getGuiNode();
+        this.inputManager = app.getInputManager();
+        this.flyCam = app.getFlyByCamera();
+        this.cam = app.getCamera();
+        this.bulletState = stateManager.getState(BulletAppState.class);
+        this.are = Are.getInstance();
+        this.assetManager = app.getAssetManager();
+        app.getViewPort().setBackgroundColor(new ColorRGBA(0.5294f, 0.8078f, 0.9215f, 1f));
+        terrainState = stateManager.getState(TerrainAppState.class);
+        inputManager.setCursorVisible(true);
 
-	//Create some lights.
-	AmbientLight ambient = new AmbientLight();
-	ambient.setColor(ColorRGBA.DarkGray.mult(.25f));
-	//rootNode.addLight(ambient);
-	guiNode.addLight(ambient);
+        //Create some lights.
+        AmbientLight ambient = new AmbientLight();
+        ambient.setColor(ColorRGBA.DarkGray.mult(.25f));
+        //rootNode.addLight(ambient);
+        guiNode.addLight(ambient);
 
-	DirectionalLight sun = new DirectionalLight();
-	sun.setDirection(new Vector3f(-0.25f, -0.75f, -0.25f).normalizeLocal());
+        DirectionalLight sun = new DirectionalLight();
+        sun.setDirection(new Vector3f(-0.25f, -0.75f, -0.25f).normalizeLocal());
 
-	sun.setColor(ColorRGBA.White);
-	rootNode.addLight(sun);
-	guiNode.addLight(sun);
-	//Create player node.
-	playerNode = new Node("Player Node");
-	playerNode.lookAt(Vector3f.UNIT_Z, Vector3f.UNIT_Y);
+        sun.setColor(ColorRGBA.White);
+        rootNode.addLight(sun);
+        guiNode.addLight(sun);
+        //Create player node.
+        playerNode = new Node("Player Node");
+        playerNode.lookAt(Vector3f.UNIT_Z, Vector3f.UNIT_Y);
 
-	//Add Physics to our node.
-	PlayerControl characterControl = new PlayerControl(0.4f, 4f, 60f);
-	bulletState.getPhysicsSpace().add(characterControl);
-	playerNode.addControl(characterControl);
+        //Add Physics to our node.
+        PlayerControl characterControl = new PlayerControl(0.4f, 4f, 60f);
+        bulletState.getPhysicsSpace().add(characterControl);
+        playerNode.addControl(characterControl);
 
-	//Add a camera follow control to our node.
-	CameraFollowControl followControl = new CameraFollowControl(cam, inputManager);
-	playerNode.addControl(followControl);
+        //Add a camera follow control to our node.
+        CameraFollowControl followControl = new CameraFollowControl(cam, inputManager);
+        playerNode.addControl(followControl);
 
-	characterControl.setEnabled(false);
-	followControl.setEnabled(false); //For debug reasons.
+        characterControl.setEnabled(false);
+        followControl.setEnabled(false); //For debug reasons.
 
-	cameraMan = new CameraMan(flyCam, followControl, inputManager);
-	cameraMan.toggleCam(false);
-	cameraMan.unbind();
+        cameraMan = new CameraMan(flyCam, followControl, inputManager);
+        cameraMan.toggleCam(false);
+        cameraMan.unbind();
 
-	rootNode.attachChild(playerNode);
+        rootNode.attachChild(playerNode);
 
-	initMaterials();
-	initInterface();
+        initMaterials();
+        initInterface();
     }
 
     /**
@@ -121,9 +122,9 @@ public class WorldAppState extends AbstractAppState {
      */
     @Override
     public void update(float tpf) {
-	super.update(tpf); //To change body of generated methods, choose Tools | Templates.
+        super.update(tpf); //To change body of generated methods, choose Tools | Templates.
 
-	renderSpecialVoxels();
+        renderSpecialVoxels();
     }
 
     /**
@@ -132,7 +133,7 @@ public class WorldAppState extends AbstractAppState {
      * @return The player node
      */
     public Node getPlayerNode() {
-	return playerNode;
+        return playerNode;
     }
 
     /**
@@ -141,93 +142,39 @@ public class WorldAppState extends AbstractAppState {
      * @return The camera manager
      */
     public CameraMan getCameraMan() {
-	return cameraMan;
+        return cameraMan;
     }
 
     void startEnvironment() {
-	this.playerNode.getControl(PlayerControl.class).setEnabled(true);
+        this.playerNode.getControl(PlayerControl.class).setEnabled(true);
     }
 
     private void renderSpecialVoxels() {
     }
 
     private void initInterface() {
-	Mesh mesh = VoxelMesh.getMesh(Voxel.VT_STONE);
+        
+        
+        
+    }
 
-	FloatBuffer buffer = (FloatBuffer) mesh.getBuffer(VertexBuffer.Type.Color).getData();
-	buffer.rewind();
+    public void loadToolbar() {
+        Mesh mesh = VoxelMesh.getMesh(Voxel.VT_STONE);
 
-	while (buffer.hasRemaining()) {
-	    //Front
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-	    buffer.put(1.3f);
-
-	    //Right
-	    buffer.position(buffer.position() + 4 * 4);
-
-	    //Back
-	    buffer.position(buffer.position() + 4 * 4);
-
-	    //Left
-	    buffer.position(buffer.position() + 4 * 4);
-
-	    //Top
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-	    buffer.put(1.8f);
-
-	    //Down
-	    buffer.position(buffer.position() + 4 * 4);
-	}
-
-	Geometry geom = new Geometry("box", mesh);
-	geom.setMaterial(atlas);
-//	geom.setMaterial(new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md"));
-	geom.setCullHint(Spatial.CullHint.Never);
-
-//	guiNode.attachChild(geom);
-
-	toolbar = (ToolbarWindow) Global.winMan.get(WindowManager.TOOLBAR);
-	toolbar.build();
-	toolbar.show();
-	//toolbar.setSlot(1, geom);
+        Geometry geom = new Geometry("box", mesh);
+        geom.setMaterial(atlas);
+        geom.setCullHint(Spatial.CullHint.Never);
+        toolbar.setSlot(1, geom);
     }
 
     private void initMaterials() {
-	Texture texture = assetManager.loadTexture("Textures/Elements/atlas.png");
-	atlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
-	atlas.setTexture("DiffuseMap", texture);
-	atlas.setFloat("TileSize", 1f / (float) (texture.getImage().getWidth() / 128));
-	atlas.setFloat("MaxTileSize", 1f / Chunk.SIZE);
-	atlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.Clamp);
-	atlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
-	atlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestLinearMipMap);
+        Texture texture = assetManager.loadTexture("Textures/Elements/atlas.png");
+        atlas = new Material(assetManager, "MatDefs/VoxelLighting.j3md");
+        atlas.setTexture("DiffuseMap", texture);
+        atlas.setFloat("TileSize", 1f / (float) (texture.getImage().getWidth() / 128));
+        atlas.setFloat("MaxTileSize", 1f / Chunk.SIZE);
+        atlas.getTextureParam("DiffuseMap").getTextureValue().setWrap(Texture.WrapMode.EdgeClamp);
+        atlas.getTextureParam("DiffuseMap").getTextureValue().setMagFilter(Texture.MagFilter.Nearest);
+        atlas.getTextureParam("DiffuseMap").getTextureValue().setMinFilter(Texture.MinFilter.NearestLinearMipMap);
     }
 }

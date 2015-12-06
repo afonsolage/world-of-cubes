@@ -5,8 +5,8 @@
 package com.lagecompany.ui;
 
 import com.jme3.math.ColorRGBA;
+import com.jme3.math.Quaternion;
 import com.jme3.math.Vector3f;
-import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
 import com.simsilica.lemur.Axis;
 import com.simsilica.lemur.Container;
@@ -32,66 +32,72 @@ public class ToolbarWindow extends Window {
     private Container[] slots;
 
     public ToolbarWindow(int screenWidth, int screenHeight) {
-	super(screenWidth, screenHeight);
+        super(screenWidth, screenHeight);
     }
 
     @Override
     public void build() {
-	base_width = BORDER_SIZE + (SLOT_COUNT * (SLOT_WIDTH + BORDER_SIZE));
-	base_height = BORDER_SIZE + SLOT_HEIGHT + BORDER_SIZE;
-	slots = new Container[SLOT_COUNT];
-	
-	mainContainer = new Container("debug");
-	mainContainer.setLocalTranslation((screenWidth / 2) - (base_width / 2), base_height, 0);
-	mainContainer.setLayout(new BoxLayout(Axis.Y, FillMode.None));
-	mainContainer.setPreferredSize(new Vector3f(base_width, base_height, 0));
+        base_width = BORDER_SIZE + (SLOT_COUNT * (SLOT_WIDTH + BORDER_SIZE));
+        base_height = BORDER_SIZE + SLOT_HEIGHT + BORDER_SIZE;
+        slots = new Container[SLOT_COUNT];
 
-	mainContainer.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
+        mainContainer = new Container("debug");
+        mainContainer.setLocalTranslation((screenWidth / 2) - (base_width / 2), base_height, 0);
+        mainContainer.setLayout(new BoxLayout(Axis.Y, FillMode.None));
+        mainContainer.setPreferredSize(new Vector3f(base_width, base_height, 0));
 
-	Container basePanel = mainContainer.addChild(new Container());
-	basePanel.setLayout(new BoxLayout(Axis.X, FillMode.None));
-	basePanel.setPreferredSize(new Vector3f(base_width, SLOT_HEIGHT, 0));
+        mainContainer.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
 
-	basePanel.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
+        Container basePanel = mainContainer.addChild(new Container());
+        basePanel.setLayout(new BoxLayout(Axis.X, FillMode.None));
+        basePanel.setPreferredSize(new Vector3f(base_width, SLOT_HEIGHT, 0));
 
-	Container panel;
-	for (int i = 0; i < SLOT_COUNT; i++) {
-	    panel = basePanel.addChild(new Container());
-	    panel.setBackground(new QuadBackgroundComponent(
-		    new ColorRGBA(0f, 0f, 0f, 0.5f)));
-	    panel.setPreferredSize(new Vector3f(SLOT_WIDTH, SLOT_HEIGHT, 0));
+        basePanel.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
 
-	    Label label = panel.addChild(new Label("" + (i + 1)));
-	    label.setFontSize(13f);
+        Container panel;
+        for (int i = 0; i < SLOT_COUNT; i++) {
+            panel = basePanel.addChild(new Container());
+            panel.setBackground(new QuadBackgroundComponent(
+                    new ColorRGBA(0f, 0f, 0f, 0.5f)));
+            panel.setPreferredSize(new Vector3f(SLOT_WIDTH, SLOT_HEIGHT, 0));
 
-	    slots[i] = panel;
-	    basePanel.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
-	}
+            Label label = panel.addChild(new Label("" + (i + 1)));
+            label.setFontSize(13f);
 
-	mainContainer.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
+            slots[i] = panel;
+            basePanel.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
+        }
+
+        mainContainer.addChild(new Panel(BORDER_SIZE, BORDER_SIZE, ColorRGBA.DarkGray));
     }
 
     @Override
     public void set(String key, Object value) {
-	int slot = Integer.parseInt(key);
-	setSlot(slot, (Spatial) value);
+        int slot = Integer.parseInt(key);
+        setSlot(slot, (Spatial) value);
     }
 
-    private void setSlot(int slotId, Spatial object) {
-	if (slotId < 0 || slotId > SLOT_COUNT) {
-	    throw new RuntimeException("Invalid slot " + slotId);
-	}
+    public void setSlot(int slotId, Spatial object) {
+        if (slotId < 0 || slotId > SLOT_COUNT) {
+            throw new RuntimeException("Invalid slot " + slotId);
+        }
 
-	Container slot = slots[slotId];
+        Container slot = slots[slotId];
 
-	if (object != null) {
-	    slot.attachChild(object);
-	    object.setLocalTranslation(SLOT_WIDTH * 0.10f, -SLOT_HEIGHT * 0.75f, 0.01f);
-	    object.setLocalScale(SLOT_WIDTH * 0.7f, SLOT_HEIGHT * 0.7f, SLOT_HEIGHT * 0.7f);
-//	    object.rotate(-0.5f, 0.5f, 0.0f);
-	    object.setName(SLOT_OBJECT);
-	} else {
-	    slot.detachChildNamed(SLOT_OBJECT);
-	}
+        if (object != null) {
+            slot.attachChild(object);
+            object.setLocalTranslation(SLOT_WIDTH * 0.5f, -SLOT_HEIGHT * 0.5f, 0.01f);
+            object.setLocalScale(SLOT_WIDTH * 0.7f, SLOT_HEIGHT * 0.7f, SLOT_HEIGHT * 0.7f);
+            object.setLocalRotation(new Quaternion().fromAngles(0.5f, 0.0f, 0.0f));
+            object.setName(SLOT_OBJECT);
+        } else {
+            slot.detachChildNamed(SLOT_OBJECT);
+        }
+    }
+
+    public void clearSlots() {
+        for (int i = 0; i < SLOT_COUNT; i++) {
+            setSlot(i, null);
+        }
     }
 }

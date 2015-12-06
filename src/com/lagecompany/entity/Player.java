@@ -4,19 +4,21 @@
  */
 package com.lagecompany.entity;
 
+import com.lagecompany.storage.voxel.Voxel;
+
 /**
  *
  * @author Afonso Lage
  */
 public class Player {
 
-    private short activeBlock;
+    private short activeBlock = Voxel.VT_NONE;
 
     public short getActiveBlock() {
-	return activeBlock;
+        return activeBlock;
     }
 
     public void setActiveBlock(short activeBlock) {
-	this.activeBlock = activeBlock;
+        this.activeBlock = activeBlock;
     }
 }
