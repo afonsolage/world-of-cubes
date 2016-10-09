@@ -1,0 +1,64 @@
+apply plugin: 'java'
+apply plugin: 'application'
+apply plugin: 'eclipse'
+
+mainClassName='com.lagecompany.woc.MainApplication'
+
+repositories {
+    jcenter()
+}
+
+ext.jmeVersion = "[3.1,)" 
+
+dependencies {
+ 
+    compile "org.jmonkeyengine:jme3-core:$jmeVersion"
+    compile "org.jmonkeyengine:jme3-desktop:$jmeVersion"
+    compile "org.jmonkeyengine:jme3-lwjgl:$jmeVersion"
+    compile "org.jmonkeyengine:jme3-bullet:$jmeVersion"
+    compile "org.jmonkeyengine:jme3-bullet-native:$jmeVersion"
+    
+    compile "org.codehaus.groovy:groovy-all:2.1.9"
+    compile "com.simsilica:lemur:[1.8,)"
+    compile "com.simsilica:lemur-proto:[1.7,)"
+    
+    compile 'com.simsilica:zay-es:1.2.1'
+    
+    compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.7'
+    
+    compile "com.google.guava:guava:19.0"
+    compile "org.slf4j:slf4j-api:1.7.13"
+    runtime "org.apache.logging.log4j:log4j-slf4j-impl:2.5"
+}
+
+task wrapper(type: Wrapper) {
+}
+
+task createDirs << {
+    
+    def pkg = 'com.lagecompany.woc'
+    def dirs = [
+        file("./src/main/java/$pkg"),
+        file("./src/main/resources"),
+        file("./assets/Interface"),
+        file("./assets/MatDefs"),
+        file("./assets/Materials"),
+        file("./assets/Models"),
+        file("./assets/Scenes"),
+        file("./assets/Shaders"),
+        file("./assets/Sounds"),
+        file("./assets/Textures"),    
+    ]
+    
+    dirs.each {
+        if( !it.exists() ) {
+            println "Creating " + it
+            it.mkdirs()
+        }
+        if( it.listFiles().length == 0 ) {
+            def stub = new File(it, 'removeme.txt') 
+            println "Creating stub file to allow git checkin, file:$stub"
+            stub.text = "Remove me when there are files here."
+        }
+    }
+}

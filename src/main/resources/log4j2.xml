@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn" name="MyApp" packages="">
+  <Appenders>
+    <Console name="STDOUT" target="SYSTEM_OUT" ignoreExceptions="false">
+      <PatternLayout pattern="%d{ABSOLUTE} %-5p [%c{1}] %m%n"/>
+    </Console>
+  </Appenders>
+  
+  <Loggers>
+    <Logger name="com.jme3.network" level="INFO"/>
+	<Logger name="com.lagecompany.woc" level="ALL"/>
+	
+    <Root level="INFO">
+      <AppenderRef ref="STDOUT"/>
+    </Root>
+  </Loggers>
+</Configuration>
