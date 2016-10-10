@@ -6,29 +6,30 @@ package com.lagecompany.woc.storage;
  */
 public abstract class AreQueueListener {
 
-    public enum Type {
+	public enum Type {
 
-	START, FINISH;
-    }
-    private AreMessage.Type messageType;
-    private boolean persistent;
-    private boolean shouldRemove;
-
-    public AreQueueListener(AreMessage.Type messageType, boolean persistent) {
-	this.messageType = messageType;
-	this.persistent = persistent;
-    }
-
-    public void checkDoAction(AreMessage.Type messageType, int batch) {
-	if (messageType == this.messageType) {
-	    doAction(batch);
-	    shouldRemove = !persistent;
+		START, FINISH;
 	}
-    }
 
-    public boolean shouldRemove() {
-	return shouldRemove;
-    }
+	private Chunk.State state;
+	private boolean persistent;
+	private boolean shouldRemove;
 
-    public abstract void doAction(int batch);
+	public AreQueueListener(Chunk.State state, boolean persistent) {
+		this.state = state;
+		this.persistent = persistent;
+	}
+
+	public void checkDoAction(Chunk.State state, int batch) {
+		if (state == this.state) {
+			doAction(batch);
+			shouldRemove = !persistent;
+		}
+	}
+
+	public boolean shouldRemove() {
+		return shouldRemove;
+	}
+
+	public abstract void doAction(int batch);
 }

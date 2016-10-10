@@ -7,8 +7,8 @@
   </Appenders>
   
   <Loggers>
-    <Logger name="com.jme3.network" level="INFO"/>
-	<Logger name="com.lagecompany.woc" level="ALL"/>
+    <Logger name="com.lagecompany.woc" level="ALL"/>
+	<Logger name="com.lagecompany.woc.ChunkManager" level="ALL"/>
 	
     <Root level="INFO">
       <AppenderRef ref="STDOUT"/>

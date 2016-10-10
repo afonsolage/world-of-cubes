@@ -78,6 +78,10 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
     private static BitmapFont defaultFont;
     private long lastPicking;
 
+    public DebugAppState(Are are) {
+    	this.are = are;
+    }
+    
     @Override
     public void initialize(AppStateManager stateManager, Application application) {
         super.initialize(stateManager, application);
@@ -101,8 +105,6 @@ public class DebugAppState extends AbstractAppState implements ActionListener, A
         translateControl = playerNode.getControl(AreFollowControl.class);
 
         defaultFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
-
-        are = Are.getInstance();
 
         wireframe = false;
         backfaceCulled = false;

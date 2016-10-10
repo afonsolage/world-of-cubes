@@ -7,7 +7,7 @@ import com.jme3.bullet.BulletAppState;
 import com.lagecompany.woc.manager.Global;
 import com.lagecompany.woc.manager.WindowManager;
 import com.lagecompany.woc.storage.Are;
-import com.lagecompany.woc.storage.AreMessage;
+import com.lagecompany.woc.storage.Chunk;
 import com.lagecompany.woc.ui.LoadingScreen;
 
 /**
@@ -18,84 +18,87 @@ import com.lagecompany.woc.ui.LoadingScreen;
  */
 public class LoadingStage extends AbstractAppState {
 
-    private TerrainAppState terrainState;
-    private WorldAppState worldState;
-    private AppStateManager stateManager;
-    private LoadingScreen loadingScreen;
-    private Are are;
-//    private Camera cam;
-//    private Node guiNode;
+	private TerrainAppState terrainState;
+	private WorldAppState worldState;
+	private AppStateManager stateManager;
+	private LoadingScreen loadingScreen;
+	private Are are;
+	// private Camera cam;
+	// private Node guiNode;
 
-    /**
-     * Initialize this stage. Is called intenally by JME3.
-     *
-     * @param stateManager The StateManager used by JME3
-     * @param app The application which this stage was attached to
-     */
-    @Override
-    public void initialize(AppStateManager stateManager, Application app) {
-	this.stateManager = stateManager;
-//	this.cam = app.getCamera();
+	/**
+	 * Initialize this stage. Is called intenally by JME3.
+	 *
+	 * @param stateManager
+	 *            The StateManager used by JME3
+	 * @param app
+	 *            The application which this stage was attached to
+	 */
+	@Override
+	public void initialize(AppStateManager stateManager, Application app) {
+		this.stateManager = stateManager;
+		// this.cam = app.getCamera();
 
-//	SimpleApplication simpleApp = (SimpleApplication) app;
-//	guiNode = simpleApp.getGuiNode();
+		// SimpleApplication simpleApp = (SimpleApplication) app;
+		// guiNode = simpleApp.getGuiNode();
 
-	loadingScreen = (LoadingScreen) Global.winMan.get(WindowManager.LOADING);
-	loadingScreen.build();
-	loadingScreen.show();
+		loadingScreen = (LoadingScreen) Global.winMan.get(WindowManager.LOADING);
+		loadingScreen.build();
+		loadingScreen.show();
 
-	are = Are.getInstance();
+		are = new Are();
 
-	attachStates();
-    }
-
-    /**
-     * Update loop of this stage. Is called by main loop.
-     *
-     * @param tpf Time per frame in seconds.
-     */
-    @Override
-    public void update(float tpf) {
-	int setupCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_SETUP);
-	int loadCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_LOAD);
-	int lightCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_LIGHT);
-	int attachCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_ATTACH);
-	int detachCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_DETACH);
-	int unloadCount = (int) are.getChunkQueueSize(AreMessage.Type.CHUNK_UNLOAD);
-
-	loadingScreen.set(LoadingScreen.SETUP_QUEUE, setupCount);
-	loadingScreen.set(LoadingScreen.LOAD_QUEUE, loadCount);
-	loadingScreen.set(LoadingScreen.LIGHT_QUEUE, lightCount);
-	loadingScreen.set(LoadingScreen.ATTACH_QUEUE, attachCount);
-	loadingScreen.set(LoadingScreen.DETACH_QUEUE, detachCount);
-	loadingScreen.set(LoadingScreen.UNLOAD_QUEUE, unloadCount);
-
-	if (are.isInited()) {
-	    stateManager.detach(this);
+		attachStates();
 	}
-    }
 
-    /**
-     * Attach all stages needed by game play.
-     */
-    private void attachStates() {
-	stateManager.attach(new BulletAppState());
-	stateManager.attach(new WorldAppState());
-	terrainState = new TerrainAppState();
-	terrainState.setShouldRender(false);
-	stateManager.attach(terrainState);
+	/**
+	 * Update loop of this stage. Is called by main loop.
+	 *
+	 * @param tpf
+	 *            Time per frame in seconds.
+	 */
+	@Override
+	public void update(float tpf) {
+		int setupCount = (int) are.getChunkQueueSize(Chunk.State.SETUP);
+		int loadCount = (int) are.getChunkQueueSize(Chunk.State.LOAD);
+		int lightCount = (int) are.getChunkQueueSize(Chunk.State.LIGHT);
+		int attachCount = (int) are.getChunkQueueSize(Chunk.State.ATTACH);
+		int detachCount = (int) are.getChunkQueueSize(Chunk.State.DETACH);
+		int unloadCount = (int) are.getChunkQueueSize(Chunk.State.UNLOAD);
 
-	this.worldState = stateManager.getState(WorldAppState.class);
-    }
+		loadingScreen.set(LoadingScreen.SETUP_QUEUE, setupCount);
+		loadingScreen.set(LoadingScreen.LOAD_QUEUE, loadCount);
+		loadingScreen.set(LoadingScreen.LIGHT_QUEUE, lightCount);
+		loadingScreen.set(LoadingScreen.ATTACH_QUEUE, attachCount);
+		loadingScreen.set(LoadingScreen.DETACH_QUEUE, detachCount);
+		loadingScreen.set(LoadingScreen.UNLOAD_QUEUE, unloadCount);
 
-    /**
-     * This method is called by JME3 when this stage is detached, so it must be used for cleanup.
-     */
-    @Override
-    public void cleanup() {
-	super.cleanup();
-	loadingScreen.hide();
-	stateManager.attach(new DebugAppState());
-	worldState.startEnvironment();
-    }
+		if (are.isInited()) {
+			stateManager.detach(this);
+		}
+	}
+
+	/**
+	 * Attach all stages needed by game play.
+	 */
+	private void attachStates() {
+		stateManager.attach(new BulletAppState());
+		stateManager.attach(new WorldAppState());
+		terrainState = new TerrainAppState(are);
+		terrainState.setShouldRender(false);
+		stateManager.attach(terrainState);
+
+		this.worldState = stateManager.getState(WorldAppState.class);
+	}
+
+	/**
+	 * This method is called by JME3 when this stage is detached, so it must be used for cleanup.
+	 */
+	@Override
+	public void cleanup() {
+		super.cleanup();
+		loadingScreen.hide();
+		stateManager.attach(new DebugAppState(are));
+		worldState.startEnvironment();
+	}
 }

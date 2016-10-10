@@ -190,9 +190,9 @@ public class VoxelReference {
 	 * 
 	 * @return True if the referenced voxel is special. False otherwise.
 	 */
-	public boolean isSpecial() {
-		return (buffer.getShort(offset + Voxel.TYPE) & Voxel.VF_SPECIAL) == Voxel.VF_SPECIAL;
-	}
+//	public boolean isSpecial() {
+//		return (buffer.getShort(offset + Voxel.TYPE) & Voxel.VF_SPECIAL) == Voxel.VF_SPECIAL;
+//	}
 
 	/**
 	 * Gets the current type of the referenced voxel.
