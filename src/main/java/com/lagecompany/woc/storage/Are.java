@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 import com.lagecompany.woc.storage.light.LightManager;
 import com.lagecompany.woc.storage.voxel.VoxelReference;
@@ -67,10 +68,16 @@ public class Are implements Runnable {
 		this.init();
 		boolean worked;
 		ConcurrentLinkedQueue<AreQueueEntry> queue;
+		Integer batch;
 		while (running) {
 			worked = false;
 			try {
-				currentBatch = processBatchQueue.take();
+				batch = processBatchQueue.poll(500, TimeUnit.MILLISECONDS);
+				if (batch == null) {
+					continue;
+				} else {
+					currentBatch = batch;
+				}
 
 				queue = areQueue.getQueue(Chunk.State.UNLOAD, currentBatch);
 				if (queue != null) {
@@ -324,9 +331,8 @@ public class Are implements Runnable {
 				MathUtils.absMod(z + ARE_OFFSET.z, Chunk.SIZE));
 	}
 
-	/*
-	 * Update a Voxel in a given position. The position must be in World
-	 * Coodinates.
+	/**
+	 * Update a Voxel in a given position. The position must be in World Coodinates.
 	 */
 	protected void updateVoxel(int x, int y, int z, short type) {
 		Vec3 pos = toChunkPosition(x, y, z);
@@ -987,7 +993,7 @@ public class Are implements Runnable {
 		if (batch == null) {
 			return false;
 		} else {
-			currentRenderingBatch = batch; 
+			currentRenderingBatch = batch;
 			return true;
 		}
 	}

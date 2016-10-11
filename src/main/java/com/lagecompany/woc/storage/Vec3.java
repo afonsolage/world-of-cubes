@@ -127,6 +127,25 @@ public class Vec3 {
 
 		return this;
 	}
+	
+	/**
+	 * Sets x, y, z with the given int values.
+	 * 
+	 * @param x
+	 *            Value to initialize x member.
+	 * @param y
+	 *            Value to initialize y member.
+	 * @param z
+	 *            Value to initialize z member.
+	 * @return A reference to this object.
+	 */
+	public Vec3 set(int x, int y, int z) {
+		this.x = x;
+		this.y = y;
+		this.z = z;
+
+		return this;
+	}
 
 	@Override
 	public int hashCode() {

@@ -9,7 +9,6 @@ import static com.lagecompany.woc.storage.voxel.Voxel.VS_TOP;
 import static com.lagecompany.woc.storage.voxel.Voxel.VT_NONE;
 import static com.lagecompany.woc.storage.voxel.Voxel.VT_STONE;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Queue;
@@ -45,14 +44,14 @@ public class Chunk {
 	public static final int FS_TOP = 4;
 	public static final int FS_DOWN = 5;
 	public static final int FS_COUNT = 6;
-	
+
 	private ChunkSideBuffer buffer;
 	private final ChunkBuffer chunkBuffer;
 	private final Queue<VoxelReference> sunlightPropagationQueue;
 	private final Queue<LightRemovalNode> sunlightRemovalQueue;
 	private final Queue<VoxelReference> lightPropagationQueue;
 	private final Queue<LightRemovalNode> lightRemovalQueue;
-	private final HashMap<Integer, LightData> lightMap;
+	private LightData[] lightDataArray;
 	private int visibleVoxels;
 	private final Are are;
 	private final Vec3 position;
@@ -71,7 +70,6 @@ public class Chunk {
 		this.sunlightRemovalQueue = new LinkedList<>();
 		this.lightPropagationQueue = new LinkedList<>();
 		this.lightRemovalQueue = new LinkedList<>();
-		this.lightMap = new HashMap<>();
 		this.currentState = State.EMPTY;
 	}
 
@@ -88,7 +86,11 @@ public class Chunk {
 	}
 
 	public void setLightData(LightData data) {
-		lightMap.put(data.index, data);
+		int index = (int) (data.index / Voxel.SIZE);
+
+		assert index < lightDataArray.length;
+
+		lightDataArray[index] = data;
 	}
 
 	public LightData findLightData(int x, int y, int z) {
@@ -96,9 +98,11 @@ public class Chunk {
 	}
 
 	public LightData findLightData(int index) {
-		LightData result = lightMap.get(index);
+		index = (int) (index / Voxel.SIZE);
 
-		return (result == null) ? LightData.EMPTY : result;
+		assert index < lightDataArray.length;
+
+		return lightDataArray[index];
 	}
 
 	public VoxelReference cloneReference(VoxelReference voxel) {
@@ -197,8 +201,14 @@ public class Chunk {
 
 	public boolean load() {
 		reset();
+		
+		this.lightDataArray = new LightData[DATA_LENGTH]; // 4 vertex 6 sides
+		
 		checkVisibleFaces();
 		mergeVisibleFaces();
+		
+		this.lightDataArray = null;
+		
 		return (hasVertext());
 	}
 
@@ -628,9 +638,7 @@ public class Chunk {
 		mergeLeftFaces();
 		mergeTopFaces();
 		mergeDownFaces();
-
 		// At this point we don't need the lightMap anymore.
-		lightMap.clear();
 	}
 
 	public boolean hasVertext() {
@@ -658,7 +666,7 @@ public class Chunk {
 		float[] lightBuffer = new float[4];
 		LightData currentLight;
 
-		// When looking for front faces (Z+) we need to check X axis and later Y axis, becouse this, the iteration
+		// When looking for front faces (Z+) we need to check X axis and later Y axis, because this, the iteration
 		// occurs this way.
 		for (int z = 0; z < SIZE; z++) {
 			for (int y = 0; y < SIZE; y++) {
@@ -671,7 +679,7 @@ public class Chunk {
 
 					currentType = v.getType();
 
-					// If vox is invalid or is merged already, skip it;
+					// If voxel is invalid or is merged already, skip it;
 					if (currentType == VT_NONE || v.isSideMerged(side) || !v.isSideVisible(side)/* || v.isSpecial()*/) {
 						continue;
 					}
@@ -1339,16 +1347,16 @@ public class Chunk {
 			visibleVoxels--;
 		}
 
-//		if (voxel.isSpecial()) {
-//			SpecialVoxelData data = new SpecialVoxelData(this, voxel.position);
-//			are.requestSpecialVoxelAttach(data);
-//
-//			light = SpecialVoxel.getLight(type);
-//			voxel.setLight(light);
-//		} else if (VoxelReference.isSpecial(previousType)) {
-//			SpecialVoxelData data = new SpecialVoxelData(this, voxel.position);
-//			are.requestSpecialVoxelDetach(data);
-//		}
+		// if (voxel.isSpecial()) {
+		// SpecialVoxelData data = new SpecialVoxelData(this, voxel.position);
+		// are.requestSpecialVoxelAttach(data);
+		//
+		// light = SpecialVoxel.getLight(type);
+		// voxel.setLight(light);
+		// } else if (VoxelReference.isSpecial(previousType)) {
+		// SpecialVoxelData data = new SpecialVoxelData(this, voxel.position);
+		// are.requestSpecialVoxelDetach(data);
+		// }
 
 		LightManager.updateVoxelLight(this, voxel, previousSunLight, previousLight, light, previousType, type);
 	}

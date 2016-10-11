@@ -4,7 +4,6 @@ import java.util.Arrays;
 
 import com.lagecompany.woc.storage.voxel.Voxel;
 import com.lagecompany.woc.storage.voxel.VoxelReference;
-import com.lagecompany.woc.util.CacheUtils;
 import com.lagecompany.woc.util.MathUtils;
 
 /**
@@ -37,9 +36,9 @@ public class ChunkBuffer {
 	 * Resets the merged and visible info of all voxels on this buffer.
 	 */
 	void resetMergedVisible() {
-		VoxelReference voxel;
+		VoxelReference voxel = new VoxelReference();
 		for (int i = 0; i < Chunk.DATA_LENGTH; i++) {
-			voxel = CacheUtils.getVoxelReference(this, i * Voxel.SIZE);
+			voxel.reset(this, i * Voxel.SIZE, 0, 0, 0);
 
 			for (int side : Voxel.ALL_SIDES) {
 				voxel.resetSideMerged(side);

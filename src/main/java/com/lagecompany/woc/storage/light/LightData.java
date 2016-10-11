@@ -35,7 +35,7 @@ public class LightData {
     }
 
     public boolean compare(LightData other, int side) {
-        int offset = side * VERTEX_COUNT;
+    	int offset = side * VERTEX_COUNT;
         for (int i = 0; i < VERTEX_COUNT; i++) {
             if (data[offset + i] != other.data[offset + i]) {
                 return false;

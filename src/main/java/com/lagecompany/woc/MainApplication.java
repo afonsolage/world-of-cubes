@@ -6,6 +6,7 @@ import com.jme3.system.JmeContext;
 import com.jme3.util.BufferUtils;
 import com.lagecompany.woc.manager.Global;
 import com.lagecompany.woc.state.LoadingStage;
+import com.lagecompany.woc.util.PerformanceTrack;
 import com.simsilica.lemur.GuiGlobals;
 
 /**
@@ -53,6 +54,12 @@ public class MainApplication extends SimpleApplication {
 		Global.winMan.setGuiNode(guiNode);
 		
 		stateManager.attach(new LoadingStage());
+	}
+
+	@Override
+	public void stop() {
+		super.stop();
+		PerformanceTrack.printResults();
 	}
 
 }

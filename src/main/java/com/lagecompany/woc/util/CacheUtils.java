@@ -1,6 +1,5 @@
 package com.lagecompany.woc.util;
 
-import com.lagecompany.woc.storage.ChunkBuffer;
 import com.lagecompany.woc.storage.voxel.VoxelReference;
 
 /**
@@ -44,9 +43,9 @@ public abstract class CacheUtils {
 	 * 
 	 * @return A cached float array object.
 	 */
-	public static float[] get3fArray() {
-		return get3fArray(0.0f, 0.0f, 0.0f);
-	}
+//	public static float[] get3fArray() {
+//		return get3fArray(0.0f, 0.0f, 0.0f);
+//	}
 
 	/**
 	 * Get the cached float array that represents a Vector3f. This method sets the array with the given values.
@@ -59,13 +58,13 @@ public abstract class CacheUtils {
 	 *            Sets the value on position 2 of array.
 	 * @return A cached float array object.
 	 */
-	public static float[] get3fArray(float x, float y, float z) {
-		CacheObject obj = cacheObject.get();
-		obj.f3Array[0] = x;
-		obj.f3Array[1] = y;
-		obj.f3Array[2] = z;
-		return obj.f3Array;
-	}
+//	public static float[] get3fArray(float x, float y, float z) {
+//		CacheObject obj = cacheObject.get();
+//		obj.f3Array[0] = x;
+//		obj.f3Array[1] = y;
+//		obj.f3Array[2] = z;
+//		return obj.f3Array;
+//	}
 	
 	/**
 	 * Get the cached voxel reference and reset it's value. The position on Voxel Reference will be set to (0, 0, 0)
@@ -73,9 +72,9 @@ public abstract class CacheUtils {
 	 * @param offset The new offset on Chunk Buffer used by the cache reference.
 	 * @return The cached voxel reference.
 	 */
-	public static VoxelReference getVoxelReference(ChunkBuffer buffer, int offset) {
-		return cacheObject.get().voxelReference.reset(buffer, offset, 0, 0, 0);
-	}
+//	public static VoxelReference getVoxelReference(ChunkBuffer buffer, int offset) {
+//		return cacheObject.get().voxelReference.reset(buffer, offset, 0, 0, 0);
+//	}
 	
 	/**
 	 * Get the cached voxel reference and reset it's value.
@@ -86,7 +85,7 @@ public abstract class CacheUtils {
 	 * @param z The Z position of Voxel Reference.
 	 * @return The cached voxel reference.
 	 */
-	public static VoxelReference getVoxelReference(ChunkBuffer buffer, int offset, int x, int y, int z) {
-		return cacheObject.get().voxelReference.reset(buffer, offset, x, y, z);
-	}
+//	public static VoxelReference getVoxelReference(ChunkBuffer buffer, int offset, int x, int y, int z) {
+//		return cacheObject.get().voxelReference.reset(buffer, offset, x, y, z);
+//	}
 }

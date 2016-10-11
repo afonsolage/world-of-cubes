@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.lagecompany.woc.storage.Vec3;
-import com.lagecompany.woc.util.CacheUtils;
 
 /**
  * This class stores all static info needed by a voxel. This class doesn't hold and data direct, but instead, it
@@ -203,7 +202,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v0 of a 3D cube
 	 */
 	public static float[] v0(int x, int y, int z) {
-		return CacheUtils.get3fArray(x, y, z + 1);
+		return new float[] {x, y, z + 1};
 	}
 
 	/**
@@ -219,7 +218,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v1 of a 3D cube
 	 */
 	public static float[] v1(int x, int y, int z) {
-		return CacheUtils.get3fArray(x + 1, y, z + 1);
+		return new float[] { x + 1, y, z + 1 };
 	}
 
 	/**
@@ -235,7 +234,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v2 of a 3D cube
 	 */
 	public static float[] v2(int x, int y, int z) {
-		return CacheUtils.get3fArray(x + 1, y + 1, z + 1);
+		return new float[] { x + 1, y + 1, z + 1 };
 	}
 
 	/**
@@ -251,7 +250,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v3 of a 3D cube
 	 */
 	public static float[] v3(int x, int y, int z) {
-		return CacheUtils.get3fArray(x, y + 1, z + 1);
+		return new float[] { x, y + 1, z + 1 };
 	}
 
 	/**
@@ -267,7 +266,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v4 of a 3D cube
 	 */
 	public static float[] v4(int x, int y, int z) {
-		return CacheUtils.get3fArray(x, y, z);
+		return new float[] { x, y, z };
 	}
 
 	/**
@@ -283,7 +282,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v5 of a 3D cube
 	 */
 	public static float[] v5(int x, int y, int z) {
-		return CacheUtils.get3fArray(x + 1, y, z);
+		return new float[] { x + 1, y, z };
 	}
 
 	/**
@@ -299,7 +298,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v6 of a 3D cube
 	 */
 	public static float[] v6(int x, int y, int z) {
-		return CacheUtils.get3fArray(x + 1, y + 1, z);
+		return new float[] { x + 1, y + 1, z };
 	}
 
 	/**
@@ -315,7 +314,7 @@ public abstract class Voxel {
 	 * @return A 3d point representing the v7 of a 3D cube
 	 */
 	public static float[] v7(int x, int y, int z) {
-		return CacheUtils.get3fArray(x, y + 1, z);
+		return new float[] { x, y + 1, z };
 	}
 
 	private static VoxelInfo getInfo(short type) {
