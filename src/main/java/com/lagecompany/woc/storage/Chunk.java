@@ -24,7 +24,7 @@ import com.lagecompany.woc.util.TerrainNoise;
 public class Chunk {
 
 	public enum State {
-		EMPTY, SETUP, LIGHT, LOAD, ATTACH, DETACH, UNLOAD, FINISH;
+		EMPTY, SETUP, LIGHT, LOAD, UNLOAD, FINISH;
 	}
 
 	public static final int SIZE = 16;

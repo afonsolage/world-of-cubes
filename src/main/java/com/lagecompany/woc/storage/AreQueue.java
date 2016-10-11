@@ -11,30 +11,27 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  */
 class AreQueue {
 
-	public static final int BEGIN_BATCH = 1;
-	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> detachQueue;
+	public static final int FIRST_BATCH = 1;
 	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> unloadQueue;
 	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> setupQueue;
 	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> lightQueue;
 	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> loadQueue;
-	// private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreMessage>> updateQueue;
-	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> attachQueue;
-//	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> specialVoxelAttachQueue;
-//	private final ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> specialVoxelDetachQueue;
+
+	private final ConcurrentLinkedQueue<ChunkMesh> attachQueue;
+	private final ConcurrentLinkedQueue<Vec3> detachQueue;
+
 	private final ConcurrentHashMap<AreQueueListener.Type, ConcurrentLinkedQueue<AreQueueListener>> listeners;
-	private int batch = BEGIN_BATCH;
+	private int batch = FIRST_BATCH;
 
 	public AreQueue() {
-		detachQueue = new ConcurrentHashMap<>();
 		unloadQueue = new ConcurrentHashMap<>();
 		setupQueue = new ConcurrentHashMap<>();
 		lightQueue = new ConcurrentHashMap<>();
 		loadQueue = new ConcurrentHashMap<>();
-		// updateQueue = new ConcurrentHashMap<>();
-		attachQueue = new ConcurrentHashMap<>();
 		listeners = new ConcurrentHashMap<>();
-//		specialVoxelAttachQueue = new ConcurrentHashMap<>();
-//		specialVoxelDetachQueue = new ConcurrentHashMap<>();
+
+		attachQueue = new ConcurrentLinkedQueue<>();
+		detachQueue = new ConcurrentLinkedQueue<>();
 	}
 
 	public synchronized int nextBatch() {
@@ -86,10 +83,6 @@ class AreQueue {
 		ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> queue;
 
 		switch (message.getState()) {
-		case DETACH: {
-			queue = detachQueue;
-			break;
-		}
 		case SETUP: {
 			queue = setupQueue;
 			break;
@@ -106,22 +99,6 @@ class AreQueue {
 			queue = unloadQueue;
 			break;
 		}
-		// case CHUNK_UPDATE: {
-		// offer(updateQueue, message, b);
-		// break;
-		// }
-		case ATTACH: {
-			queue = attachQueue;
-			break;
-		}
-		// case SPECIAL_VOXEL_ATTACH: {
-		// queue = specialVoxelAttachQueue;
-		// break;
-		// }
-		// case SPECIAL_VOXEL_DETACH: {
-		// queue = specialVoxelDetachQueue;
-		// break;
-		// }
 		default: {
 			System.out.println("Invalid message type received: " + message.getState().name());
 			return;
@@ -139,10 +116,6 @@ class AreQueue {
 		ConcurrentLinkedQueue<AreQueueEntry> result;
 
 		switch (state) {
-		case DETACH: {
-			result = detachQueue.get(batch);
-			break;
-		}
 		case SETUP: {
 			result = setupQueue.get(batch);
 			break;
@@ -159,22 +132,6 @@ class AreQueue {
 			result = unloadQueue.get(batch);
 			break;
 		}
-		// case CHUNK_UPDATE: {
-		// result = updateQueue.get(batch);
-		// break;
-		// }
-		case ATTACH: {
-			result = attachQueue.get(batch);
-			break;
-		}
-		// case SPECIAL_VOXEL_ATTACH: {
-		// result = specialVoxelAttachQueue.get(batch);
-		// break;
-		// }
-		// case SPECIAL_VOXEL_DETACH: {
-		// result = specialVoxelDetachQueue.get(batch);
-		// break;
-		// }
 		default: {
 			System.out.println("Invalid message type received: " + state.name());
 			result = null;
@@ -186,10 +143,6 @@ class AreQueue {
 
 	public void finishBatch(Chunk.State state, int batch) {
 		switch (state) {
-		case DETACH: {
-			detachQueue.remove(batch);
-			break;
-		}
 		case SETUP: {
 			setupQueue.remove(batch);
 			break;
@@ -202,26 +155,6 @@ class AreQueue {
 			loadQueue.remove(batch);
 			break;
 		}
-		case UNLOAD: {
-			unloadQueue.remove(batch);
-			break;
-		}
-		// case CHUNK_UPDATE: {
-		// updateQueue.remove(batch);
-		// break;
-		// }
-		case ATTACH: {
-			attachQueue.remove(batch);
-			break;
-		}
-		// case SPECIAL_VOXEL_ATTACH: {
-		// specialVoxelAttachQueue.remove(batch);
-		// break;
-		// }
-		// case SPECIAL_VOXEL_DETACH: {
-		// specialVoxelDetachQueue.remove(batch);
-		// break;
-		// }
 		default: {
 			System.out.println("Invalid message type received: " + state.name());
 		}
@@ -241,9 +174,6 @@ class AreQueue {
 
 	private ConcurrentHashMap<Integer, ConcurrentLinkedQueue<AreQueueEntry>> getMap(Chunk.State state) {
 		switch (state) {
-		case DETACH: {
-			return detachQueue;
-		}
 		case SETUP: {
 			return setupQueue;
 		}
@@ -256,18 +186,6 @@ class AreQueue {
 		case UNLOAD: {
 			return unloadQueue;
 		}
-		// case CHUNK_UPDATE: {
-		// return updateQueue;
-		// }
-		case ATTACH: {
-			return attachQueue;
-		}
-		// case SPECIAL_VOXEL_ATTACH: {
-		// return specialVoxelAttachQueue;
-		// }
-		// case SPECIAL_VOXEL_DETACH: {
-		// return specialVoxelDetachQueue;
-		// }
 		default: {
 			System.out.println("Invalid message type received: " + state.name());
 			return null;
@@ -289,5 +207,21 @@ class AreQueue {
 		}
 
 		return result;
+	}
+
+	public void offerAttach(ChunkMesh mesh) {
+		attachQueue.offer(mesh);
+	}
+
+	public ChunkMesh pollAttach() {
+		return attachQueue.poll();
+	}
+
+	public void offerDetach(Vec3 v) {
+		detachQueue.offer(v);
+	}
+
+	public Vec3 pollDetach() {
+		return detachQueue.poll();
 	}
 }

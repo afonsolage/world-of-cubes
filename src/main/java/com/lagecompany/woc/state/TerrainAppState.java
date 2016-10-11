@@ -5,11 +5,6 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
 import com.jme3.asset.AssetManager;
-import com.jme3.bullet.BulletAppState;
-import com.jme3.bullet.PhysicsSpace;
-import com.jme3.bullet.collision.shapes.CollisionShape;
-import com.jme3.bullet.control.RigidBodyControl;
-import com.jme3.bullet.util.CollisionShapeFactory;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.Vector3f;
@@ -37,8 +32,6 @@ public class TerrainAppState extends AbstractAppState {
 	private Node rootNode;
 	private Node playerNode;
 	private SimpleApplication app;
-	private BulletAppState bulletState;
-	private PhysicsSpace physicsSpace;
 	private boolean shouldRender;
 	protected Material voxelAtlas;
 	private Texture texture;
@@ -63,8 +56,6 @@ public class TerrainAppState extends AbstractAppState {
 		this.app = (SimpleApplication) application;
 		this.assetManager = app.getAssetManager();
 		this.rootNode = app.getRootNode();
-		this.bulletState = stateManager.getState(BulletAppState.class);
-		this.physicsSpace = bulletState.getPhysicsSpace();
 		initMaterials();
 
 		node = new Node("Chunks Node");
@@ -88,10 +79,7 @@ public class TerrainAppState extends AbstractAppState {
 	 */
 	@Override
 	public void update(float tpf) {
-		if (!are.prepareUpdate())
-			return;
-
-		for (ChunkMesh mesh : are.getAttachChunks()) {
+		for (ChunkMesh mesh : are.getAttachChunks((int) (1000 * tpf))) {
 			attachChunk(mesh);
 		}
 
@@ -154,8 +142,6 @@ public class TerrainAppState extends AbstractAppState {
 	 */
 	private void attachChunk(ChunkMesh mesh) {
 		Geometry geometry;
-		RigidBodyControl rigidBodyControl;
-		CollisionShape collisionShape;
 		Vec3 v = mesh.getPosition();
 		String name = "Chunk " + v.toString();
 
@@ -178,20 +164,6 @@ public class TerrainAppState extends AbstractAppState {
 		mesh.updateBound();
 		geometry.setMesh(mesh);
 		geometry.setMaterial(voxelAtlas);
-
-		rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-		collisionShape = CollisionShapeFactory.createMeshShape(geometry);
-
-		if (rigidBodyControl == null) {
-			rigidBodyControl = new RigidBodyControl(collisionShape, 0);
-			rigidBodyControl.setFriction(1f);
-			geometry.addControl(rigidBodyControl);
-			physicsSpace.add(rigidBodyControl);
-		} else {
-			rigidBodyControl.setEnabled(false);
-			rigidBodyControl.setCollisionShape(collisionShape);
-			rigidBodyControl.setEnabled(true);
-		}
 
 		if (DebugAppState.backfaceCulled) {
 			geometry.getMaterial().getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
@@ -217,13 +189,6 @@ public class TerrainAppState extends AbstractAppState {
 
 		if (spatial != null) {
 			Geometry geometry = (Geometry) spatial;
-			RigidBodyControl rigidBodyControl;
-			try {
-				rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-				physicsSpace.remove(rigidBodyControl);
-			} catch (Exception ex) {
-				System.out.println("Failed to remove rigidBody from: " + name);
-			}
 			geometry.removeFromParent();
 		}
 		are.unload(position);

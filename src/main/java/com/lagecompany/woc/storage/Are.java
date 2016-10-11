@@ -37,10 +37,8 @@ public class Are implements Runnable {
 	private Vec3 position;
 	private boolean moving;
 	private boolean inited = false;
-	// private final AreWorker worker;
 
 	private int currentBatch;
-	private int currentRenderingBatch;
 
 	private boolean running = false;
 
@@ -129,7 +127,7 @@ public class Are implements Runnable {
 
 		if (c.getCurrentState() != Chunk.State.UNLOAD)
 			return;
-		
+
 		c.unload();
 		c.setCurrentState(Chunk.State.FINISH);
 	}
@@ -139,7 +137,7 @@ public class Are implements Runnable {
 
 		if (c.getCurrentState() != Chunk.State.SETUP)
 			return;
-		
+
 		c.setup();
 		updateChunkNeighborhood(c);
 		c.computeSunlight();
@@ -198,45 +196,42 @@ public class Are implements Runnable {
 
 	private void lightChunk(AreQueueEntry message) {
 		Chunk c = (Chunk) message.getChunk();
-		try {
-			if (c.getCurrentState() != Chunk.State.LIGHT) {
-				System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.LIGHT);
-				return;
-			}
 
-			c.reset();
-			c.removeSunlight();
-			c.removeLight();
-			c.propagateSunlight();
-			c.propagateLight();
+		if (c.getCurrentState() != Chunk.State.LIGHT) {
+			System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.LIGHT);
+			return;
+		}
 
-			if (c.hasVisibleVoxel()) {
-				c.setCurrentState(Chunk.State.LOAD);
-				message.setState(Chunk.State.LOAD);
-			} else {
-				c.setCurrentState(Chunk.State.DETACH);
-				message.setState(Chunk.State.DETACH);
-			}
+		c.reset();
+		c.removeSunlight();
+		c.removeLight();
+		c.propagateSunlight();
+		c.propagateLight();
+
+		if (c.hasVisibleVoxel()) {
+			c.setCurrentState(Chunk.State.LOAD);
+			message.setState(Chunk.State.LOAD);
 			postMessage(message);
-		} catch (Exception ex) {
-			ex.printStackTrace();
+		} else {
+			c.setCurrentState(Chunk.State.UNLOAD);
+			areQueue.offerDetach(c.getPosition());
+			return;
 		}
 	}
 
 	private void loadChunk(AreQueueEntry message) {
 		Chunk c = (Chunk) message.getChunk();
-		
+
 		if (c.getCurrentState() != Chunk.State.LOAD)
 			return;
 
 		if (c.load()) {
-			c.setCurrentState(Chunk.State.ATTACH);
-			message.setState(Chunk.State.ATTACH);
+			c.setCurrentState(Chunk.State.FINISH);
+			areQueue.offerAttach(c.getMesh());
 		} else {
-			c.setCurrentState(Chunk.State.DETACH);
-			message.setState(Chunk.State.DETACH);
+			c.setCurrentState(Chunk.State.UNLOAD);
+			areQueue.offerDetach(c.getPosition());
 		}
-		postMessage(message);
 	}
 
 	public void init() {
@@ -616,242 +611,240 @@ public class Are implements Runnable {
 		}
 	}
 
-	// public void move(AreQueueEntry message) {
-	// Vec3 direction = (Vec3) message.getChunk();
-	//
-	// if (direction == null || direction.equals(Vec3.ZERO)) {
-	// moving = false;
-	// return;
-	// }
-	//
-	// position.add(direction);
-	//
-	// int batch = areQueue.nextBatch();
-	//
-	// if (direction.x > 0) {
-	// moveRight(batch);
-	// } else if (direction.x < 0) {
-	// moveLeft(batch);
-	// }
-	//
-	// if (direction.y > 0) {
-	// moveUp(batch);
-	// } else if (direction.y < 0) {
-	// moveDown(batch);
-	// }
-	//
-	// if (direction.z > 0) {
-	// moveFront(batch);
-	// } else if (direction.z < 0) {
-	// moveBack(batch);
-	// }
-	//
-	// process(batch);
-	// moving = false;
-	// }
-	//
-	// /**
-	// * Move all chunks into X+ direction. The left most chunk is set to NULL and the right most is created. Since Are
-	// * position is the LEFT, BOTTOM, Back cornder, we need to remove the 0 X axis chunks and create a new one at
-	// * DATA_WIDTH + 1 X axis.
-	// */
-	// private void moveRight(int batch) {
-	// int boundBegin = 0;
-	// int boundEnd = WIDTH - 1;
-	// for (int y = 0; y < HEIGHT; y++) {
-	// for (int z = 0; z < LENGTH; z++) {
-	// // Remove the left most and detach it from scene.
-	// Chunk c = get(position.copy().add(boundBegin - 1, y, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, batch));
-	// postMessage(new AreQueueEntry(Chunk.State.DETACH, c, batch));
-	// }
-	//
-	// // Reload chunk at new left border.
-	// c = get(position.copy().add(boundBegin, y, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	//
-	// // Add new chunks at right most of Are.
-	// Vec3 v = position.copy().add(boundEnd, y, z);
-	// c = new Chunk(this, v);
-	// set(v, c);
-	// postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
-	//
-	// // Reload the previous right border.
-	// c = get(position.copy().add(boundEnd - 1, y, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	// }
-	// }
-	// }
-	//
-	// private void moveLeft(int batch) {
-	// int boundBegin = WIDTH - 1;
-	// int boundEnd = 0;
-	// for (int y = 0; y < HEIGHT; y++) {
-	// for (int z = 0; z < LENGTH; z++) {
-	// // Remove the left most and detach it from scene.
-	// Chunk c = get(position.copy().add(boundBegin + 1, y, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, batch));
-	// postMessage(new AreQueueEntry(Chunk.State.DETACH, c, batch));
-	// }
-	//
-	// // Reload chunk at new left border.
-	// c = get(position.copy().add(boundBegin, y, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	//
-	// // Add new chunks at right most of Are.
-	// Vec3 v = position.copy().add(boundEnd, y, z);
-	// c = new Chunk(this, v);
-	// set(v, c);
-	// postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
-	//
-	// // Reload the previous right border.
-	// c = get(position.copy().add(boundEnd + 1, y, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	// }
-	// }
-	// }
-	//
-	// private void moveFront(int batch) {
-	// int boundBegin = 0;
-	// int boundEnd = LENGTH - 1;
-	// for (int y = 0; y < HEIGHT; y++) {
-	// for (int x = 0; x < WIDTH; x++) {
-	// // Remove the back most and detach it from scene.
-	// Chunk c = get(position.copy().add(x, y, boundBegin - 1));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, batch));
-	// postMessage(new AreQueueEntry(Chunk.State.DETACH, c, batch));
-	// }
-	//
-	// // Reload chunk at new back border.
-	// c = get(position.copy().add(x, y, boundBegin));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	//
-	// // Add new chunks at front most of Are.
-	// Vec3 v = position.copy().add(x, y, boundEnd);
-	// c = new Chunk(this, v);
-	// set(v, c);
-	// postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
-	//
-	// // Reload the previous front border.
-	// c = get(position.copy().add(x, y, boundEnd - 1));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	// }
-	// }
-	// }
-	//
-	// private void moveBack(int batch) {
-	// int boundBegin = LENGTH - 1;
-	// int boundEnd = 0;
-	// for (int y = 0; y < HEIGHT; y++) {
-	// for (int x = 0; x < WIDTH; x++) {
-	// // Remove the back most and detach it from scene.
-	// Chunk c = get(position.copy().add(x, y, boundBegin + 1));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, batch));
-	// postMessage(new AreQueueEntry(Chunk.State.DETACH, c, batch));
-	// }
-	//
-	// // Reload chunk at new back border.
-	// c = get(position.copy().add(x, y, boundBegin));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	//
-	// // Add new chunks at front most of Are.
-	// Vec3 v = position.copy().add(x, y, boundEnd);
-	// c = new Chunk(this, v);
-	// set(v, c);
-	// postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
-	//
-	// // Reload the previous front border.
-	// c = get(position.copy().add(x, y, boundEnd + 1));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	// }
-	// }
-	// }
-	//
-	// private void moveUp(int batch) {
-	// int boundBegin = 0;
-	// int boundEnd = HEIGHT - 1;
-	// for (int x = 0; x < WIDTH; x++) {
-	// for (int z = 0; z < LENGTH; z++) {
-	// // Remove the back most and detach it from scene.
-	// Chunk c = get(position.copy().add(x, boundBegin - 1, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, batch));
-	// postMessage(new AreQueueEntry(Chunk.State.DETACH, c, batch));
-	// }
-	//
-	// // Reload chunk at new back border.
-	// c = get(position.copy().add(x, boundBegin, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	//
-	// // Add new chunks at front most of Are.
-	// Vec3 v = position.copy().add(x, boundEnd, z);
-	// c = new Chunk(this, v);
-	// set(v, c);
-	// postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
-	//
-	// // Reload the previous front border.
-	// c = get(position.copy().add(x, boundEnd - 1, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	// }
-	// }
-	// }
-	//
-	// private void moveDown(int batch) {
-	// int boundBegin = HEIGHT - 1;
-	// int boundEnd = 0;
-	// for (int x = 0; x < WIDTH; x++) {
-	// for (int z = 0; z < LENGTH; z++) {
-	// // Remove the back most and detach it from scene.
-	// Chunk c = get(position.copy().add(x, boundBegin + 1, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, batch));
-	// postMessage(new AreQueueEntry(Chunk.State.DETACH, c, batch));
-	// }
-	//
-	// // Reload chunk at new back border.
-	// c = get(position.copy().add(x, boundBegin, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	//
-	// // Add new chunks at front most of Are.
-	// Vec3 v = position.copy().add(x, boundEnd, z);
-	// c = new Chunk(this, v);
-	// set(v, c);
-	// postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
-	//
-	// // Reload the previous front border.
-	// c = get(position.copy().add(x, boundEnd + 1, z));
-	// if (c != null) {
-	// postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
-	// }
-	// }
-	// }
-	// }
+	public void move(Vec3 direction) {
+		if (direction == null || direction.equals(Vec3.ZERO)) {
+			moving = false;
+			return;
+		}
+
+		position.add(direction);
+
+		int batch = areQueue.nextBatch();
+
+		if (direction.x > 0) {
+			moveRight(batch);
+		} else if (direction.x < 0) {
+			moveLeft(batch);
+		}
+
+		if (direction.y > 0) {
+			moveUp(batch);
+		} else if (direction.y < 0) {
+			moveDown(batch);
+		}
+
+		if (direction.z > 0) {
+			moveFront(batch);
+		} else if (direction.z < 0) {
+			moveBack(batch);
+		}
+
+		process(batch);
+		moving = false;
+	}
+
+	/**
+	 * Move all chunks into X+ direction. The left most chunk is set to NULL and the right most is created. Since Are
+	 * position is the LEFT, BOTTOM, Back corner, we need to remove the 0 X axis chunks and create a new one at
+	 * DATA_WIDTH + 1 X axis.
+	 */
+	private void moveRight(int batch) {
+		int boundBegin = 0;
+		int boundEnd = WIDTH - 1;
+		for (int y = 0; y < HEIGHT; y++) {
+			for (int z = 0; z < LENGTH; z++) {
+				// Remove the left most and detach it from scene.
+				Chunk c = get(position.copy().add(boundBegin - 1, y, z));
+				if (c != null) {
+					c.setCurrentState(Chunk.State.UNLOAD);
+					areQueue.offerDetach(c.getPosition());
+				}
+
+				// Reload chunk at new left border.
+				c = get(position.copy().add(boundBegin, y, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+
+				// Add new chunks at right most of Are.
+				Vec3 v = position.copy().add(boundEnd, y, z);
+				c = new Chunk(this, v);
+				set(v, c);
+				postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
+
+				// Reload the previous right border.
+				c = get(position.copy().add(boundEnd - 1, y, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+			}
+		}
+	}
+
+	private void moveLeft(int batch) {
+		int boundBegin = WIDTH - 1;
+		int boundEnd = 0;
+		for (int y = 0; y < HEIGHT; y++) {
+			for (int z = 0; z < LENGTH; z++) {
+				// Remove the left most and detach it from scene.
+				Chunk c = get(position.copy().add(boundBegin + 1, y, z));
+				if (c != null) {
+					c.setCurrentState(Chunk.State.UNLOAD);
+					areQueue.offerDetach(c.getPosition());
+				}
+
+				// Reload chunk at new left border.
+				c = get(position.copy().add(boundBegin, y, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+
+				// Add new chunks at right most of Are.
+				Vec3 v = position.copy().add(boundEnd, y, z);
+				c = new Chunk(this, v);
+				set(v, c);
+				postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
+
+				// Reload the previous right border.
+				c = get(position.copy().add(boundEnd + 1, y, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+			}
+		}
+	}
+
+	private void moveFront(int batch) {
+		int boundBegin = 0;
+		int boundEnd = LENGTH - 1;
+		for (int y = 0; y < HEIGHT; y++) {
+			for (int x = 0; x < WIDTH; x++) {
+				// Remove the back most and detach it from scene.
+				Chunk c = get(position.copy().add(x, y, boundBegin - 1));
+				if (c != null) {
+					c.setCurrentState(Chunk.State.UNLOAD);
+					areQueue.offerDetach(c.getPosition());
+				}
+
+				// Reload chunk at new back border.
+				c = get(position.copy().add(x, y, boundBegin));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+
+				// Add new chunks at front most of Are.
+				Vec3 v = position.copy().add(x, y, boundEnd);
+				c = new Chunk(this, v);
+				set(v, c);
+				postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
+
+				// Reload the previous front border.
+				c = get(position.copy().add(x, y, boundEnd - 1));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+			}
+		}
+	}
+
+	private void moveBack(int batch) {
+		int boundBegin = LENGTH - 1;
+		int boundEnd = 0;
+		for (int y = 0; y < HEIGHT; y++) {
+			for (int x = 0; x < WIDTH; x++) {
+				// Remove the back most and detach it from scene.
+				Chunk c = get(position.copy().add(x, y, boundBegin + 1));
+				if (c != null) {
+					c.setCurrentState(Chunk.State.UNLOAD);
+					areQueue.offerDetach(c.getPosition());
+				}
+
+				// Reload chunk at new back border.
+				c = get(position.copy().add(x, y, boundBegin));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+
+				// Add new chunks at front most of Are.
+				Vec3 v = position.copy().add(x, y, boundEnd);
+				c = new Chunk(this, v);
+				set(v, c);
+				postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
+
+				// Reload the previous front border.
+				c = get(position.copy().add(x, y, boundEnd + 1));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+			}
+		}
+	}
+
+	private void moveUp(int batch) {
+		int boundBegin = 0;
+		int boundEnd = HEIGHT - 1;
+		for (int x = 0; x < WIDTH; x++) {
+			for (int z = 0; z < LENGTH; z++) {
+				// Remove the back most and detach it from scene.
+				Chunk c = get(position.copy().add(x, boundBegin - 1, z));
+				if (c != null) {
+					c.setCurrentState(Chunk.State.UNLOAD);
+					areQueue.offerDetach(c.getPosition());
+				}
+
+				// Reload chunk at new back border.
+				c = get(position.copy().add(x, boundBegin, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+
+				// Add new chunks at front most of Are.
+				Vec3 v = position.copy().add(x, boundEnd, z);
+				c = new Chunk(this, v);
+				set(v, c);
+				postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
+
+				// Reload the previous front border.
+				c = get(position.copy().add(x, boundEnd - 1, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+			}
+		}
+	}
+
+	private void moveDown(int batch) {
+		int boundBegin = HEIGHT - 1;
+		int boundEnd = 0;
+		for (int x = 0; x < WIDTH; x++) {
+			for (int z = 0; z < LENGTH; z++) {
+				// Remove the back most and detach it from scene.
+				Chunk c = get(position.copy().add(x, boundBegin + 1, z));
+				if (c != null) {
+					c.setCurrentState(Chunk.State.UNLOAD);
+					areQueue.offerDetach(c.getPosition());
+				}
+
+				// Reload chunk at new back border.
+				c = get(position.copy().add(x, boundBegin, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+
+				// Add new chunks at front most of Are.
+				Vec3 v = position.copy().add(x, boundEnd, z);
+				c = new Chunk(this, v);
+				set(v, c);
+				postMessage(new AreQueueEntry(Chunk.State.SETUP, c, batch));
+
+				// Reload the previous front border.
+				c = get(position.copy().add(x, boundEnd + 1, z));
+				if (c != null) {
+					postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, batch));
+				}
+			}
+		}
+	}
 
 	public Vec3 getAbsoluteChunkPosition(Vec3 chunkPosition) {
 		return new Vec3((chunkPosition.x * Chunk.SIZE) - ARE_OFFSET.x, (chunkPosition.y * Chunk.SIZE) - ARE_OFFSET.y, // TODO:
@@ -912,34 +905,22 @@ public class Are implements Runnable {
 		updateVoxel(v.x, v.y, v.z, type);
 	}
 
-	public void detach(Chunk c) {
-		postMessage(new AreQueueEntry(Chunk.State.DETACH, c, currentRenderingBatch));
-	}
-
 	public void unload(Vec3 position) {
 		unload(get(position));
 	}
 
 	public void unload(Chunk c) {
-		postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, currentRenderingBatch));
+		postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c));
 	}
 
-	public List<ChunkMesh> getAttachChunks() {
+	public List<ChunkMesh> getAttachChunks(int count) {
 		List<ChunkMesh> meshes = new ArrayList<>();
 
-		ConcurrentLinkedQueue<AreQueueEntry> queue = getQueue(currentRenderingBatch, Chunk.State.ATTACH);
-		if (queue != null) {
-			for (AreQueueEntry message = queue.poll(); message != null; message = queue.poll()) {
-				Chunk c = message.getChunk();
-				ChunkMesh mesh = c.getMesh();
-				if (mesh == null) {
-					unload(c);
-				} else {
-					meshes.add(mesh);
-				}
-				c.setCurrentState(Chunk.State.FINISH);
-			}
-			finishBatch(Chunk.State.ATTACH, currentRenderingBatch);
+		ChunkMesh mesh = areQueue.pollAttach();
+
+		while (mesh != null) {
+			meshes.add(mesh);
+			mesh = areQueue.pollAttach();
 		}
 
 		return meshes;
@@ -948,27 +929,14 @@ public class Are implements Runnable {
 	public List<Vec3> getDetachChunks() {
 		List<Vec3> chunkPos = new ArrayList<>();
 
-		ConcurrentLinkedQueue<AreQueueEntry> queue = getQueue(currentRenderingBatch, Chunk.State.DETACH);
-		if (queue != null) {
-			for (AreQueueEntry message = queue.poll(); message != null; message = queue.poll()) {
-				if (message.getChunk() != null) {
-					chunkPos.add(message.getChunk().getPosition());
-				}
-			}
-			finishBatch(Chunk.State.DETACH, currentRenderingBatch);
+		Vec3 v = areQueue.pollDetach();
+
+		while (v != null) {
+			chunkPos.add(v);
+			v = areQueue.pollDetach();
 		}
 
 		return chunkPos;
-	}
-
-	public boolean prepareUpdate() {
-		Integer batch = renderBatchQueue.poll();
-		if (batch == null) {
-			return false;
-		} else {
-			currentRenderingBatch = batch;
-			return true;
-		}
 	}
 
 	/**

@@ -3,7 +3,6 @@ package com.lagecompany.woc.state;
 import com.jme3.app.Application;
 import com.jme3.app.state.AbstractAppState;
 import com.jme3.app.state.AppStateManager;
-import com.jme3.bullet.BulletAppState;
 import com.lagecompany.woc.manager.Global;
 import com.lagecompany.woc.manager.WindowManager;
 import com.lagecompany.woc.storage.Are;
@@ -19,7 +18,6 @@ import com.lagecompany.woc.ui.LoadingScreen;
 public class LoadingStage extends AbstractAppState {
 
 	private TerrainAppState terrainState;
-	private WorldAppState worldState;
 	private AppStateManager stateManager;
 	private LoadingScreen loadingScreen;
 	private Are are;
@@ -62,15 +60,11 @@ public class LoadingStage extends AbstractAppState {
 		int setupCount = (int) are.getChunkQueueSize(Chunk.State.SETUP);
 		int loadCount = (int) are.getChunkQueueSize(Chunk.State.LOAD);
 		int lightCount = (int) are.getChunkQueueSize(Chunk.State.LIGHT);
-		int attachCount = (int) are.getChunkQueueSize(Chunk.State.ATTACH);
-		int detachCount = (int) are.getChunkQueueSize(Chunk.State.DETACH);
 		int unloadCount = (int) are.getChunkQueueSize(Chunk.State.UNLOAD);
 
 		loadingScreen.set(LoadingScreen.SETUP_QUEUE, setupCount);
 		loadingScreen.set(LoadingScreen.LOAD_QUEUE, loadCount);
 		loadingScreen.set(LoadingScreen.LIGHT_QUEUE, lightCount);
-		loadingScreen.set(LoadingScreen.ATTACH_QUEUE, attachCount);
-		loadingScreen.set(LoadingScreen.DETACH_QUEUE, detachCount);
 		loadingScreen.set(LoadingScreen.UNLOAD_QUEUE, unloadCount);
 
 		if (are.isInited()) {
@@ -82,13 +76,10 @@ public class LoadingStage extends AbstractAppState {
 	 * Attach all stages needed by game play.
 	 */
 	private void attachStates() {
-		stateManager.attach(new BulletAppState());
 		stateManager.attach(new WorldAppState());
 		terrainState = new TerrainAppState(are);
 		terrainState.setShouldRender(false);
 		stateManager.attach(terrainState);
-
-		this.worldState = stateManager.getState(WorldAppState.class);
 	}
 
 	/**
@@ -99,6 +90,5 @@ public class LoadingStage extends AbstractAppState {
 		super.cleanup();
 		loadingScreen.hide();
 		stateManager.attach(new DebugAppState(are));
-		worldState.startEnvironment();
 	}
 }
