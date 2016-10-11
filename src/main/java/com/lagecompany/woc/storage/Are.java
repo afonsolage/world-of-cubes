@@ -950,36 +950,49 @@ public class Are implements Runnable {
 		postMessage(new AreQueueEntry(Chunk.State.DETACH, c, currentRenderingBatch));
 	}
 
+	public void unload(Vec3 position) {
+		unload(get(position));
+	}
+
 	public void unload(Chunk c) {
 		postMessage(new AreQueueEntry(Chunk.State.UNLOAD, c, currentRenderingBatch));
 	}
 
-	public List<Chunk> getAttachChunks() {
-		List<Chunk> chunks = new ArrayList<>();
+	public List<ChunkMesh> getAttachChunks() {
+		List<ChunkMesh> meshes = new ArrayList<>();
 
 		ConcurrentLinkedQueue<AreQueueEntry> queue = getQueue(currentRenderingBatch, Chunk.State.ATTACH);
 		if (queue != null) {
 			for (AreQueueEntry message = queue.poll(); message != null; message = queue.poll()) {
-				chunks.add(message.getChunk());
+				Chunk c = message.getChunk();
+				ChunkMesh mesh = c.getMesh();
+				if (mesh == null) {
+					unload(c);
+				} else {
+					meshes.add(mesh);
+				}
+				c.setCurrentState(Chunk.State.FINISH);
 			}
 			finishBatch(Chunk.State.ATTACH, currentRenderingBatch);
 		}
 
-		return chunks;
+		return meshes;
 	}
 
-	public List<Chunk> getDetachChunks() {
-		List<Chunk> chunks = new ArrayList<>();
+	public List<Vec3> getDetachChunks() {
+		List<Vec3> chunkPos = new ArrayList<>();
 
 		ConcurrentLinkedQueue<AreQueueEntry> queue = getQueue(currentRenderingBatch, Chunk.State.DETACH);
 		if (queue != null) {
 			for (AreQueueEntry message = queue.poll(); message != null; message = queue.poll()) {
-				chunks.add(message.getChunk());
+				if (message.getChunk() != null) {
+					chunkPos.add(message.getChunk().getPosition());
+				}
 			}
 			finishBatch(Chunk.State.DETACH, currentRenderingBatch);
 		}
 
-		return chunks;
+		return chunkPos;
 	}
 
 	public boolean prepareUpdate() {

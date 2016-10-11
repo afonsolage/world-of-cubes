@@ -14,14 +14,13 @@ import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
-import com.jme3.scene.Mesh;
 import com.jme3.scene.Node;
 import com.jme3.scene.Spatial;
-import com.jme3.scene.VertexBuffer;
 import com.jme3.texture.Texture;
 import com.lagecompany.woc.control.AreFollowControl;
 import com.lagecompany.woc.storage.Are;
 import com.lagecompany.woc.storage.Chunk;
+import com.lagecompany.woc.storage.ChunkMesh;
 import com.lagecompany.woc.storage.Vec3;
 
 /**
@@ -92,14 +91,13 @@ public class TerrainAppState extends AbstractAppState {
 		if (!are.prepareUpdate())
 			return;
 
-		for (Chunk c : are.getAttachChunks()) {
-			attachChunk(c);
+		for (ChunkMesh mesh : are.getAttachChunks()) {
+			attachChunk(mesh);
 		}
 
-		for (Chunk c : are.getDetachChunks()) {
-			detachChunk(c);
+		for (Vec3 v : are.getDetachChunks()) {
+			detachChunk(v);
 		}
-
 	}
 
 	/**
@@ -154,32 +152,14 @@ public class TerrainAppState extends AbstractAppState {
 	 * @param message
 	 *            an AreMessage of type CHUNK_ATTACH
 	 */
-	private void attachChunk(Chunk c) {
+	private void attachChunk(ChunkMesh mesh) {
 		Geometry geometry;
 		RigidBodyControl rigidBodyControl;
 		CollisionShape collisionShape;
-		Mesh mesh;
-		String name;
-		Vec3 v;
+		Vec3 v = mesh.getPosition();
+		String name = "Chunk " + v.toString();
 
-		try {
-			c.lock();
-			if (!c.hasVertext()) {
-				are.detach(c);
-				return;
-			} else {
-				v = c.getPosition();
-				name = c.getName();
-				mesh = buildMesh(c);
-			}
-		} finally {
-			c.unlock();
-		}
-
-		if (mesh == null) {
-			are.detach(c);
-			return;
-		}
+		assert mesh.isValid();
 
 		Spatial spatial = node.getChild(name);
 
@@ -198,12 +178,6 @@ public class TerrainAppState extends AbstractAppState {
 		mesh.updateBound();
 		geometry.setMesh(mesh);
 		geometry.setMaterial(voxelAtlas);
-
-		if (mesh.getTriangleCount() == 0 || mesh.getVertexCount() == 0) {
-			are.detach(c);
-			System.out.println("Empty mesh received!");
-			return;
-		}
 
 		rigidBodyControl = geometry.getControl(RigidBodyControl.class);
 		collisionShape = CollisionShapeFactory.createMeshShape(geometry);
@@ -228,8 +202,6 @@ public class TerrainAppState extends AbstractAppState {
 		if (DebugAppState.wireframe) {
 			geometry.getMaterial().getAdditionalRenderState().setWireframe(true);
 		}
-
-		c.setCurrentState(Chunk.State.FINISH);
 	}
 
 	/**
@@ -238,30 +210,23 @@ public class TerrainAppState extends AbstractAppState {
 	 * @param message
 	 *            an AreMessage of type CHUNK_DETACH
 	 */
-	private void detachChunk(Chunk c) {
-		String name;
+	private void detachChunk(Vec3 position) {
+		String name = "Chunk " + position.toString();
 
-		try {
-			c.lock();
-			name = c.getName();
+		Spatial spatial = node.getChild(name);
 
-			Spatial spatial = node.getChild(name);
-
-			if (spatial != null) {
-				Geometry geometry = (Geometry) spatial;
-				RigidBodyControl rigidBodyControl;
-				try {
-					rigidBodyControl = geometry.getControl(RigidBodyControl.class);
-					physicsSpace.remove(rigidBodyControl);
-				} catch (Exception ex) {
-					System.out.println("Failed to remove rigidBody from: " + name);
-				}
-				geometry.removeFromParent();
+		if (spatial != null) {
+			Geometry geometry = (Geometry) spatial;
+			RigidBodyControl rigidBodyControl;
+			try {
+				rigidBodyControl = geometry.getControl(RigidBodyControl.class);
+				physicsSpace.remove(rigidBodyControl);
+			} catch (Exception ex) {
+				System.out.println("Failed to remove rigidBody from: " + name);
 			}
-		} finally {
-			are.unload(c);
-			c.unlock();
+			geometry.removeFromParent();
 		}
+		are.unload(position);
 	}
 
 	// private void attachSpecialVoxel(AreQueueEntry message) {
@@ -338,59 +303,4 @@ public class TerrainAppState extends AbstractAppState {
 	// voxelGeometry.removeFromParent();
 	// }
 	// }
-
-	private Mesh buildMesh(Chunk c) {
-		Mesh result = new Mesh();
-
-		float[] floatData;
-		int[] intData;
-
-		try {
-			floatData = c.getVertexList();
-			if (floatData == null || floatData.length == 0) {
-				return null;
-			} else {
-				result.setBuffer(VertexBuffer.Type.Position, 3, floatData);
-			}
-
-			intData = c.getIndexList();
-			if (intData == null || intData.length == 0) {
-				return null;
-			} else {
-				result.setBuffer(VertexBuffer.Type.Index, 1, intData);
-			}
-
-			floatData = c.getNormalList();
-			if (floatData == null || floatData.length == 0) {
-				return null;
-			} else {
-				result.setBuffer(VertexBuffer.Type.Normal, 3, floatData);
-			}
-
-			floatData = c.getTextCoord();
-			if (floatData == null || floatData.length == 0) {
-				return null;
-			} else {
-				result.setBuffer(VertexBuffer.Type.TexCoord, 2, floatData);
-			}
-
-			floatData = c.getTileCoord();
-			if (floatData == null || floatData.length == 0) {
-				return null;
-			} else {
-				result.setBuffer(VertexBuffer.Type.TexCoord2, 2, floatData);
-			}
-
-			floatData = c.getTexColor();
-			if (floatData == null || floatData.length == 0) {
-				return null;
-			} else {
-				result.setBuffer(VertexBuffer.Type.Color, 4, floatData);
-			}
-			return result;
-		} finally {
-			c.clearSideBuffer();
-		}
-
-	}
 }

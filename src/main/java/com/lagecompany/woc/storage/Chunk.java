@@ -46,7 +46,7 @@ public class Chunk {
 	public static final int SIDE_BACK = 5;
 	public static final int SIDE_COUNT = 6;
 
-	private ChunkSideBuffer buffer;
+	private ChunkMesh mesh;
 	private final ChunkBuffer chunkBuffer;
 	private final Queue<VoxelReference> sunlightPropagationQueue;
 	private final Queue<LightRemovalNode> sunlightRemovalQueue;
@@ -83,7 +83,6 @@ public class Chunk {
 		this.position = position;
 		this.name = "Chunk " + position.toString();
 		this.lock = new ReentrantLock(true);
-		this.buffer = new ChunkSideBuffer();
 		this.chunkBuffer = new ChunkBuffer();
 		this.sunlightPropagationQueue = new LinkedList<>();
 		this.sunlightRemovalQueue = new LinkedList<>();
@@ -156,19 +155,14 @@ public class Chunk {
 
 	public void reset() {
 		chunkBuffer.resetMergedVisible();
-		buffer.clear();
 	}
 
 	public boolean load() {
 		reset();
-
-		this.lightDataArray = new LightData[DATA_LENGTH]; // 4 vertex 6 sides
-
 		checkVisibleFaces();
 		mergeVisibleFaces();
 
-		this.lightDataArray = null;
-		return (hasVertext());
+		return mesh.isValid();
 	}
 
 	/**
@@ -527,7 +521,7 @@ public class Chunk {
 	}
 
 	public void unload() {
-		buffer = null;
+		mesh = null;
 
 		Chunk neighbor = null;
 		for (int side = 0; side < SIDE_COUNT; side++) {
@@ -545,32 +539,9 @@ public class Chunk {
 		return visibleVoxels > 0;
 	}
 
-	public float[] getNormalList() {
-		return buffer.getNormalList();
-	}
-
-	public int[] getIndexList() {
-		return buffer.getIndexList();
-	}
-
-	public float[] getVertexList() {
-		return (buffer == null) ? ChunkSideBuffer.EMPTY_FLOAT_BUFFER : buffer.get();
-	}
-
-	public float[] getTexColor() {
-		return buffer.getTexColor();
-	}
-
-	public float[] getTextCoord() {
-		return buffer.getTextCoord();
-	}
-
-	public float[] getTileCoord() {
-		return buffer.getTileCoord();
-	}
-
 	private void checkVisibleFaces() {
 		// Neighbor Voxel.
+		this.lightDataArray = new LightData[DATA_LENGTH]; // 4 vertex 6 sides
 		VoxelReference neighborVoxel = new VoxelReference();
 		VoxelReference voxel = new VoxelReference();
 		int side;
@@ -605,17 +576,18 @@ public class Chunk {
 	}
 
 	private void mergeVisibleFaces() {
-		mergeFrontFaces();
-		mergeRightFaces();
-		mergeBackFaces();
-		mergeLeftFaces();
-		mergeTopFaces();
-		mergeDownFaces();
-		// At this point we don't need the lightMap anymore.
-	}
+		ChunkSideBuffer buffer = new ChunkSideBuffer();
+		mergeFrontFaces(buffer);
+		mergeRightFaces(buffer);
+		mergeBackFaces(buffer);
+		mergeLeftFaces(buffer);
+		mergeTopFaces(buffer);
+		mergeDownFaces(buffer);
 
-	public boolean hasVertext() {
-		return (buffer != null && !buffer.isEmpty());
+		// At this point we don't need the lightMap anymore.
+		this.lightDataArray = null;
+
+		mesh = new ChunkMesh(position, buffer);
 	}
 
 	/**
@@ -624,9 +596,11 @@ public class Chunk {
 	 * also). When it reaches the at right most voxel, it start looking for neigor at top (Y+) and repeat the proccess
 	 * looking into right voxels until it reaches the right most and top most voxels, when it combine all those voxels
 	 * on a singles float array and returns it.
+	 * 
+	 * @param buffer
 	 *
 	 */
-	private void mergeFrontFaces() {
+	private void mergeFrontFaces(ChunkSideBuffer buffer) {
 		// Voxel and Neightbor Voxel
 		VoxelReference v = new VoxelReference();
 		VoxelReference nv = new VoxelReference();
@@ -771,7 +745,7 @@ public class Chunk {
 		}
 	}
 
-	private void mergeBackFaces() {
+	private void mergeBackFaces(ChunkSideBuffer buffer) {
 		// Voxel and Neightbor Voxel
 		VoxelReference v = new VoxelReference();
 		VoxelReference nv = new VoxelReference();
@@ -867,7 +841,7 @@ public class Chunk {
 		}
 	}
 
-	private void mergeTopFaces() {
+	private void mergeTopFaces(ChunkSideBuffer buffer) {
 		// Voxel and Neightbor Voxel
 		VoxelReference v = new VoxelReference();
 		VoxelReference nv = new VoxelReference();
@@ -964,7 +938,7 @@ public class Chunk {
 		}
 	}
 
-	private void mergeDownFaces() {
+	private void mergeDownFaces(ChunkSideBuffer buffer) {
 		// Voxel and Neightbor Voxel
 		VoxelReference v = new VoxelReference();
 		VoxelReference nv = new VoxelReference();
@@ -1062,7 +1036,7 @@ public class Chunk {
 		}
 	}
 
-	private void mergeRightFaces() {
+	private void mergeRightFaces(ChunkSideBuffer buffer) {
 		// Voxel and Neightbor Voxel
 		VoxelReference v = new VoxelReference();
 		VoxelReference nv = new VoxelReference();
@@ -1158,7 +1132,7 @@ public class Chunk {
 		}
 	}
 
-	private void mergeLeftFaces() {
+	private void mergeLeftFaces(ChunkSideBuffer buffer) {
 		// Voxel and Neightbor Voxel
 		VoxelReference v = new VoxelReference();
 		VoxelReference nv = new VoxelReference();
@@ -1334,12 +1308,6 @@ public class Chunk {
 		LightManager.updateVoxelLight(this, voxel, previousSunLight, previousLight, light, previousType, type);
 	}
 
-	public void clearSideBuffer() {
-		if (buffer != null) {
-			buffer.clear();
-		}
-	}
-
 	public Chunk getVoxelOnNeighborhood(VoxelReference reference) {
 		Vec3 pos = reference.position;
 
@@ -1368,5 +1336,9 @@ public class Chunk {
 		}
 
 		return result;
+	}
+
+	public ChunkMesh getMesh() {
+		return mesh;
 	}
 }
