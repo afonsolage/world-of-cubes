@@ -12,8 +12,6 @@ import static com.lagecompany.woc.storage.voxel.Voxel.VT_STONE;
 import java.util.LinkedList;
 import java.util.Objects;
 import java.util.Queue;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 import com.lagecompany.woc.storage.light.LightData;
 import com.lagecompany.woc.storage.light.LightManager;
@@ -57,7 +55,6 @@ public class Chunk {
 	private final Are are;
 	private final Vec3 position;
 	private final String name;
-	private final Lock lock;
 	private State currentState;
 	private final Chunk[] neighborhood;
 
@@ -82,7 +79,6 @@ public class Chunk {
 		this.are = are;
 		this.position = position;
 		this.name = "Chunk " + position.toString();
-		this.lock = new ReentrantLock(true);
 		this.chunkBuffer = new ChunkBuffer();
 		this.sunlightPropagationQueue = new LinkedList<>();
 		this.sunlightRemovalQueue = new LinkedList<>();
@@ -1225,14 +1221,6 @@ public class Chunk {
 				}
 			}
 		}
-	}
-
-	public void lock() {
-		lock.lock();
-	}
-
-	public void unlock() {
-		lock.unlock();
 	}
 
 	public Vec3 getPosition() {

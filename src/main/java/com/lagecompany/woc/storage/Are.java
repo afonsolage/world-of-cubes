@@ -127,46 +127,26 @@ public class Are implements Runnable {
 	private void unloadChunk(AreQueueEntry message) {
 		Chunk c = (Chunk) message.getChunk();
 
-		try {
-			c.lock();
-			if (c.getCurrentState() != Chunk.State.UNLOAD) {
-				System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.UNLOAD);
-				return;
-			}
-			c.unload();
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		} finally {
-			c.setCurrentState(Chunk.State.FINISH);
-			c.unlock();
-		}
+		if (c.getCurrentState() != Chunk.State.UNLOAD)
+			return;
+		
+		c.unload();
+		c.setCurrentState(Chunk.State.FINISH);
 	}
 
 	private void setupChunk(AreQueueEntry message) {
 		Chunk c = (Chunk) message.getChunk();
 
-		try {
-			c.lock();
-
-			if (c.getCurrentState() != Chunk.State.SETUP) {
-				System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.SETUP);
-				return;
-			}
-
-			c.setup();
-
-			updateChunkNeighborhood(c);
-
-			c.computeSunlight();
-			c.computeSunlightReflection();
-			c.setCurrentState(Chunk.State.LIGHT);
-			message.setState(Chunk.State.LIGHT);
-			postMessage(message);
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		} finally {
-			c.unlock();
-		}
+		if (c.getCurrentState() != Chunk.State.SETUP)
+			return;
+		
+		c.setup();
+		updateChunkNeighborhood(c);
+		c.computeSunlight();
+		c.computeSunlightReflection();
+		c.setCurrentState(Chunk.State.LIGHT);
+		message.setState(Chunk.State.LIGHT);
+		postMessage(message);
 	}
 
 	public void updateChunkNeighborhood(Chunk chunk) {
@@ -211,10 +191,8 @@ public class Are implements Runnable {
 
 	public void requestChunkUpdate(Chunk c, int batch) {
 		if (c != null) {
-			c.lock();
 			c.setCurrentState(Chunk.State.LIGHT);
 			postMessage(new AreQueueEntry(Chunk.State.LIGHT, c, (batch >= 0) ? batch : currentBatch), true);
-			c.unlock();
 		}
 	}
 
@@ -247,26 +225,18 @@ public class Are implements Runnable {
 
 	private void loadChunk(AreQueueEntry message) {
 		Chunk c = (Chunk) message.getChunk();
-		try {
-			c.lock();
-			if (c.getCurrentState() != Chunk.State.LOAD) {
-				System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.LOAD);
-				return;
-			}
+		
+		if (c.getCurrentState() != Chunk.State.LOAD)
+			return;
 
-			if (c.load()) {
-				c.setCurrentState(Chunk.State.ATTACH);
-				message.setState(Chunk.State.ATTACH);
-			} else {
-				c.setCurrentState(Chunk.State.DETACH);
-				message.setState(Chunk.State.DETACH);
-			}
-			postMessage(message);
-		} catch (Exception ex) {
-			ex.printStackTrace();
-		} finally {
-			c.unlock();
+		if (c.load()) {
+			c.setCurrentState(Chunk.State.ATTACH);
+			message.setState(Chunk.State.ATTACH);
+		} else {
+			c.setCurrentState(Chunk.State.DETACH);
+			message.setState(Chunk.State.DETACH);
 		}
+		postMessage(message);
 	}
 
 	public void init() {
@@ -381,26 +351,22 @@ public class Are implements Runnable {
 	protected void updateVoxel(int x, int y, int z, short type) {
 		Vec3 pos = toChunkPosition(x, y, z);
 		Chunk c = get(pos);
+
 		if (c == null) {
 			return;
 		}
-		try {
-			c.lock();
 
-			Vec3 voxelPos = toVoxelPosition(x, y, z);
+		Vec3 voxelPos = toVoxelPosition(x, y, z);
 
-			VoxelReference voxel = c.createReference(voxelPos.x, voxelPos.y, voxelPos.z);
+		VoxelReference voxel = c.createReference(voxelPos.x, voxelPos.y, voxelPos.z);
 
-			c.updateVoxelType(voxel, type);
+		c.updateVoxelType(voxel, type);
 
-			int batch = areQueue.nextBatch();
-			requestChunkUpdate(c, batch);
-			updateNeighborhood(pos, voxelPos, batch);
+		int batch = areQueue.nextBatch();
+		requestChunkUpdate(c, batch);
+		updateNeighborhood(pos, voxelPos, batch);
 
-			process(batch);
-		} finally {
-			c.unlock();
-		}
+		process(batch);
 	}
 
 	public void updateNeighborhood(Vec3 chunkPos, Vec3 voxelPos, int batch) {
