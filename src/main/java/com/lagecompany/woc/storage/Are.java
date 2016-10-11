@@ -13,7 +13,7 @@ import com.lagecompany.woc.storage.voxel.VoxelReference;
 import com.lagecompany.woc.util.MathUtils;
 
 /**
- * An Are is made of 10 chunksÂ². It is an analogy to the real Are which is 10 mÂ². It doesnt store any voxels, just
+ * An Are is made of 10 chunks². It is an analogy to the real Are which is 10 m². It doesn't store any voxels, just
  * chunks references.
  *
  * @author afonsolage
@@ -147,12 +147,16 @@ public class Are implements Runnable {
 
 		try {
 			c.lock();
+
 			if (c.getCurrentState() != Chunk.State.SETUP) {
 				System.out.println("Invalid chunk state " + c.getCurrentState() + ". Expected: " + Chunk.State.SETUP);
 				return;
 			}
 
 			c.setup();
+
+			updateChunkNeighborhood(c);
+
 			c.computeSunlight();
 			c.computeSunlightReflection();
 			c.setCurrentState(Chunk.State.LIGHT);
@@ -162,6 +166,46 @@ public class Are implements Runnable {
 			ex.printStackTrace();
 		} finally {
 			c.unlock();
+		}
+	}
+
+	public void updateChunkNeighborhood(Chunk chunk) {
+		Vec3 chunkPos = chunk.getPosition();
+
+		Chunk neighbor = null;
+
+		for (int side = 0; side < Chunk.SIDE_COUNT; side++) {
+			neighbor = get(Vec3.copyAdd(Vec3.ALL_DIRECTIONS[side], chunkPos));
+
+			if (neighbor == null)
+				continue;
+
+			chunk.setNeighbor(side, neighbor);
+
+			// Since this chunk will be also the neighbor of the neighbor chunk, set it on opposite side.
+			neighbor.setNeighbor(Chunk.oppositeSide(side), chunk);
+		}
+	}
+
+	public void removeChunkFromNeighborhood(Chunk chunk) {
+		Vec3 chunkPos = chunk.getPosition();
+
+		Chunk neighbor = null;
+
+		// Temp const to help compute opposite side.
+		final int sideCount = Vec3.ALL_DIRECTIONS.length;
+		final int halfsideCount = sideCount / 2;
+
+		for (int side = 0; side < sideCount; side++) {
+			neighbor = get(Vec3.copyAdd(Vec3.ALL_DIRECTIONS[side], chunkPos));
+
+			if (neighbor == null)
+				continue;
+
+			chunk.setNeighbor(side, neighbor);
+
+			// Since this chunk will be also the neighbor of the neighbor chunk, set it on opposite side.
+			neighbor.setNeighbor((side + halfsideCount) % sideCount, chunk);
 		}
 	}
 
@@ -902,56 +946,6 @@ public class Are implements Runnable {
 		updateVoxel(v.x, v.y, v.z, type);
 	}
 
-	/**
-	 * Validade if given voxel position returns a valid voxel. It checks for chunk boundary and return the chunk and
-	 * voxel based on it.
-	 *
-	 * @param chunk
-	 *            The current Chunk to be validated.
-	 * @param voxelPos
-	 *            Desired voxel position. This will be updated if given one extrapolates chunk boundary.
-	 * @return A valid chunk to access the voxel position.
-	 */
-	public Chunk validateChunkAndVoxel(Chunk chunk, Vec3 voxelPos) {
-		if (voxelPos.x >= 0 && voxelPos.x < Chunk.SIZE && voxelPos.y >= 0 && voxelPos.y < Chunk.SIZE && voxelPos.z >= 0
-				&& voxelPos.z < Chunk.SIZE) {
-			return chunk;
-		} else {
-			int cx, cy, cz;
-			if (voxelPos.x < 0) {
-				cx = -1;
-				voxelPos.x = Chunk.SIZE - 1;
-			} else if (voxelPos.x >= Chunk.SIZE) {
-				cx = 1;
-				voxelPos.x = 0;
-			} else {
-				cx = 0;
-			}
-
-			if (voxelPos.y < 0) {
-				cy = -1;
-				voxelPos.y = Chunk.SIZE - 1;
-			} else if (voxelPos.y >= Chunk.SIZE) {
-				cy = 1;
-				voxelPos.y = 0;
-			} else {
-				cy = 0;
-			}
-
-			if (voxelPos.z < 0) {
-				cz = -1;
-				voxelPos.z = Chunk.SIZE - 1;
-			} else if (voxelPos.z >= Chunk.SIZE) {
-				cz = 1;
-				voxelPos.z = 0;
-			} else {
-				cz = 0;
-			}
-
-			return get(Vec3.copyAdd(chunk.getPosition(), cx, cy, cz));
-		}
-	}
-
 	public void detach(Chunk c) {
 		postMessage(new AreQueueEntry(Chunk.State.DETACH, c, currentRenderingBatch));
 	}
@@ -995,6 +989,56 @@ public class Are implements Runnable {
 		} else {
 			currentRenderingBatch = batch;
 			return true;
+		}
+	}
+
+	/**
+	 * Validates if the given voxel position returns a valid voxel. It checks for chunk boundary and return the chunk
+	 * and voxel based on it.
+	 *
+	 * @param chunk
+	 *            The current Chunk to be validated.
+	 * @param voxelPos
+	 *            Desired voxel position. This will be updated if given one extrapolates chunk boundary.
+	 * @return A valid chunk to access the voxel position.
+	 */
+	public Chunk validateaChunkAndVoxel(Chunk chunk, Vec3 voxelPos) {
+		if (voxelPos.x >= 0 && voxelPos.x < Chunk.SIZE && voxelPos.y >= 0 && voxelPos.y < Chunk.SIZE && voxelPos.z >= 0
+				&& voxelPos.z < Chunk.SIZE) {
+			return chunk;
+		} else {
+			int cx, cy, cz;
+			if (voxelPos.x < 0) {
+				cx = -1;
+				voxelPos.x = Chunk.SIZE - 1;
+			} else if (voxelPos.x >= Chunk.SIZE) {
+				cx = 1;
+				voxelPos.x = 0;
+			} else {
+				cx = 0;
+			}
+
+			if (voxelPos.y < 0) {
+				cy = -1;
+				voxelPos.y = Chunk.SIZE - 1;
+			} else if (voxelPos.y >= Chunk.SIZE) {
+				cy = 1;
+				voxelPos.y = 0;
+			} else {
+				cy = 0;
+			}
+
+			if (voxelPos.z < 0) {
+				cz = -1;
+				voxelPos.z = Chunk.SIZE - 1;
+			} else if (voxelPos.z >= Chunk.SIZE) {
+				cz = 1;
+				voxelPos.z = 0;
+			} else {
+				cz = 0;
+			}
+
+			return get(Vec3.copyAdd(chunk.getPosition(), cx, cy, cz));
 		}
 	}
 

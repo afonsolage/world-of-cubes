@@ -90,6 +90,14 @@ public class VoxelReference {
 	}
 
 	/**
+	 * Resets the Voxel Reference making it invalid.
+	 */
+	public VoxelReference reset() {
+		reset(null, 0, 0, 0, 0);
+		return this;
+	}
+
+	/**
 	 * Resets the Voxel Reference using the given ChunkBuffer and offset and sets it's position.
 	 * 
 	 * @param buffer
@@ -118,6 +126,15 @@ public class VoxelReference {
 	 */
 	public void setType(short type) {
 		buffer.setShort(offset + Voxel.TYPE, type);
+	}
+
+	/**
+	 * Checks if this object points to a valid Voxel Reference.
+	 * 
+	 * @return True if there is a valid Voxel Reference, False otherwise.
+	 */
+	public boolean isReferenceValid() {
+		return buffer != null;
 	}
 
 	/**
@@ -190,9 +207,9 @@ public class VoxelReference {
 	 * 
 	 * @return True if the referenced voxel is special. False otherwise.
 	 */
-//	public boolean isSpecial() {
-//		return (buffer.getShort(offset + Voxel.TYPE) & Voxel.VF_SPECIAL) == Voxel.VF_SPECIAL;
-//	}
+	// public boolean isSpecial() {
+	// return (buffer.getShort(offset + Voxel.TYPE) & Voxel.VF_SPECIAL) == Voxel.VF_SPECIAL;
+	// }
 
 	/**
 	 * Gets the current type of the referenced voxel.
@@ -206,7 +223,7 @@ public class VoxelReference {
 	/**
 	 * Reset the value of the referenced voxel, but keeping it's type. All other values are cleared.
 	 */
-	public void reset() {
+	public void clearVoxelData() {
 		short type = getType();
 		buffer.reset(offset);
 		setType(type);

@@ -37,13 +37,14 @@ public class Chunk {
 	public static final int X_UNIT = SIZE * SIZE;
 	public static final int Y_UNIT = SIZE;
 	public static final int Z_UNIT = 1;
-	public static final int FS_FRONT = 0;
-	public static final int FS_RIGHT = 1;
-	public static final int FS_BACK = 2;
-	public static final int FS_LEFT = 3;
-	public static final int FS_TOP = 4;
-	public static final int FS_DOWN = 5;
-	public static final int FS_COUNT = 6;
+
+	public static final int SIDE_TOP = 0;
+	public static final int SIDE_RIGHT = 1;
+	public static final int SIDE_DOWN = 2;
+	public static final int SIDE_LEFT = 3;
+	public static final int SIDE_FRONT = 4;
+	public static final int SIDE_BACK = 5;
+	public static final int SIDE_COUNT = 6;
 
 	private ChunkSideBuffer buffer;
 	private final ChunkBuffer chunkBuffer;
@@ -58,6 +59,24 @@ public class Chunk {
 	private final String name;
 	private final Lock lock;
 	private State currentState;
+	private final Chunk[] neighborhood;
+
+	public static int oppositeSide(int side) {
+		assert side >= 0 && side < SIDE_COUNT;
+
+		if (side == SIDE_TOP)
+			return SIDE_DOWN;
+		else if (side == SIDE_DOWN)
+			return SIDE_TOP;
+		else if (side == SIDE_RIGHT)
+			return SIDE_LEFT;
+		else if (side == SIDE_LEFT)
+			return SIDE_RIGHT;
+		else if (side == SIDE_FRONT)
+			return SIDE_BACK;
+		else
+			return SIDE_FRONT;
+	}
 
 	public Chunk(Are are, Vec3 position) {
 		this.are = are;
@@ -71,6 +90,7 @@ public class Chunk {
 		this.lightPropagationQueue = new LinkedList<>();
 		this.lightRemovalQueue = new LinkedList<>();
 		this.currentState = State.EMPTY;
+		this.neighborhood = new Chunk[SIDE_COUNT];
 	}
 
 	public String getName() {
@@ -105,6 +125,12 @@ public class Chunk {
 		return lightDataArray[index];
 	}
 
+	public void setNeighbor(int side, Chunk neighbor) {
+		assert side < neighborhood.length;
+
+		neighborhood[side] = neighbor;
+	}
+
 	public VoxelReference cloneReference(VoxelReference voxel) {
 		return createReference(voxel.position.x, voxel.position.y, voxel.position.z);
 	}
@@ -128,72 +154,6 @@ public class Chunk {
 		chunkBuffer.set(voxel, type);
 	}
 
-	public boolean getAreVoxel(VoxelReference voxel) {
-		Chunk tmp = are.validateChunkAndVoxel(this, voxel.position);
-		return tmp != null && tmp.get(voxel);
-	}
-
-	public VoxelReference getAreVoxel(VoxelReference voxel, byte direction) {
-		switch (direction) {
-		case VS_LEFT: {
-			if (voxel.position.x == 0) {
-				voxel.position.x = SIZE - 1;
-				return are.getVoxel(Vec3.copyAdd(position, -1, 0, 0), voxel);
-			} else {
-				voxel.position.x -= 1;
-				return (get(voxel) ? voxel : null);
-			}
-		}
-		case VS_RIGHT: {
-			if (voxel.position.x == SIZE - 1) {
-				voxel.position.x = 0;
-				return are.getVoxel(Vec3.copyAdd(position, 1, 0, 0), voxel);
-			} else {
-				voxel.position.x += 1;
-				return (get(voxel) ? voxel : null);
-			}
-		}
-		case VS_DOWN: {
-			if (voxel.position.y == 0) {
-				voxel.position.y = SIZE - 1;
-				return are.getVoxel(Vec3.copyAdd(position, 0, -1, 0), voxel);
-			} else {
-				voxel.position.y -= 1;
-				return (get(voxel) ? voxel : null);
-			}
-		}
-		case VS_TOP: {
-			if (voxel.position.y == SIZE - 1) {
-				voxel.position.y = 0;
-				return are.getVoxel(Vec3.copyAdd(position, 0, 1, 0), voxel);
-			} else {
-				voxel.position.y += 1;
-				return (get(voxel) ? voxel : null);
-			}
-		}
-		case VS_BACK: {
-			if (voxel.position.z == 0) {
-				voxel.position.z = SIZE - 1;
-				return are.getVoxel(Vec3.copyAdd(position, 0, 0, -1), voxel);
-			} else {
-				voxel.position.z -= 1;
-				return (get(voxel) ? voxel : null);
-			}
-		}
-		case VS_FRONT: {
-			if (voxel.position.z == SIZE - 1) {
-				voxel.position.z = 0;
-				return are.getVoxel(Vec3.copyAdd(position, 0, 0, 1), voxel);
-			} else {
-				voxel.position.z += 1;
-				return (get(voxel) ? voxel : null);
-			}
-		}
-		default:
-			return null;
-		}
-	}
-
 	public void reset() {
 		chunkBuffer.resetMergedVisible();
 		buffer.clear();
@@ -201,14 +161,13 @@ public class Chunk {
 
 	public boolean load() {
 		reset();
-		
+
 		this.lightDataArray = new LightData[DATA_LENGTH]; // 4 vertex 6 sides
-		
+
 		checkVisibleFaces();
 		mergeVisibleFaces();
-		
+
 		this.lightDataArray = null;
-		
 		return (hasVertext());
 	}
 
@@ -317,7 +276,6 @@ public class Chunk {
 	public void computeSunlightReflection() {
 		VoxelReference voxel = new VoxelReference();
 		VoxelReference neighbor = new VoxelReference();
-		Chunk tmpChunk;
 
 		// Search for voxels surrounded by sunLight (15) and propagate this light.
 		for (int y = 0; y < Chunk.SIZE; y++) {
@@ -334,13 +292,11 @@ public class Chunk {
 						for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 							neighbor.position.set(voxel.position.x + dir.x, voxel.position.y + dir.y,
 									voxel.position.z + dir.z);
-							tmpChunk = are.validateChunkAndVoxel(this, neighbor.position);
 
-							if (tmpChunk == null) {
+							getVoxelOnNeighborhood(neighbor);
+
+							if (!neighbor.isReferenceValid())
 								continue;
-							}
-
-							tmpChunk.get(neighbor);
 
 							// If this voxel has direct sun light
 							if (neighbor.isTransparent() && neighbor.getSunLight() == Voxel.SUN_LIGHT) {
@@ -378,9 +334,10 @@ public class Chunk {
 			// Look for all neighbors and check for light removal.
 			for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 				neighborVoxel.position.set(node.x + dir.x, node.y + dir.y, node.z + dir.z);
-				tmpChunk = are.validateChunkAndVoxel(this, neighborVoxel.position);
 
-				if (tmpChunk == null || !tmpChunk.get(neighborVoxel)) {
+				tmpChunk = getVoxelOnNeighborhood(neighborVoxel);
+
+				if (!neighborVoxel.isReferenceValid()) {
 					continue;
 				}
 
@@ -435,9 +392,10 @@ public class Chunk {
 			for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 				neighborVoxel.position.set(voxel.position.x + dir.x, voxel.position.y + dir.y,
 						voxel.position.z + dir.z);
-				tmpChunk = are.validateChunkAndVoxel(this, neighborVoxel.position);
 
-				if (tmpChunk == null || !tmpChunk.get(neighborVoxel)) {
+				tmpChunk = getVoxelOnNeighborhood(neighborVoxel);
+
+				if (!neighborVoxel.isReferenceValid()) {
 					continue;
 				}
 
@@ -483,9 +441,10 @@ public class Chunk {
 			// Look for all neighbors and check for light removal.
 			for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 				neighborVoxel.position.set(node.x + dir.x, node.y + dir.y, node.z + dir.z);
-				tmpChunk = are.validateChunkAndVoxel(this, neighborVoxel.position);
 
-				if (tmpChunk == null || !tmpChunk.get(neighborVoxel)) {
+				tmpChunk = getVoxelOnNeighborhood(neighborVoxel);
+
+				if (!neighborVoxel.isReferenceValid()) {
 					continue;
 				}
 
@@ -539,9 +498,10 @@ public class Chunk {
 			for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
 				neighborVoxel.position.set(voxel.position.x + dir.x, voxel.position.y + dir.y,
 						voxel.position.z + dir.z);
-				tmpChunk = are.validateChunkAndVoxel(this, neighborVoxel.position);
 
-				if (tmpChunk == null || !tmpChunk.get(neighborVoxel)) {
+				tmpChunk = getVoxelOnNeighborhood(neighborVoxel);
+
+				if (!neighborVoxel.isReferenceValid()) {
 					continue;
 				}
 
@@ -568,6 +528,17 @@ public class Chunk {
 
 	public void unload() {
 		buffer = null;
+
+		Chunk neighbor = null;
+		for (int side = 0; side < SIDE_COUNT; side++) {
+			neighbor = neighborhood[side];
+
+			if (neighbor == null)
+				continue;
+
+			// Remove this chunk as neighbor on opposite side.
+			neighbor.setNeighbor(Chunk.oppositeSide(side), null);
+		}
 	}
 
 	public boolean hasVisibleVoxel() {
@@ -613,11 +584,13 @@ public class Chunk {
 					}
 
 					for (Vec3 dir : Vec3.ALL_DIRECTIONS) {
+						side = Voxel.directionToSide(dir);
 						neighborVoxel.position.set(voxel.position.x + dir.x, voxel.position.y + dir.y,
 								voxel.position.z + dir.z);
 
-						side = Voxel.directionToSide(dir);
-						if (!getAreVoxel(neighborVoxel)) {
+						getVoxelOnNeighborhood(neighborVoxel);
+
+						if (!neighborVoxel.isReferenceValid()) {
 							voxel.setSideVisible(side);
 						} else if (neighborVoxel.isTransparent()) {
 							voxel.setSideVisible(side);
@@ -1338,7 +1311,7 @@ public class Chunk {
 		int previousLight = voxel.getLight();
 		byte light = 0;
 
-		voxel.reset();
+		voxel.clearVoxelData();
 		voxel.setType(type);
 
 		if (previousType == Voxel.VT_NONE) {
@@ -1365,5 +1338,35 @@ public class Chunk {
 		if (buffer != null) {
 			buffer.clear();
 		}
+	}
+
+	public Chunk getVoxelOnNeighborhood(VoxelReference reference) {
+		Vec3 pos = reference.position;
+
+		Chunk result;
+
+		if (pos.x < 0) {
+			result = neighborhood[SIDE_LEFT];
+		} else if (pos.x >= Chunk.SIZE) {
+			result = neighborhood[SIDE_RIGHT];
+		} else if (pos.y < 0) {
+			result = neighborhood[SIDE_DOWN];
+		} else if (pos.y >= Chunk.SIZE) {
+			result = neighborhood[SIDE_TOP];
+		} else if (pos.z < 0) {
+			result = neighborhood[SIDE_BACK];
+		} else if (pos.z >= Chunk.SIZE) {
+			result = neighborhood[SIDE_FRONT];
+		} else {
+			result = this;
+		}
+
+		pos.mod(Chunk.SIZE);
+
+		if (result == null || !result.get(reference)) {
+			reference.reset();
+		}
+
+		return result;
 	}
 }

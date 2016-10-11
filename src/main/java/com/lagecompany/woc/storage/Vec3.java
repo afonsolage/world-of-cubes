@@ -127,7 +127,7 @@ public class Vec3 {
 
 		return this;
 	}
-	
+
 	/**
 	 * Sets x, y, z with the given int values.
 	 * 
@@ -265,6 +265,14 @@ public class Vec3 {
 		this.x = other.x;
 		this.y = other.y;
 		this.z = other.z;
+
+		return this;
+	}
+
+	public Vec3 mod(int value) {
+		this.x = MathUtils.absMod(this.x, value);
+		this.y = MathUtils.absMod(this.y, value);
+		this.z = MathUtils.absMod(this.z, value);
 
 		return this;
 	}
