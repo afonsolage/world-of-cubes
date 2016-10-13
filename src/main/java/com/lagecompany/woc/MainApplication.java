@@ -4,13 +4,20 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
 import com.jme3.util.BufferUtils;
+import com.lagecompany.woc.entity.EntityDataState;
+import com.lagecompany.woc.entity.system.ModelState;
+import com.lagecompany.woc.entity.system.PhysicalColliderState;
+import com.lagecompany.woc.entity.system.PhysicalCollisionState;
+import com.lagecompany.woc.entity.system.PhysicalMassState;
 import com.lagecompany.woc.manager.Global;
-import com.lagecompany.woc.state.LoadingStage;
+import com.lagecompany.woc.state.dev.PhysicsDevState;
 import com.lagecompany.woc.util.PerformanceTrack;
 import com.simsilica.lemur.GuiGlobals;
 
 /**
- * Main application class based on JME3 SimpleApplication class. This one holds the application entry, the method main, which start the application main loop.
+ * Main application class based on JME3 SimpleApplication class. This one holds the application entry, the method main,
+ * which start the application main loop.
+ * 
  * @author Afonso Lage
  *
  */
@@ -49,11 +56,17 @@ public class MainApplication extends SimpleApplication {
 	@Override
 	public void simpleInitApp() {
 		GuiGlobals.initialize(this);
-		
+
 		Global.winMan.setCamera(cam);
 		Global.winMan.setGuiNode(guiNode);
+
+		stateManager.attach(new EntityDataState());
+		stateManager.attach(new ModelState());
+		stateManager.attach(new PhysicalMassState());
+		stateManager.attach(new PhysicalColliderState());
+		stateManager.attach(new PhysicalCollisionState());
 		
-		stateManager.attach(new LoadingStage());
+		stateManager.attach(new PhysicsDevState());
 	}
 
 	@Override

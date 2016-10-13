@@ -5,7 +5,7 @@
 
 package com.lagecompany.woc.manager;
 
-import com.lagecompany.woc.entity.Player;
+import com.lagecompany.woc.object.entity.Player;
 
 /**
  *
