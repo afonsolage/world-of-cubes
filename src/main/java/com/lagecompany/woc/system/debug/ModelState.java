@@ -1,4 +1,4 @@
-package com.lagecompany.woc.entity.system;
+package com.lagecompany.woc.system.debug;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -13,9 +13,9 @@ import com.jme3.math.ColorRGBA;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
-import com.lagecompany.woc.entity.EntityDataState;
-import com.lagecompany.woc.entity.component.Model;
-import com.lagecompany.woc.entity.component.Position;
+import com.lagecompany.woc.system.debug.component.Model;
+import com.lagecompany.woc.system.debug.component.Position;
+import com.lagecompany.woc.system.entity.EntityDataState;
 import com.simsilica.es.Entity;
 import com.simsilica.es.EntityData;
 import com.simsilica.es.EntityId;

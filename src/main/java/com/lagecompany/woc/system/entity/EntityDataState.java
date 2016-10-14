@@ -1,4 +1,4 @@
-package com.lagecompany.woc.entity;
+package com.lagecompany.woc.system.entity;
 
 import com.jme3.app.Application;
 import com.simsilica.es.EntityData;

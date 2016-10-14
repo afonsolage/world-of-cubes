@@ -4,13 +4,13 @@ import com.jme3.app.Application;
 import com.jme3.app.SimpleApplication;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
-import com.lagecompany.woc.entity.EntityDataState;
-import com.lagecompany.woc.entity.component.Model;
-import com.lagecompany.woc.entity.component.PhysicalBoxCollider;
-import com.lagecompany.woc.entity.component.PhysicalCollision;
-import com.lagecompany.woc.entity.component.PhysicalMass;
-import com.lagecompany.woc.entity.component.Position;
 import com.lagecompany.woc.manager.CameraMan;
+import com.lagecompany.woc.system.debug.component.Model;
+import com.lagecompany.woc.system.debug.component.Position;
+import com.lagecompany.woc.system.entity.EntityDataState;
+import com.lagecompany.woc.system.physics.component.PhysicalAABBCollider;
+import com.lagecompany.woc.system.physics.component.PhysicalCollision;
+import com.lagecompany.woc.system.physics.component.PhysicalMass;
 import com.simsilica.es.EntityData;
 import com.simsilica.lemur.event.BaseAppState;
 
@@ -24,42 +24,42 @@ public class PhysicsDevState extends BaseAppState {
 
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-8.0f, 6.0f, -15.0f)),
 				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.1f),
-				new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
 
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-4.0f, 6.0f, -15.0f)),
 				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.08f),
-				new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(0.0f, 6.0f, -15.0f)),
 				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.06f),
-				new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(4.0f, 6.0f, -15.0f)),
 				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.04f),
-				new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(8.0f, 6.0f, -15.0f)),
 				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.02f),
-				new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-8.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
 				new PhysicalCollision());
 
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-4.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
 				new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(0.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
 				new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(4.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
 				new PhysicalCollision());
 		
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(8.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalBoxCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
 				new PhysicalCollision());
 		
 		SimpleApplication simpleApp = (SimpleApplication) app;

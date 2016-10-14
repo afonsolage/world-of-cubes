@@ -4,13 +4,12 @@ import com.jme3.app.SimpleApplication;
 import com.jme3.system.AppSettings;
 import com.jme3.system.JmeContext;
 import com.jme3.util.BufferUtils;
-import com.lagecompany.woc.entity.EntityDataState;
-import com.lagecompany.woc.entity.system.ModelState;
-import com.lagecompany.woc.entity.system.PhysicalColliderState;
-import com.lagecompany.woc.entity.system.PhysicalCollisionState;
-import com.lagecompany.woc.entity.system.PhysicalMassState;
 import com.lagecompany.woc.manager.Global;
 import com.lagecompany.woc.state.dev.PhysicsDevState;
+import com.lagecompany.woc.system.debug.ModelState;
+import com.lagecompany.woc.system.debug.PhysicalCollisionState;
+import com.lagecompany.woc.system.entity.EntityDataState;
+import com.lagecompany.woc.system.physics.PhysicsState;
 import com.lagecompany.woc.util.PerformanceTrack;
 import com.simsilica.lemur.GuiGlobals;
 
@@ -62,8 +61,7 @@ public class MainApplication extends SimpleApplication {
 
 		stateManager.attach(new EntityDataState());
 		stateManager.attach(new ModelState());
-		stateManager.attach(new PhysicalMassState());
-		stateManager.attach(new PhysicalColliderState());
+		stateManager.attach(new PhysicsState());
 		stateManager.attach(new PhysicalCollisionState());
 		
 		stateManager.attach(new PhysicsDevState());

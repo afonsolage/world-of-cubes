@@ -1,12 +1,12 @@
-package com.lagecompany.woc.entity.system;
+package com.lagecompany.woc.system.debug;
 
 import java.util.Set;
 
 import com.jme3.app.Application;
 import com.jme3.math.ColorRGBA;
-import com.lagecompany.woc.entity.EntityDataState;
-import com.lagecompany.woc.entity.component.Model;
-import com.lagecompany.woc.entity.component.PhysicalCollision;
+import com.lagecompany.woc.system.debug.component.Model;
+import com.lagecompany.woc.system.entity.EntityDataState;
+import com.lagecompany.woc.system.physics.component.PhysicalCollision;
 import com.simsilica.es.Entity;
 import com.simsilica.es.EntityData;
 import com.simsilica.es.EntitySet;
