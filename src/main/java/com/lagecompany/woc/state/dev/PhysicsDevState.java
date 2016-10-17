@@ -23,45 +23,45 @@ public class PhysicsDevState extends BaseAppState {
 		entityData = getState(EntityDataState.class).getEntityData();
 
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-8.0f, 6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.1f),
+				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.1f, .9f),
 				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
 
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-4.0f, 6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.08f),
-				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
-		
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(0.0f, 6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.06f),
-				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
-		
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(4.0f, 6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.04f),
-				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
-		
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(8.0f, 6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.02f),
-				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
-		
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-4.0f, 6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.08f, .6f),
+//				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+//
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(0.0f, 6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.06f, .4f),
+//				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+//
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(4.0f, 6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.04f, .2f),
+//				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+//
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(8.0f, 6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalMass(.02f, .0f),
+//				new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)), new PhysicalCollision());
+
 		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-8.0f, -6.0f, -15.0f)),
 				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
 				new PhysicalCollision());
 
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-4.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
-				new PhysicalCollision());
-		
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(0.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
-				new PhysicalCollision());
-		
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(4.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
-				new PhysicalCollision());
-		
-		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(8.0f, -6.0f, -15.0f)),
-				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
-				new PhysicalCollision());
-		
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(-4.0f, -6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+//				new PhysicalCollision());
+//
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(0.0f, -6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+//				new PhysicalCollision());
+//
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(4.0f, -6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+//				new PhysicalCollision());
+//
+//		entityData.setComponents(entityData.createEntity(), new Position(new Vector3f(8.0f, -6.0f, -15.0f)),
+//				new Model(1.0f, ColorRGBA.Blue), new PhysicalAABBCollider(new Vector3f(1.0f, 1.0f, 1.0f)),
+//				new PhysicalCollision());
+
 		SimpleApplication simpleApp = (SimpleApplication) app;
 		new CameraMan(simpleApp.getFlyByCamera(), simpleApp.getCamera(), simpleApp.getInputManager());
 	}

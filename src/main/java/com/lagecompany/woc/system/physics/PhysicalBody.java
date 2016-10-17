@@ -1,17 +1,21 @@
 package com.lagecompany.woc.system.physics;
 
+import com.jme3.math.Vector3f;
 import com.simsilica.es.Entity;
 
 public class PhysicalBody {
 
 	private Entity entity;
+	private float bouncing;
 	private float mass;
-	private float velocity;
+	private Vector3f force;
+	private boolean collided;
 
-	public PhysicalBody(Entity entity, float mass, float velocity) {
+	public PhysicalBody(Entity entity, float mass, float bouncing) {
 		this.entity = entity;
 		this.mass = mass;
-		this.velocity = velocity;
+		this.bouncing = bouncing;
+		this.collided = false;
 	}
 
 	public Entity getEntity() {
@@ -30,11 +34,28 @@ public class PhysicalBody {
 		this.mass = mass;
 	}
 
-	public float getVelocity() {
-		return velocity;
+	public float getBouncing() {
+		return bouncing;
 	}
 
-	public void setVelocity(float velocity) {
-		this.velocity = velocity;
+	public void setBouncing(float boucing) {
+		this.bouncing = boucing;
+	}
+
+	public Vector3f getForce() {
+		return force;
+	}
+
+	public void setForce(Vector3f force) {
+		assert Vector3f.isValidVector(force);
+		this.force = force;
+	}
+
+	public boolean isCollided() {
+		return collided;
+	}
+
+	public void setCollided(boolean collided) {
+		this.collided = collided;
 	}
 }
