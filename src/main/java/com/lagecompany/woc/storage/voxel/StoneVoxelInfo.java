@@ -6,24 +6,24 @@ package com.lagecompany.woc.storage.voxel;
  */
 public class StoneVoxelInfo extends VoxelInfo {
 
-    private final float[] TILE;
+	private final float[] TILE;
 
-    protected StoneVoxelInfo() {
-	TILE = new float[]{0f, 0f};
-    }
+	protected StoneVoxelInfo() {
+		TILE = new float[] { 0f, 0f };
+	}
 
-    @Override
-    public short getCode() {
-	return Voxel.VT_STONE;
-    }
+	@Override
+	public short getCode() {
+		return Voxel.VT_STONE;
+	}
 
-    @Override
-    public float[] getTile(short side) {
-	return TILE;
-    }
+	@Override
+	public float[] getTile(short side) {
+		return TILE;
+	}
 
-    @Override
-    public float[] getColor(short side) {
-	return VoxelInfo.COLOR_NONE;
-    }
+	@Override
+	public float[] getColor(short side) {
+		return VoxelInfo.COLOR_NONE;
+	}
 }

@@ -19,7 +19,6 @@ import com.lagecompany.woc.storage.light.LightRemovalNode;
 import com.lagecompany.woc.storage.voxel.Voxel;
 import com.lagecompany.woc.storage.voxel.VoxelReference;
 import com.lagecompany.woc.util.MathUtils;
-import com.lagecompany.woc.util.TerrainNoise;
 
 public class Chunk {
 
@@ -170,22 +169,33 @@ public class Chunk {
 		int py = position.y;
 		int pz = position.z;
 
-		short type;
+		int heightBase = py * SIZE;
+
 		VoxelReference voxel = new VoxelReference(); // Temp variable.
+
+		Biome biome = new Biome(); // TODO: Find a place for this.
+		biome.AddLayer(VT_STONE, Chunk.SIZE * 3, Chunk.SIZE * 8, 7, 4, 0.4f);
+		biome.AddLayer(Voxel.VT_DIRT, Chunk.SIZE * 4, Chunk.SIZE * 4, 4, 6, 0.6f);
 
 		for (int z = 0; z < SIZE; z++) {
 			voxel.position.z = z;
 			for (int x = 0; x < SIZE; x++) {
 				voxel.position.x = x;
-				double noiseHeight = TerrainNoise.getHeight(x + px * SIZE, z + pz * SIZE);
-				for (int y = SIZE - 1; y >= 0; y--) {
-					voxel.position.y = y;
-					if (y + py * SIZE < noiseHeight && !(py == Are.HEIGHT - 1 && y == SIZE - 1)) {
-						type = VT_STONE;
-						visibleVoxels++;
-						set(voxel, type);
+
+				for (Biome.Layer layer : biome.getHeightLayer(x + px * SIZE, z + pz * SIZE)) {
+					if (heightBase + SIZE < layer.getMinHeight() || heightBase > layer.getMaxHeight())
+						continue;
+
+					for (int y = 0; y < SIZE; y++) {
+						// && !(py == Are.HEIGHT - 1 && y == SIZE - 1)
+						if (y + heightBase >= layer.getMinHeight() && y + heightBase <= layer.getMaxHeight()) {
+							voxel.position.y = y;
+							visibleVoxels++;
+							set(voxel, layer.getType());
+						}
 					}
 				}
+
 			}
 		}
 	}
